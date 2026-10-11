@@ -66,16 +66,8 @@ public enum ClaudeCodeHooks {
     }
 
     static func splitEnvelope(_ data: Data) -> (host: String?, body: Data) {
-        guard data.starts(with: Data(headerPrefix.utf8)), let newline = data.firstIndex(of: 0x0A) else {
-            return (nil, data)
-        }
-        let header = String(decoding: data[data.startIndex..<newline], as: UTF8.self)
-        var host: String?
-        for part in header.split(separator: " ") where part.hasPrefix("bundle=") {
-            let value = part.dropFirst("bundle=".count)
-            if !value.isEmpty { host = String(value) }
-        }
-        return (host, Data(data[data.index(after: newline)...]))
+        let envelope = PulseEnvelope(data)
+        return (envelope.host, envelope.body)
     }
 
     /// Неизвестный тип уведомления (например, `auth_success`) не означает ожидание — игнорируем.

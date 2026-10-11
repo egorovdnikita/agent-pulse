@@ -42,7 +42,7 @@ public struct LastTask: Sendable, Equatable {
 
     /// Две строки: откуда и что с ним. «Figma (Cowork)» / «Готово · 5 мин назад».
     public func summary(now: Date) -> String {
-        let origin = usedFigma ? "Figma (\(source.displayName))" : source.displayName
+        let origin = usedFigma && source != .figmaAI ? "Figma (\(source.displayName))" : source.displayName
         let head = [origin, context].compactMap(\.self).joined(separator: " · ")
         let tail = switch status {
         case .active(let text): text

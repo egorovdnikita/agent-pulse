@@ -2,6 +2,9 @@ import Darwin
 
 // Хук Claude Code: stdin JSON → unix-сокет Agent Pulse.
 // Правила: отвечать быстро, никогда не блокировать агента, всегда exit 0 — даже если приложение не запущено.
+//
+// Второй режим — мост Chrome native messaging: Chrome запускает нас с origin расширения в аргументах
+// и передаёт одно сообщение «4 байта длины (LE) + JSON».
 
 // Жёсткий потолок времени работы: что бы ни случилось, через 300 ms выходим с 0.
 signal(SIGALRM) { _ in _exit(0) }
@@ -88,6 +91,43 @@ func send(_ bytes: [UInt8], to path: String) {
             return
         }
     }
+}
+
+func readExactly(_ count: Int) -> [UInt8]? {
+    var result: [UInt8] = []
+    var buffer = [UInt8](repeating: 0, count: min(count, 64 * 1024))
+    while result.count < count {
+        let n = read(STDIN_FILENO, &buffer, min(buffer.count, count - result.count))
+        if n > 0 {
+            result.append(contentsOf: buffer[0..<n])
+        } else if n < 0 && errno == EINTR {
+            continue
+        } else {
+            return nil
+        }
+    }
+    return result
+}
+
+/// Chrome ждёт ответ в том же формате; без него `sendNativeMessage` сообщает об ошибке.
+func replyToChrome() {
+    let body = Array(#"{"ok":true}"#.utf8)
+    var length = UInt32(body.count).littleEndian
+    let prefix = withUnsafeBytes(of: &length) { Array($0) }
+    let message = prefix + body
+    _ = message.withUnsafeBytes { write(STDOUT_FILENO, $0.baseAddress, $0.count) }
+}
+
+let fromChrome = CommandLine.arguments.dropFirst().contains { $0.hasPrefix("chrome-extension://") }
+if fromChrome {
+    if let prefix = readExactly(4) {
+        let length = Int(prefix[0]) | Int(prefix[1]) << 8 | Int(prefix[2]) << 16 | Int(prefix[3]) << 24
+        if length > 0, length <= maxPayload, let message = readExactly(length), let path = socketPath() {
+            send(Array("PULSE1 bundle=\(hostBundleId()) channel=browser\n".utf8) + message, to: path)
+        }
+    }
+    replyToChrome()
+    exit(0)
 }
 
 let payload = readStdin()

@@ -21,6 +21,7 @@ final class PulseModel {
     var hooksInstalled = false
     /// Следим ли за журналами Cowork (nil — выключено в настройках).
     var coworkWatching: Bool?
+    var browserBridgeInstalled = false
     var serverError: String?
     var config = PulseConfig.load()
 

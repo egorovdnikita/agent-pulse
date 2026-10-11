@@ -17,6 +17,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         notifier.requestAuthorization()
         model.notifier = notifier
         model.hooksInstalled = HookInstaller.isInstalled()
+        model.browserBridgeInstalled = BrowserBridgeInstaller.isInstalled()
 
         let panel = OverlayPanel(model: model)
         panel.orderFrontRegardless()
@@ -46,7 +47,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let inbox = model.inbox
         let server = SocketServer(path: PulsePaths.socketPath) { data in
             // Разбор — прямо здесь, вне главного потока; время события — момент приёма.
-            if let event = ClaudeCodeHooks.parse(data) {
+            for event in Ingest.parse(data) {
                 inbox.yield(.event(event))
             }
         }
@@ -111,12 +112,84 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     // MARK: - Хуки
 
-    /// Путь к `pulse-hook` рядом с исполняемым файлом приложения (в бандле и при `swift run`).
-    private var hookCommand: String? {
+    /// `pulse-hook` рядом с исполняемым файлом приложения (в бандле и при `swift run`).
+    private var hookPath: String? {
         guard let executable = Bundle.main.executableURL else { return nil }
         let hook = executable.deletingLastPathComponent().appending(path: "pulse-hook")
-        guard FileManager.default.isExecutableFile(atPath: hook.path) else { return nil }
-        return "\"\(hook.path)\""
+        return FileManager.default.isExecutableFile(atPath: hook.path) ? hook.path : nil
+    }
+
+    private var hookCommand: String? {
+        hookPath.map { "\"\($0)\"" }
+    }
+
+    // MARK: - Браузер
+
+    /// Расширение в бандле (кладёт scripts/bundle.sh). Chrome грузит его из постоянной копии
+    /// в Application Support — бандл пересобирается и исчезает, копия остаётся.
+    private var bundledExtensionURL: URL? {
+        let url = Bundle.main.resourceURL?.appending(path: "ChromeExtension")
+        return url.flatMap { FileManager.default.fileExists(atPath: $0.path) ? $0 : nil }
+    }
+
+    private var extensionURL: URL {
+        PulsePaths.supportDirectory.appending(path: "ChromeExtension", directoryHint: .isDirectory)
+    }
+
+    private func copyExtension() throws {
+        guard let source = bundledExtensionURL else { return }
+        let fileManager = FileManager.default
+        try fileManager.createDirectory(at: PulsePaths.supportDirectory, withIntermediateDirectories: true)
+        if fileManager.fileExists(atPath: extensionURL.path) {
+            try fileManager.removeItem(at: extensionURL)
+        }
+        try fileManager.copyItem(at: source, to: extensionURL)
+    }
+
+    func installBrowserBridge() {
+        guard let hook = hookPath else {
+            showAlert("Не найден pulse-hook", "Соберите приложение скриптом scripts/bundle.sh.")
+            return
+        }
+        let alert = NSAlert()
+        alert.messageText = "Подключить Claude в браузере?"
+        alert.informativeText = """
+            Agent Pulse зарегистрирует мост для расширения в Chrome и других Chromium-браузерах \
+            (файл в NativeMessagingHosts). Затем установите само расширение: \
+            chrome://extensions → «Режим разработчика» → «Загрузить распакованное» → папка, которая откроется.
+
+            Расширение передаёт только состояние страницы (думает, ждёт, готово), без текста переписки.
+            """
+        alert.addButton(withTitle: "Подключить")
+        alert.addButton(withTitle: "Отмена")
+        NSApp.activate()
+        guard alert.runModal() == .alertFirstButtonReturn else { return }
+        do {
+            try copyExtension()
+            let installed = try BrowserBridgeInstaller.install(hookPath: hook)
+            model.browserBridgeInstalled = !installed.isEmpty
+            if installed.isEmpty {
+                showAlert("Браузер не найден", "Не нашлось ни Chrome, ни другого Chromium-браузера.")
+                return
+            }
+            revealExtension()
+        } catch {
+            showAlert("Мост не установлен", "\(error)")
+        }
+    }
+
+    func uninstallBrowserBridge() {
+        do {
+            try BrowserBridgeInstaller.uninstall()
+            model.browserBridgeInstalled = false
+        } catch {
+            showAlert("Мост не удалён", "\(error)")
+        }
+    }
+
+    func revealExtension() {
+        if !FileManager.default.fileExists(atPath: extensionURL.path) { try? copyExtension() }
+        NSWorkspace.shared.activateFileViewerSelecting([extensionURL])
     }
 
     func installHooks() {

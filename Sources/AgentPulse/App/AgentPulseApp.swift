@@ -39,6 +39,12 @@ struct MenuContent: View {
                 get: { model.config.sources.cowork },
                 set: { app.setCoworkEnabled($0) }
             ))
+            if model.browserBridgeInstalled {
+                Button("Браузер: мост установлен — показать расширение") { app.revealExtension() }
+                Button("Отключить Claude в браузере") { app.uninstallBrowserBridge() }
+            } else {
+                Button("Подключить Claude в браузере…") { app.installBrowserBridge() }
+            }
         }
         Divider()
         Toggle("Показывать маскота", isOn: Binding(get: { model.overlayVisible }, set: { app.setOverlayVisible($0) }))

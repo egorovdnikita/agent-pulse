@@ -1,0 +1,14 @@
+{
+  "manifest_version": 3,
+  "name": "Agent Pulse",
+  "version": "0.1.0",
+  "description": "Показывает маскоту Agent Pulse, когда Claude в браузере думает, ждёт одобрения или закончил.",
+  "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAyd20NnsfmkU/xafBC5c5jVS/x5f5nf6XPqBgk8d8Jedh7+7LHVHdfecMVTt79BxJkY1Mu9uxB1yy62yvX49yFDUrpQmWqTWVrdqWUxnMXM6nRAR7aZCTtlaX4D1McYmuTq1PmhRqxYdhoX3ahcrktc1PKOTPS0kCC26dkrGg8oskEGaNNx2pckKVNLnmLLwV0rjaN4mTedyl3YjQvk3NDR04BSONfVwBLKxND7x/xQgAubmS/YTW5ogKfuez86nQVSyaMBaJsWseVItEnZAovoFjy4p6LWdHqxOJDsZIkI9roG7KlXw+wGoGFFozXj/VKbMxNj3LD9K9M8iwCjJoeQIDAQAB",
+  "permissions": ["nativeMessaging"],
+  "host_permissions": ["https://claude.ai/*", "https://www.figma.com/*"],
+  "background": { "service_worker": "background.js" },
+  "content_scripts": [
+    { "matches": ["https://claude.ai/*"], "js": ["content.js"], "run_at": "document_idle" },
+    { "matches": ["https://www.figma.com/make/*"], "js": ["content.js"], "run_at": "document_idle" }
+  ]
+}
