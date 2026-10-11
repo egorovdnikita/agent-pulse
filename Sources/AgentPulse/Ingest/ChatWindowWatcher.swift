@@ -12,7 +12,7 @@ final class ChatWindowWatcher: @unchecked Sendable {
 
     static let pollInterval: TimeInterval = 0.15
     static let scanInterval: TimeInterval = 1
-    static let scanLimit = 8000
+    static let scanLimit = 4000
 
     private let handler: Handler
     private let queue = DispatchQueue(label: "agentpulse.chatwindow", qos: .userInitiated)
@@ -20,6 +20,8 @@ final class ChatWindowWatcher: @unchecked Sendable {
     private var pid: pid_t?
     private var appElement: AXUIElement?
     private var composer: AXUIElement?
+    /// Веб-область claude.ai: её адрес читаем на каждом опросе — сменилась вкладка или чат.
+    private var webArea: AXUIElement?
     private var url: String?
     private var lastScan = Date.distantPast
     private var approvalVisible = false
@@ -28,6 +30,7 @@ final class ChatWindowWatcher: @unchecked Sendable {
     /// Сколько полных обходов подряд не нашли кнопок композера.
     private var missedScans = 0
     private var diagnosticWritten = false
+    private var chatSnapshotWritten = false
 
     /// Сюда пишется снимок кнопок, если признаки не нашлись, — по нему выставляются точные подписи.
     static var diagnosticURL: URL {
@@ -70,9 +73,22 @@ final class ChatWindowWatcher: @unchecked Sendable {
             return
         }
         let now = Date()
-        if composer == nil || state != .idle, now.timeIntervalSince(lastScan) >= Self.scanInterval {
+        // Кнопок не нашли — следующий обход реже (1, 2, 4… до 30 s): полный обход окна дорог и для Claude.
+        // Во время ответа полный обход нужен только ради кнопок одобрения — раз в 3 s.
+        let interval = composer == nil ? min(30, Self.scanInterval * pow(2, Double(min(missedScans, 5)))) : 3
+        if composer == nil || state != .idle, now.timeIntervalSince(lastScan) >= interval {
             scan(app)
             lastScan = now
+        }
+        if let webArea {
+            let current = Self.url(webArea)
+            if current != url {
+                url = current
+                composer = nil
+                missedScans = 0
+                lastScan = .distantPast
+                return
+            }
         }
         guard ChatWindowSignals.isChatPage(url) else {
             transition(to: .idle)
@@ -88,7 +104,7 @@ final class ChatWindowWatcher: @unchecked Sendable {
             }
             labels = children.compactMap(Self.label)
         }
-        transition(to: ChatWindowSignals.state(buttonLabels: labels, approvalVisible: approvalVisible))
+        transition(to: ChatWindowSignals.state(buttonLabels: labels, approvalVisible: approvalVisible, onChat: true))
     }
 
     private var lastLookup = Date.distantPast
@@ -122,16 +138,18 @@ final class ChatWindowWatcher: @unchecked Sendable {
         var visited = 0
         var foundComposer: AXUIElement?
         var foundURL: String?
+        var foundArea: AXUIElement?
         var approval = false
         while !queue.isEmpty, visited < Self.scanLimit {
             let element = queue.removeFirst()
             visited += 1
             let role = Self.string(element, kAXRoleAttribute)
-            if role == "AXWebArea", foundURL == nil {
-                foundURL = Self.url(element)
+            if role == "AXWebArea", foundURL == nil, let address = Self.url(element), ChatWindowSignals.isClaudePage(address) {
+                foundURL = address
+                foundArea = element
             }
             if role == kAXButtonRole as String, let label = Self.label(element) {
-                if foundComposer == nil, ChatWindowSignals.isComposerButton(label) {
+                if foundComposer == nil, ChatWindowSignals.isComposerButton(label, onChat: ChatWindowSignals.isChatPage(foundURL ?? url)) {
                     foundComposer = Self.parent(element)
                 }
                 if ChatWindowSignals.isApproval(label) {
@@ -140,18 +158,21 @@ final class ChatWindowWatcher: @unchecked Sendable {
             }
             queue += Self.children(element) ?? []
         }
+        // Снимок управляющих кнопок: при первом обходе и когда впервые открыт чат — сверить настоящие подписи.
+        let onChat = ChatWindowSignals.isChatPage(foundURL)
+        if !diagnosticWritten || (onChat && !chatSnapshotWritten) {
+            diagnosticWritten = true
+            chatSnapshotWritten = chatSnapshotWritten || onChat
+            writeSnapshot(app)
+        }
         if let foundComposer {
             composer = foundComposer
             missedScans = 0
         } else if composer == nil {
             missedScans += 1
-            // Окно есть, а кнопок с известными подписями нет — сохраняем снимок один раз за запуск.
-            if missedScans == 5, !diagnosticWritten {
-                diagnosticWritten = true
-                writeSnapshot(app)
-            }
         }
         if let foundURL { url = foundURL }
+        if let foundArea { webArea = foundArea }
         approvalVisible = approval
         let id = ChatWindowSignals.sessionId(url)
         if id != session {
@@ -174,6 +195,7 @@ final class ChatWindowWatcher: @unchecked Sendable {
         transition(to: .idle)
         appElement = nil
         composer = nil
+        webArea = nil
         pid = nil
     }
 
@@ -203,13 +225,21 @@ final class ChatWindowWatcher: @unchecked Sendable {
             let role = string(element, kAXRoleAttribute) ?? "?"
             if role == "AXWebArea" {
                 lines.append("\(depth) AXWebArea url=\(url(element) ?? "-")")
-            } else if role == kAXButtonRole as String {
-                lines.append("\(depth) AXButton label=\(label(element) ?? "-")")
+            } else if role == kAXButtonRole as String, let text = label(element), isControlLabel(text) {
+                lines.append("\(depth) AXButton label=\(text)")
             }
             queue += (children(element) ?? []).map { ($0, depth + 1) }
         }
         lines.insert("элементов обойдено: \(visited)", at: 0)
         return lines.joined(separator: "\n")
+    }
+
+    /// В снимок попадают только подписи управляющих кнопок: в боковой панели кнопки подписаны названиями чатов.
+    private static let controlWords = ["stop", "send", "submit", "allow", "deny", "cancel", "отправ", "останов", "разреш", "отмен", "запрет"]
+
+    private static func isControlLabel(_ text: String) -> Bool {
+        let lowered = text.lowercased()
+        return text.count <= 40 && controlWords.contains { lowered.contains($0) }
     }
 
     // MARK: - AX-помощники

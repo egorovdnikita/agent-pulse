@@ -23,6 +23,7 @@ final class MascotAnimator {
     private var behavior: any MascotBehavior = SleepBehavior(start: 0)
     private var queue: [MascotReaction] = []
     private var active: ActiveReaction?
+    private var stateStart = 0.0
     private var blink = BlinkEngine()
     private var rng = SystemRandomNumberGenerator()
     private var lastT: Double?
@@ -61,6 +62,7 @@ final class MascotAnimator {
 
     func setState(_ newState: MascotState, at t: Double) {
         state = newState
+        stateStart = t
         behavior = BehaviorFactory.make(newState, at: t, gaze: gaze.value, tuning: tuning)
         if newState.isWaiting {
             // wait_you прерывает всё.
@@ -76,6 +78,13 @@ final class MascotAnimator {
         guard !state.isWaiting else { return }
         queue.append(reaction)
         if queue.count > 4 { queue.removeFirst() }
+    }
+
+    /// Глубокий сон: ничего процедурного не происходит — можно остановить кадры и отдать дыхание и «Zzz»
+    /// повторяющимся анимациям Core Animation. Будит наведение, событие, реакция, перетаскивание.
+    func isCalm(at t: Double) -> Bool {
+        state == .sleep && !hovered && active == nil && queue.isEmpty && dragLook == nil
+            && wake.value < 0.01 && t - stateStart > tuning.fallAsleepDuration + 1.5
     }
 
     func glance(towardX x: Double, at t: Double) {

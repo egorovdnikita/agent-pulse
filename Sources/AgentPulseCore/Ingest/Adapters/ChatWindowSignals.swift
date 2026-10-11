@@ -10,20 +10,26 @@ public enum ChatWindowSignals {
         case idle, generating, approval
     }
 
-    static let stopLabels: Set<String> = ["stop response", "stop", "остановить ответ", "остановить"]
-    static let sendLabels: Set<String> = ["send message", "send", "отправить сообщение", "отправить"]
+    /// Подписи кнопки ответа чата. Короткое «Stop»/«Остановить» есть и во вкладке Code (`/epitaxy`),
+    /// поэтому оно считается признаком только на странице чата.
+    static let stopLabels: Set<String> = ["stop response", "остановить ответ"]
+    static let shortStopLabels: Set<String> = ["stop", "остановить"]
+    static let sendLabels: Set<String> = ["send message", "отправить сообщение"]
+    static let shortSendLabels: Set<String> = ["send", "отправить"]
     static let approvalPrefixes = ["allow once", "allow always", "always allow", "allow for this chat", "разрешить"]
 
     static func normalized(_ label: String) -> String {
         label.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
     }
 
-    public static func isStop(_ label: String) -> Bool {
-        stopLabels.contains(normalized(label))
+    public static func isStop(_ label: String, onChat: Bool = false) -> Bool {
+        let value = normalized(label)
+        return stopLabels.contains(value) || (onChat && shortStopLabels.contains(value))
     }
 
-    public static func isSend(_ label: String) -> Bool {
-        sendLabels.contains(normalized(label))
+    public static func isSend(_ label: String, onChat: Bool = false) -> Bool {
+        let value = normalized(label)
+        return sendLabels.contains(value) || (onChat && shortSendLabels.contains(value))
     }
 
     public static func isApproval(_ label: String) -> Bool {
@@ -32,22 +38,26 @@ public enum ChatWindowSignals {
     }
 
     /// Кнопки композера: по ним находим контейнер, который дальше опрашиваем дёшево.
-    public static func isComposerButton(_ label: String) -> Bool {
-        isStop(label) || isSend(label)
+    public static func isComposerButton(_ label: String, onChat: Bool = false) -> Bool {
+        isStop(label, onChat: onChat) || isSend(label, onChat: onChat)
     }
 
     /// Состояние по подписям видимых кнопок.
-    public static func state(buttonLabels: [String], approvalVisible: Bool) -> State {
+    public static func state(buttonLabels: [String], approvalVisible: Bool, onChat: Bool = false) -> State {
         if approvalVisible { return .approval }
-        return buttonLabels.contains(where: isStop) ? .generating : .idle
+        return buttonLabels.contains { isStop($0, onChat: onChat) } ? .generating : .idle
     }
 
-    /// Вкладки Code и Cowork видны через свои каналы (хуки, журнал) — окно с ними не дублируем.
+    public static func isClaudePage(_ url: String?) -> Bool {
+        guard let url, let host = URL(string: url)?.host() else { return false }
+        return host.hasSuffix("claude.ai")
+    }
+
+    /// Только страницы чата. Вкладки Code (`/epitaxy`, `/code`) и Cowork видны через свои каналы —
+    /// окно с ними не дублируем; неизвестный адрес — не чат.
     public static func isChatPage(_ url: String?) -> Bool {
-        guard let url, let parsed = URL(string: url), let host = parsed.host() else { return true }
-        guard host.hasSuffix("claude.ai") || host.hasSuffix("anthropic.com") else { return true }
-        let path = parsed.path()
-        return !(path.hasPrefix("/code") || path.contains("/task") || path.contains("cowork") || path.contains("local-agent"))
+        guard isClaudePage(url), let path = url.flatMap({ URL(string: $0)?.path() }) else { return false }
+        return path.hasPrefix("/chat") || path.hasPrefix("/new") || path.hasPrefix("/project")
     }
 
     public static func sessionId(_ url: String?) -> String {
