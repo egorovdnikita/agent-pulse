@@ -95,6 +95,8 @@ public enum Humanizer {
             return HumanizedTool(kind: .search, target: .code, text: "Запускает субагента")
         case "TodoWrite", "TaskCreate", "TaskUpdate":
             return HumanizedTool(kind: .other, target: .code, text: "Планирует шаги")
+        case FigmaCompanion.aiTool:
+            return HumanizedTool(kind: .edit, target: .figma, text: "Генерирует макет")
         case BrowserBridge.figmaMakeTool:
             return HumanizedTool(kind: .edit, target: .figma, text: "Генерирует в Figma Make")
         case "ToolSearch":

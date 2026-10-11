@@ -2,6 +2,14 @@ import AgentPulseCore
 import AppKit
 import Observation
 
+struct MirrorFrame {
+    let id: Int
+    let image: NSImage
+    let node: String
+    let file: String
+    let at: Date
+}
+
 enum PulseInput: Sendable {
     case event(AgentEvent)
     case tick(Date)
@@ -22,6 +30,11 @@ final class PulseModel {
     /// Следим ли за журналами Cowork (nil — выключено в настройках).
     var coworkWatching: Bool?
     var browserBridgeInstalled = false
+    var companionError: String?
+    /// Последний кадр зеркала Figma.
+    private(set) var mirror: MirrorFrame?
+    private(set) var showMirror = false
+    private(set) var isHovering = false
     var serverError: String?
     var config = PulseConfig.load()
 
@@ -47,7 +60,8 @@ final class PulseModel {
     @ObservationIgnored private let store = SessionStore()
     @ObservationIgnored private var scheduler = BubbleScheduler()
     @ObservationIgnored private var stateSince = Date()
-    @ObservationIgnored private var hovering = false
+    /// Читает HTTP-сервер плагина: нужен ли кадр зеркала прямо сейчас.
+    @ObservationIgnored let mirrorWish = MirrorWish()
     @ObservationIgnored private var timer: Timer?
     @ObservationIgnored private var consumer: Task<Void, Never>?
 
@@ -167,6 +181,7 @@ final class PulseModel {
         scheduler.ambient(MascotStateMapper.ambientTrigger(for: state, target: activityTarget), heldSince: stateSince, now: now)
         scheduler.tick(now: now)
         updateHover()
+        updateMirror(now: now)
 
         if scheduler.current != bubble {
             let isNew = scheduler.current != nil && scheduler.current?.id != bubble?.id
@@ -215,8 +230,8 @@ final class PulseModel {
             onInteractiveChange?(nowInteractive)
         }
 
-        guard inside != hovering else { return }
-        hovering = inside
+        guard inside != isHovering else { return }
+        isHovering = inside
         animator.hovered = inside
         if inside {
             switch state {
@@ -228,6 +243,22 @@ final class PulseModel {
         } else {
             hoverText = nil
         }
+    }
+
+    // MARK: - Зеркало Figma
+
+    func receiveFrame(_ frame: FigmaFrame) {
+        guard config.sources.figmaMirror, let image = NSImage(data: frame.png) else { return }
+        mirror = MirrorFrame(id: (mirror?.id ?? 0) + 1, image: image, node: frame.node, file: frame.file, at: frame.at)
+    }
+
+    /// Зеркало видно, пока агент рисует в Figma (и минуту после), или при наведении — 10 минут после кадра.
+    private func updateMirror(now: Date) {
+        let drawing = if case .working(let activity) = dominant?.phase { activity.target == .figma } else { false }
+        mirrorWish.value = drawing && config.sources.figmaMirror
+        let age = mirror.map { now.timeIntervalSince($0.at) } ?? .infinity
+        let visible = (drawing && age < 60) || (isHovering && age < 600)
+        if visible != showMirror { showMirror = visible }
     }
 
     /// Переход к источнику: активируем приложение, в котором живёт агент.

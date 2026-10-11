@@ -45,6 +45,10 @@ struct MenuContent: View {
             } else {
                 Button("Подключить Claude в браузере…") { app.installBrowserBridge() }
             }
+            Button("Figma: показать плагин-компаньон") { app.revealFigmaPlugin() }
+            if let error = model.companionError {
+                Text("Figma: порт занят — \(error)")
+            }
         }
         Divider()
         Toggle("Показывать маскота", isOn: Binding(get: { model.overlayVisible }, set: { app.setOverlayVisible($0) }))

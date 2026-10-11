@@ -58,8 +58,11 @@ final class OverlayPanel: NSPanel {
         setFrame(NSRect(x: x, y: y, width: size.width, height: size.height), display: true)
 
         let box = MascotView.boxSize(display.mascotSize)
+        let row = PillView.rowHeight(diameter: display.mascotSize)
         let centerX = display.anchor.isRight ? x + size.width - box / 2 : x + box / 2
-        model.animator.screenCenter = CGPoint(x: centerX, y: y + size.height / 2)
+        // Ряд с маскотом — у края экрана, зеркало — над ним (или под ним, если маскот сверху).
+        let centerY = display.anchor.isTop ? y + size.height - row / 2 : y + row / 2
+        model.animator.screenCenter = CGPoint(x: centerX, y: centerY)
         model.animator.zzzSide = display.anchor.isRight ? -1 : 1
     }
 

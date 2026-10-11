@@ -9,6 +9,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var panel: OverlayPanel?
     private var server: SocketServer?
     private var cowork: CoworkWatcher?
+    private var companion: LocalHTTPServer?
     private var labWindow: NSWindow?
     private var screenTimer: Timer?
 
@@ -35,12 +36,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
         startServer()
         startCowork()
+        startCompanion()
         model.start()
     }
 
     func applicationWillTerminate(_ notification: Notification) {
         server?.stop()
         cowork?.stop()
+        companion?.stop()
     }
 
     private func startServer() {
@@ -70,6 +73,44 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
         model.coworkWatching = watcher.start()
         cowork = watcher
+    }
+
+    /// Сервер для плагина-компаньона Figma: события «ИИ генерирует» и кадры зеркала.
+    private func startCompanion() {
+        let inbox = model.inbox
+        let wish = model.mirrorWish
+        let model = model
+        let server = LocalHTTPServer { request in
+            guard request.method == "POST", request.path == "/figma" else {
+                return LocalHTTPServer.Response(status: request.method == "OPTIONS" ? 204 : 404)
+            }
+            switch FigmaCompanion.parse(request.body) {
+            case .events(let events):
+                for event in events { inbox.yield(.event(event)) }
+            case .frame(let frame):
+                Task { @MainActor in model.receiveFrame(frame) }
+            case .change, nil:
+                break
+            }
+            return LocalHTTPServer.Response(body: FigmaCompanion.reply(mirror: wish.value))
+        }
+        do {
+            try server.start()
+            companion = server
+        } catch {
+            model.companionError = "\(error)"
+        }
+    }
+
+    func revealFigmaPlugin() {
+        guard let url = Bundle.main.resourceURL?.appending(path: "FigmaCompanion/manifest.json"),
+              FileManager.default.fileExists(atPath: url.path) else { return }
+        let stable = PulsePaths.supportDirectory.appending(path: "FigmaCompanion", directoryHint: .isDirectory)
+        let fileManager = FileManager.default
+        try? fileManager.createDirectory(at: PulsePaths.supportDirectory, withIntermediateDirectories: true)
+        try? fileManager.removeItem(at: stable)
+        try? fileManager.copyItem(at: url.deletingLastPathComponent(), to: stable)
+        NSWorkspace.shared.activateFileViewerSelecting([stable.appending(path: "manifest.json")])
     }
 
     func setCoworkEnabled(_ enabled: Bool) {

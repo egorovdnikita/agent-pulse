@@ -1,0 +1,14 @@
+{
+  "name": "Agent Pulse",
+  "id": "agent-pulse-companion",
+  "api": "1.0.0",
+  "main": "code.js",
+  "ui": "ui.html",
+  "editorType": ["figma"],
+  "documentAccess": "dynamic-page",
+  "networkAccess": {
+    "allowedDomains": ["none"],
+    "devAllowedDomains": ["http://localhost:47811"],
+    "reasoning": "Сообщает приложению Agent Pulse на этом же компьютере, что макет меняется, и передаёт кадр зеркала."
+  }
+}
