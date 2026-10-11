@@ -10,6 +10,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var server: SocketServer?
     private var cowork: CoworkWatcher?
     private var companion: LocalHTTPServer?
+    private var chatWindow: ChatWindowWatcher?
+    private var trustTimer: Timer?
     private var labWindow: NSWindow?
     private var screenTimer: Timer?
 
@@ -37,6 +39,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         startServer()
         startCowork()
         startCompanion()
+        startChatWindow()
         model.start()
     }
 
@@ -44,6 +47,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         server?.stop()
         cowork?.stop()
         companion?.stop()
+        chatWindow?.stop()
     }
 
     private func startServer() {
@@ -99,6 +103,71 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             companion = server
         } catch {
             model.companionError = "\(error)"
+        }
+    }
+
+    // MARK: - Чат в Claude desktop
+
+    private func startChatWindow() {
+        model.accessibilityTrusted = ChatWindowWatcher.isTrusted
+        guard model.config.sources.claudeChat else { return }
+        let inbox = model.inbox
+        let watcher = ChatWindowWatcher { events in
+            for event in events { inbox.yield(.event(event)) }
+        }
+        watcher.start()
+        chatWindow = watcher
+        watchTrust()
+    }
+
+    /// Разрешение выдают в Системных настройках, пока приложение работает, — подхватываем без перезапуска.
+    private func watchTrust() {
+        trustTimer?.invalidate()
+        guard !model.accessibilityTrusted else { return }
+        trustTimer = Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { [weak self] _ in
+            MainActor.assumeIsolated {
+                guard let self, ChatWindowWatcher.isTrusted else { return }
+                self.model.accessibilityTrusted = true
+                self.trustTimer?.invalidate()
+                self.trustTimer = nil
+            }
+        }
+    }
+
+    func setChatWindowEnabled(_ enabled: Bool) {
+        if enabled && !ChatWindowWatcher.isTrusted {
+            let alert = NSAlert()
+            alert.messageText = "Следить за чатом в приложении Claude?"
+            alert.informativeText = """
+                У приложения Claude нет канала событий, поэтому Agent Pulse смотрит на кнопки в его окне \
+                через «Универсальный доступ»: идёт ли ответ, ждёт ли Claude одобрения. Текст переписки не читается.
+
+                macOS попросит разрешение: Системные настройки → Конфиденциальность и безопасность → \
+                Универсальный доступ → включите Agent Pulse.
+                """
+            alert.addButton(withTitle: "Продолжить")
+            alert.addButton(withTitle: "Отмена")
+            NSApp.activate()
+            guard alert.runModal() == .alertFirstButtonReturn else { return }
+            ChatWindowWatcher.requestTrust()
+        }
+        model.config.sources.claudeChat = enabled
+        try? model.config.save()
+        chatWindow?.stop()
+        chatWindow = nil
+        startChatWindow()
+    }
+
+    /// Снимок кнопок окна Claude (без текста переписки) — чтобы выставить точные признаки генерации.
+    func saveChatWindowSnapshot() {
+        let watcher = chatWindow ?? ChatWindowWatcher { _ in }
+        watcher.snapshot { text in
+            let url = PulsePaths.supportDirectory.appending(path: "claude-window.txt")
+            try? FileManager.default.createDirectory(at: PulsePaths.supportDirectory, withIntermediateDirectories: true)
+            try? text.write(to: url, atomically: true, encoding: .utf8)
+            DispatchQueue.main.async {
+                NSWorkspace.shared.activateFileViewerSelecting([url])
+            }
         }
     }
 

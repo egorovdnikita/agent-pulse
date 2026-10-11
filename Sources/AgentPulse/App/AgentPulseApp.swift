@@ -18,6 +18,13 @@ struct AgentPulseApp: App {
 struct MenuContent: View {
     let app: AppDelegate
 
+    private func chatTitle(_ model: PulseModel) -> String {
+        guard model.config.sources.claudeChat else { return "Claude Chat в приложении" }
+        return model.accessibilityTrusted
+            ? "Claude Chat в приложении: слежу"
+            : "Claude Chat в приложении: нужен «Универсальный доступ»"
+    }
+
     private func coworkTitle(_ watching: Bool?) -> String {
         switch watching {
         case true?: "Cowork: слежу"
@@ -44,6 +51,13 @@ struct MenuContent: View {
                 Button("Отключить Claude в браузере") { app.uninstallBrowserBridge() }
             } else {
                 Button("Подключить Claude в браузере…") { app.installBrowserBridge() }
+            }
+            Toggle(chatTitle(model), isOn: Binding(
+                get: { model.config.sources.claudeChat },
+                set: { app.setChatWindowEnabled($0) }
+            ))
+            if model.config.sources.claudeChat && model.accessibilityTrusted {
+                Button("Снимок окна Claude для настройки") { app.saveChatWindowSnapshot() }
             }
             Button("Figma: показать плагин-компаньон") { app.revealFigmaPlugin() }
             if let error = model.companionError {

@@ -25,7 +25,13 @@ public enum BrowserBridge {
         case "figmaMake": source = .figmaAI
         default: return []
         }
+        return events(source: source, session: session, state: state, from: from, host: host, now: now)
+    }
 
+    /// Смена состояния страницы или окна → события. Общая для расширения и наблюдателя за окном Claude.
+    public static func events(
+        source: AgentEvent.Source, session: String, state: String, from: String, host: String?, now: Date = Date()
+    ) -> [AgentEvent] {
         func event(_ kind: AgentEvent.Kind, tool: String? = nil, summary: String? = nil, awaitReason: AgentEvent.AwaitReason? = nil) -> AgentEvent {
             AgentEvent(
                 source: source, sessionId: session, kind: kind, tool: tool, summary: summary,

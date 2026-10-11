@@ -31,6 +31,8 @@ final class PulseModel {
     var coworkWatching: Bool?
     var browserBridgeInstalled = false
     var companionError: String?
+    /// Есть ли у приложения разрешение «Универсальный доступ» (нужно для чата в Claude desktop).
+    var accessibilityTrusted = false
     /// Последний кадр зеркала Figma.
     private(set) var mirror: MirrorFrame?
     private(set) var showMirror = false

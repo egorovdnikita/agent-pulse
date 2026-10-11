@@ -19,7 +19,10 @@ cp -R Extensions/Chrome "$APP/Contents/Resources/ChromeExtension"
 cp -R FigmaCompanion "$APP/Contents/Resources/FigmaCompanion"
 
 # Ad-hoc подпись для локального запуска. Для дистрибуции — Developer ID + нотаризация.
-codesign --force --sign - "$APP/Contents/MacOS/pulse-hook"
-codesign --force --sign - "$APP"
+# macOS привязывает «Универсальный доступ» к подписи: с ad-hoc разрешение слетает после каждой сборки.
+# Постоянный сертификат: AGENT_PULSE_SIGN_IDENTITY="Имя сертификата" scripts/bundle.sh
+IDENTITY="${AGENT_PULSE_SIGN_IDENTITY:--}"
+codesign --force --sign "$IDENTITY" "$APP/Contents/MacOS/pulse-hook"
+codesign --force --sign "$IDENTITY" "$APP"
 
 echo "$APP"
