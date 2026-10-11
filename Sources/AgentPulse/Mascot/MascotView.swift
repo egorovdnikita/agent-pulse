@@ -52,6 +52,7 @@ enum MascotRenderer {
         )
 
         context.fill(body, with: .color(.white))
+        drawZzz(pose, in: &context, center: center, radius: radius, unit: unit)
 
         let eyeWidth = 7 * unit * pose.bodyScale
         let eyeHeight = 10 * unit * pose.bodyScale
@@ -65,9 +66,23 @@ enum MascotRenderer {
             let width = eyeWidth * (isFar ? 1 - 0.15 * min(1, abs(pose.gaze.x)) : 1)
             let height = eyeHeight * pose.eyeScale
 
-            if pose.happy < 1, height > 0.3 {
+            // Почти закрытый овал плавно перетекает в веко «‿» — закрытые глаза видны, а не исчезают.
+            let closed = min(max((0.35 - pose.eyeScale) / 0.25, 0), 1) * (1 - pose.happy)
+            if pose.happy < 1, closed < 1, height > 0.3 {
                 let oval = CGRect(x: eyeCenter.x - width / 2, y: eyeCenter.y - height / 2, width: width, height: height)
-                context.fill(Path(ellipseIn: oval), with: .color(.black.opacity(1 - pose.happy)))
+                context.fill(Path(ellipseIn: oval), with: .color(.black.opacity((1 - pose.happy) * (1 - closed))))
+            }
+            if closed > 0 {
+                var lid = Path()
+                lid.move(to: CGPoint(x: eyeCenter.x - eyeWidth * 0.65, y: eyeCenter.y))
+                lid.addQuadCurve(
+                    to: CGPoint(x: eyeCenter.x + eyeWidth * 0.65, y: eyeCenter.y),
+                    control: CGPoint(x: eyeCenter.x, y: eyeCenter.y + eyeHeight * 0.4)
+                )
+                context.stroke(
+                    lid, with: .color(.black.opacity(closed)),
+                    style: StrokeStyle(lineWidth: 1.8 * unit, lineCap: .round)
+                )
             }
             if pose.happy > 0 {
                 var arc = Path()
@@ -79,6 +94,26 @@ enum MascotRenderer {
                 context.stroke(
                     arc, with: .color(.black.opacity(pose.happy)),
                     style: StrokeStyle(lineWidth: 2.2 * unit, lineCap: .round, lineJoin: .round)
+                )
+            }
+        }
+    }
+
+    /// Три «z» всплывают от макушки внутрь экрана, растут и тают по очереди.
+    private static func drawZzz(_ pose: MascotPose, in context: inout GraphicsContext, center: CGPoint, radius: Double, unit: Double) {
+        guard pose.zzz > 0.01 else { return }
+        let period = 2.6
+        context.drawLayer { layer in
+            layer.addFilter(.shadow(color: .black.opacity(0.45), radius: 1.5 * unit))
+            for index in 0..<3 {
+                let phase = (pose.time / period + Double(index) / 3).truncatingRemainder(dividingBy: 1)
+                let x = center.x + pose.zzzSide * (radius * 0.55 + 12 * unit * phase)
+                let y = center.y - radius * 0.7 - 16 * unit * phase
+                let size = (8 + 6 * phase) * unit
+                let opacity = pose.zzz * sin(.pi * phase)
+                layer.draw(
+                    Text("z").font(.system(size: size, weight: .heavy, design: .rounded)).foregroundStyle(.white.opacity(opacity)),
+                    at: CGPoint(x: x, y: y)
                 )
             }
         }

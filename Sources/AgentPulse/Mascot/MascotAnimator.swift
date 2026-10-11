@@ -8,6 +8,10 @@ final class MascotAnimator {
     var reduceMotion = false
     /// Центр маскота в экранных координатах — для слежения за курсором.
     var screenCenter: CGPoint?
+    /// Курсор над маскотом: во сне он плавно просыпается и смотрит на курсор.
+    var hovered = false
+    /// Куда всплывают «Zzz» — от края экрана внутрь.
+    var zzzSide = -1.0
 
     private(set) var state: MascotState = .sleep
     private var behavior: any MascotBehavior = SleepBehavior(start: 0)
@@ -29,6 +33,8 @@ final class MascotAnimator {
     private var bodyScale = Spring(1)
     private var glowOpacity = Spring(0.5)
     private var glowRadius = Spring(1)
+    private var wake = Spring(0)
+    private var zzz = Spring(0)
 
     func setState(_ newState: MascotState, at t: Double) {
         state = newState
@@ -82,12 +88,22 @@ final class MascotAnimator {
             }
         }
 
+        // Наведение во сне: веки плавно поднимаются, «Zzz» тают, взгляд — на курсор.
+        wake.update(toward: hovered && state == .sleep ? 1 : 0, omega: hovered ? 9 : 5, dt: dt)
+        let awake = min(max(wake.value, 0), 1)
+        if awake > 0.01 {
+            frame.eyeScale += (1.05 - frame.eyeScale) * awake
+            if awake > 0.3 { frame.motionless = false }
+        }
+
+        var followingCursor = false
         if !state.isWaiting && !frame.motionless {
             if t < glanceUntil {
                 frame.gaze = SIMD2(glanceX, -0.1)
             }
             if let offset = cursorOffset(cursor), let follow = CursorGaze.gaze(offset: offset, radius: tuning.hoverRadius) {
                 frame.gaze = follow
+                followingCursor = true
             }
         }
 
@@ -115,7 +131,9 @@ final class MascotAnimator {
             eyeScale = Spring(frame.eyeScale)
             glowOpacity = Spring(frame.glowOpacity)
         }
-        gaze.update(toward: frame.gaze, omega: tuning.saccadeOmega, dt: dt)
+        // За курсором — мягкое ведение, а не резкая саккада.
+        gaze.update(toward: frame.gaze, omega: followingCursor ? 12 : tuning.saccadeOmega, dt: dt)
+        zzz.update(toward: frame.sleepiness * (1 - awake), omega: 6, dt: dt)
         eyeScale.update(toward: frame.eyeScale, omega: 18, dt: dt)
         happy.update(toward: frame.happy, omega: 20, dt: dt)
         body.update(toward: frame.bodyOffset, omega: 60, dt: dt)
@@ -130,7 +148,10 @@ final class MascotAnimator {
             bodyOffset: body.value,
             bodyScale: bodyScale.value,
             glowRadius: tuning.glowRadius * glowRadius.value,
-            glowOpacity: min(max(glowOpacity.value, 0), 1)
+            glowOpacity: min(max(glowOpacity.value, 0), 1),
+            zzz: reduceMotion ? frame.sleepiness * (1 - awake) : min(max(zzz.value, 0), 1),
+            zzzSide: zzzSide,
+            time: reduceMotion ? 0 : t
         )
     }
 

@@ -15,6 +15,7 @@ struct SleepBehavior: MascotBehavior {
         frame.glowOpacity = glow.lowerBound + (glow.upperBound - glow.lowerBound)
             * (0.5 + 0.5 * sin(2 * .pi * context.t / tuning.sleepGlowPeriod))
         frame.motionless = true
+        frame.sleepiness = eased
         return frame
     }
 }

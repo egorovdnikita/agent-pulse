@@ -24,6 +24,11 @@ final class OverlayPanel: NSPanel {
         hasShadow = false
         hidesOnDeactivate = false
         isMovable = false
+        // Прозрачные места панели пропускают клики (Dock рядом); ловим мышь только над маскотом и облачком.
+        ignoresMouseEvents = true
+        model.onInteractiveChange = { [weak self] interactive in
+            self?.ignoresMouseEvents = !interactive
+        }
         contentView = FirstMouseHostingView(rootView: PillView(model: model))
         reposition()
     }
@@ -32,7 +37,8 @@ final class OverlayPanel: NSPanel {
     override var canBecomeMain: Bool { false }
 
     func followActiveScreen() {
-        guard model.config.display.screen == "active", let screen = targetScreen(), screen != currentScreen else { return }
+        // Курсор ушёл на другой монитор или Dock переехал — панель следует.
+        guard let screen = targetScreen(), screen != currentScreen else { return }
         reposition()
     }
 
@@ -45,17 +51,30 @@ final class OverlayPanel: NSPanel {
         let size = PillView.size(diameter: display.mascotSize)
         let visible = screen.visibleFrame
         let margin = 12.0
+        // По горизонтали — внутри видимой области (боковой Dock не перекрываем);
+        // снизу — у самого края экрана, на уровне Dock: в углу рядом с ним обычно пусто.
         let x = display.anchor.isRight ? visible.maxX - size.width - margin : visible.minX + margin
-        let y = display.anchor.isTop ? visible.maxY - size.height - margin : visible.minY + margin
+        let y = display.anchor.isTop ? visible.maxY - size.height - margin : screen.frame.minY + 4
         setFrame(NSRect(x: x, y: y, width: size.width, height: size.height), display: true)
 
         let box = MascotView.boxSize(display.mascotSize)
         let centerX = display.anchor.isRight ? x + size.width - box / 2 : x + box / 2
         model.animator.screenCenter = CGPoint(x: centerX, y: y + size.height / 2)
+        model.animator.zzzSide = display.anchor.isRight ? -1 : 1
+    }
+
+    /// Dock занимает край видимой области своего дисплея. Скрытый Dock не найдём — тогда основной дисплей.
+    static func dockScreen() -> NSScreen? {
+        NSScreen.screens.first { screen in
+            let frame = screen.frame, visible = screen.visibleFrame
+            return visible.minY > frame.minY + 1 || visible.minX > frame.minX + 1 || visible.maxX < frame.maxX - 1
+        }
     }
 
     private func targetScreen() -> NSScreen? {
         switch model.config.display.screen {
+        case "dock":
+            return Self.dockScreen() ?? NSScreen.screens.first
         case "main":
             return NSScreen.screens.first
         case "builtin":

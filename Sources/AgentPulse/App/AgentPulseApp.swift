@@ -32,6 +32,12 @@ struct MenuContent: View {
             Text("Справа снизу").tag(PulseConfig.Display.Anchor.bottomRight)
             Text("Слева снизу").tag(PulseConfig.Display.Anchor.bottomLeft)
         }
+        Picker("Дисплей", selection: Binding(get: { model.config.display.screen }, set: { app.setScreen($0) })) {
+            Text("С Dock").tag("dock")
+            Text("Основной").tag("main")
+            Text("С курсором").tag("active")
+            Text("Встроенный").tag("builtin")
+        }
         Divider()
         if model.hooksInstalled {
             Button("Удалить хуки Claude Code") { app.uninstallHooks() }

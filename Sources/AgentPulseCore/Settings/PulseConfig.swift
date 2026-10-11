@@ -28,9 +28,11 @@ public struct PulseConfig: Codable, Sendable, Equatable {
 
         public var mode = "mascot"
         public var mascotSize: Double = 48
-        public var anchor: Anchor = .topRight
-        /// `active` — монитор с курсором; также `main`, `builtin`.
-        public var screen = "active"
+        /// Справа снизу — рядом с Dock, где обычно пусто.
+        public var anchor: Anchor = .bottomRight
+        /// `dock` — дисплей, где закреплён Dock (если Dock скрыт — основной);
+        /// также `main` (с меню-баром), `active` (с курсором), `builtin`.
+        public var screen = "dock"
         public var autoHideWhenSourceVisible = true
         public var expandOn = ["awaitingUser", "done"]
     }

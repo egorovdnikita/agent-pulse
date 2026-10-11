@@ -16,6 +16,7 @@ final class PulseModel {
     private(set) var state: MascotState = .sleep
     private(set) var bubble: Bubble?
     private(set) var hoverText: String?
+    private(set) var lastTask: LastTask?
     var overlayVisible = true
     var hooksInstalled = false
     var serverError: String?
@@ -35,6 +36,9 @@ final class PulseModel {
 
     @ObservationIgnored let animator = MascotAnimator()
     @ObservationIgnored weak var notifier: Notifier?
+    /// Курсор над маскотом или облачком — панель должна ловить мышь.
+    @ObservationIgnored var onInteractiveChange: ((Bool) -> Void)?
+    @ObservationIgnored private var interactive = false
     @ObservationIgnored nonisolated let inbox: AsyncStream<PulseInput>.Continuation
     @ObservationIgnored private let stream: AsyncStream<PulseInput>
     @ObservationIgnored private let store = SessionStore()
@@ -92,13 +96,14 @@ final class PulseModel {
         }
     }
 
+    /// При наведении — рассказ о последнем запросе, он важнее фоновой реплики.
     var visibleBubbleText: String? {
-        bubble?.text ?? hoverText
+        hoverText ?? bubble?.text
     }
 
     /// Ключ для анимации появления: новое облачко — новая вставка.
     var bubbleKey: Int {
-        bubble?.id ?? (hoverText == nil ? 0 : -1)
+        hoverText != nil ? -1 : bubble?.id ?? 0
     }
 
     // MARK: - События
@@ -106,6 +111,7 @@ final class PulseModel {
     private func handle(_ event: AgentEvent, sessions: [SessionInfo]) {
         let now = event.ts
         if sessions != self.sessions { self.sessions = sessions }
+        lastTask = LastTask.updated(lastTask, event: event, session: sessions.first { $0.id == event.sessionId })
 
         if let reaction = MascotStateMapper.reaction(for: event), MascotStateMapper.dominant(sessions)?.id == event.sessionId {
             playReaction(reaction, now: now)
@@ -191,12 +197,31 @@ final class PulseModel {
     private func updateHover() {
         guard let center = animator.screenCenter else { return }
         let mouse = NSEvent.mouseLocation
-        let radius = config.display.mascotSize / 2 + 4
-        let inside = hypot(mouse.x - center.x, mouse.y - center.y) <= radius
+        let diameter = config.display.mascotSize
+        let inside = hypot(mouse.x - center.x, mouse.y - center.y) <= diameter / 2 + 4
+
+        // Облачко лежит со стороны, противоположной краю экрана.
+        let box = MascotView.boxSize(diameter)
+        let bubbleMinX = config.display.anchor.isRight ? center.x - box / 2 - BubbleView.maxWidth : center.x + box / 2
+        let overBubble = visibleBubbleText != nil
+            && mouse.x >= bubbleMinX && mouse.x <= bubbleMinX + BubbleView.maxWidth
+            && abs(mouse.y - center.y) <= 26
+        let nowInteractive = inside || overBubble
+        if nowInteractive != interactive {
+            interactive = nowInteractive
+            onInteractiveChange?(nowInteractive)
+        }
+
         guard inside != hovering else { return }
         hovering = inside
+        animator.hovered = inside
         if inside {
-            hoverText = state == .sleep ? scheduler.phrase(for: .hoverSleep) : scheduler.lastText
+            switch state {
+            case .sleep, .idle:
+                hoverText = lastTask?.summary(now: Date()) ?? scheduler.phrase(for: .hoverSleep)
+            default:
+                hoverText = scheduler.lastText ?? dominant?.phase.text
+            }
         } else {
             hoverText = nil
         }

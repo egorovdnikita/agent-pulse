@@ -10,6 +10,8 @@ public struct SessionInfo: Sendable, Equatable, Identifiable {
     public var lastEventAt: Date
     /// Ключевые шаги текущей задачи, без повторов подряд.
     public var timeline: [String] = []
+    /// В текущей задаче агент работал с Figma.
+    public var usedFigma = false
 
     public static let timelineLimit = 20
 
@@ -67,6 +69,7 @@ public struct SessionTable: Sendable {
         case .promptSubmitted:
             aggregator.reset()
             session.timeline.removeAll()
+            session.usedFigma = false
             session.set(.received, at: event.ts)
         case .toolStarted:
             let tool = event.tool ?? "unknown"
@@ -76,6 +79,7 @@ public struct SessionTable: Sendable {
                 target: classified.target,
                 original: event.summary ?? classified.text
             )
+            if classified.target == .figma { session.usedFigma = true }
             session.set(.working(Activity(tool: tool, kind: classified.kind, target: classified.target, text: text)), at: event.ts)
             session.appendStep(text)
         case .toolFinished:

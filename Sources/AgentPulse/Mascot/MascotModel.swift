@@ -13,6 +13,12 @@ struct MascotPose: Equatable {
     var bodyScale: Double = 1
     var glowRadius: Double = 10
     var glowOpacity: Double = 0.55
+    /// 0…1 — видимость «Zzz».
+    var zzz: Double = 0
+    /// Куда всплывают «Zzz»: −1 влево, 1 вправо (от края экрана).
+    var zzzSide: Double = -1
+    /// Время кадра — для «Zzz».
+    var time: Double = 0
 }
 
 /// Критически задемпфированная пружина: быстрый переход без перелёта. Точное решение, не зависит от fps.

@@ -68,6 +68,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         panel?.reposition()
     }
 
+    func setScreen(_ screen: String) {
+        model.config.display.screen = screen
+        try? model.config.save()
+        panel?.reposition()
+    }
+
     func showLab() {
         if labWindow == nil {
             let window = NSWindow(contentViewController: NSHostingController(rootView: MascotLabView(model: model)))

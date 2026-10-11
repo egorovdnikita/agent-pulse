@@ -36,6 +36,8 @@ struct BehaviorFrame {
     var saccade: Double?
     /// Глаза не следят за курсором (сон).
     var motionless = false
+    /// 0…1 — насколько маскот уже уснул; рисует «Zzz».
+    var sleepiness: Double = 0
 }
 
 /// Одна структура на состояние. Поведения не знают про источники и инструменты.
