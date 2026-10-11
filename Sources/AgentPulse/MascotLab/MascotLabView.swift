@@ -5,6 +5,8 @@ import SwiftUI
 /// Debug-окно: ручной запуск состояний и реакций, слайдеры `MascotTuning` вживую.
 struct MascotLabView: View {
     @Bindable var model: PulseModel
+    /// `@State` без Xcode недоступен (нет плагина макроса) — локальное состояние в наблюдаемом классе.
+    @Bindable private var inputs = SimulatorInputs()
 
     private static let states: [(String, MascotState?)] = [
         ("Живое (из событий)", nil),
@@ -45,6 +47,28 @@ struct MascotLabView: View {
                     HStack {
                         ForEach(MascotReaction.allCases, id: \.self) { reaction in
                             Button(reaction.rawValue) { model.playReaction(reaction) }
+                        }
+                    }
+                }
+                Section("SignalSimulator") {
+                    Picker("Сигнал", selection: $inputs.kind) {
+                        ForEach(SignalKind.allCases, id: \.self) { kind in
+                            Text(kind.rawValue).tag(kind)
+                        }
+                    }
+                    TextField("Значение (необязательно)", text: $inputs.value)
+                    HStack {
+                        Button("Отправить") { model.simulate(inputs.kind, value: Double(inputs.value)) }
+                        Text(model.lastLine ?? model.lastReaction ?? "")
+                            .foregroundStyle(.secondary)
+                    }
+                    Text("Батарея 5% — batteryCritical; пятница 23:00 — сдвиньте часы системы. Бюджеты и кулдауны действуют.")
+                        .font(.caption).foregroundStyle(.secondary)
+                }
+                Section("Поведение вручную") {
+                    LazyVGrid(columns: [GridItem(.adaptive(minimum: 90))]) {
+                        ForEach(MascotReaction.allCases, id: \.self) { reaction in
+                            Button(reaction.rawValue) { model.animator.enqueue(reaction) }
                         }
                     }
                 }
@@ -124,4 +148,10 @@ struct MascotLabView: View {
         NSPasteboard.general.clearContents()
         NSPasteboard.general.setString(json, forType: .string)
     }
+}
+
+@Observable
+final class SimulatorInputs {
+    var kind = SignalKind.batteryLow
+    var value = ""
 }

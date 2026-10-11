@@ -184,6 +184,14 @@ public struct Director: Sendable {
     }
 }
 
+/// Итог одного сигнала для приложения.
+public struct DirectorOutcome: Sendable {
+    public let decision: Decision?
+    public let mood: Mood
+    /// Тишина сейчас: созвон, полный экран или тихие часы.
+    public let quiet: Bool
+}
+
 /// Актор-обёртка: решения принимаются последовательно, вне главного потока.
 public actor DirectorActor {
     private var director: Director
@@ -193,9 +201,12 @@ public actor DirectorActor {
         self.director = director
     }
 
-    public func handle(_ signal: Signal) -> (Decision?, Mood) {
+    public func handle(_ signal: Signal) -> DirectorOutcome {
         let decision = director.handle(signal, now: signal.ts, rng: &rng)
-        return (decision, director.mood)
+        return DirectorOutcome(
+            decision: decision, mood: director.mood,
+            quiet: director.isQuiet || director.isQuietHours(signal.ts)
+        )
     }
 
     public func update(_ change: @Sendable (inout Director) -> Void) {

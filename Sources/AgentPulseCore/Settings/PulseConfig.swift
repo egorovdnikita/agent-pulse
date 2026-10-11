@@ -9,8 +9,50 @@ public struct PulseConfig: Codable, Sendable, Equatable {
     public var mirror = Mirror()
     public var mascot = Mascot()
     public var privacy = Privacy()
+    public var senses = Senses()
+    public var character = Character()
 
     public init() {}
+
+    /// Какие органы чувств включены.
+    public struct Senses: Codable, Sendable, Equatable {
+        public var agents = true
+        public var body = true
+        public var rhythm = true
+        public var audio = true
+        public var experimental = false
+    }
+
+    /// Характер: два слайдера вместо двадцати переключателей.
+    public struct Character: Codable, Sendable, Equatable {
+        public var talkativeness = 0.5
+        public var mischief = 0.5
+        /// «HH:mm».
+        public var quietFrom: String? = "23:30"
+        public var quietTo: String? = "08:00"
+        /// «MM-dd».
+        public var birthday: String?
+        public var hideWhenIdle = true
+        public var hideAfterMinutes = 30
+
+        static func minutes(_ text: String?) -> Int? {
+            guard let parts = text?.split(separator: ":"), parts.count == 2,
+                  let hours = Int(parts[0]), let minutes = Int(parts[1]) else { return nil }
+            return hours * 60 + minutes
+        }
+
+        public var directorSettings: DirectorSettings {
+            var settings = DirectorSettings()
+            settings.talkativeness = talkativeness
+            settings.mischief = mischief
+            settings.quietFrom = Self.minutes(quietFrom)
+            settings.quietTo = Self.minutes(quietTo)
+            if let parts = birthday?.split(separator: "-"), parts.count == 2, let month = Int(parts[0]), let day = Int(parts[1]) {
+                settings.birthday = DateComponents(month: month, day: day)
+            }
+            return settings
+        }
+    }
 
     public struct Sources: Codable, Sendable, Equatable {
         public var claudeCode = true
@@ -38,6 +80,8 @@ public struct PulseConfig: Codable, Sendable, Equatable {
         public var screen = "dock"
         public var autoHideWhenSourceVisible = true
         public var expandOn = ["awaitingUser", "done"]
+        /// Куда маскота перетащили: сдвиг от угла по умолчанию, pt, на каждый монитор (ключ — номер дисплея).
+        public var offsets: [String: [Double]] = [:]
     }
 
     public struct EventRule: Codable, Sendable, Equatable {

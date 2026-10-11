@@ -1,0 +1,154 @@
+import AgentPulseCore
+import AppKit
+
+/// Органы чувств → Director → тело и голос.
+extension PulseModel {
+    func handleSignal(_ signal: Signal) async {
+        if signal.kind == .minute || signal.kind == .systemWake {
+            let hour = Calendar.current.component(.hour, from: signal.ts)
+            // После заката свечение теплеет — без реплики.
+            body.night = hour >= 20 || hour < 6
+        }
+        body.apply(signal)
+        if signal.kind == .lidAngle, let angle = signal.value {
+            // Крышка раскрыта шире — смотрит вверх, прикрыта — вниз.
+            animator.lidGaze = max(-0.6, min(0.6, (110 - angle) / 60))
+        }
+
+        let outcome = await director.handle(signal)
+        if outcome.mood != mood { mood = outcome.mood }
+        if outcome.quiet != quiet {
+            quiet = outcome.quiet
+            scheduler.quiet = outcome.quiet
+        }
+        animator.baseline = Baseline.from(mood: outcome.mood, body: body)
+        handleIdleHide(signal)
+        await saveMemoryIfNeeded(signal.ts)
+
+        guard let decision = outcome.decision else { return }
+        lastReaction = decision.reaction
+        lastLine = decision.line
+        if let behavior = decision.behavior { animator.enqueue(behavior) }
+        if let special = decision.special {
+            onSpecial?(special, decision.line)
+        } else if let line = decision.line {
+            scheduler.say(line, duration: decision.bubbleDuration, agent: decision.tier == .agent, now: signal.ts)
+        }
+    }
+
+    /// SignalSimulator: любой сигнал вручную, чтобы настроить реакцию.
+    func simulate(_ kind: SignalKind, value: Double? = nil) {
+        inbox.yield(.signal(Signal(kind.defaultSense, kind, value: value)))
+    }
+
+    /// Агентный конвейер подсказывает Director: задача, ошибки, длинная задача.
+    func feedAgentSignals(_ event: AgentEvent) {
+        let signal: Signal?
+        switch event.kind {
+        case .promptSubmitted:
+            promptAt[event.sessionId] = event.ts
+            toolErrorStreak = 0
+            signal = nil
+        case .toolStarted:
+            let duration = promptAt[event.sessionId].map { event.ts.timeIntervalSince($0) } ?? 0
+            signal = Signal(.agents, .agentStep, value: duration, ts: event.ts)
+        case .toolFinished:
+            toolErrorStreak = event.isError ? toolErrorStreak + 1 : 0
+            signal = toolErrorStreak == 3 ? Signal(.agents, .agentErrorStreak, ts: event.ts) : nil
+        case .stopped:
+            signal = Signal(.agents, .agentDone, ts: event.ts)
+        case .error:
+            signal = Signal(.agents, .agentError, ts: event.ts)
+        default:
+            signal = nil
+        }
+        if let signal { inbox.yield(.signal(signal)) }
+    }
+
+    /// Агент работает или ждёт — приколы молчат. Ждёт > 5 мин — «Эй…».
+    func updateAgentBusy(now: Date) {
+        let busy: Bool = switch state {
+        case .work, .think, .waitYou: true
+        default: false
+        }
+        if busy != agentBusy {
+            agentBusy = busy
+            let director = director
+            Task { await director.update { $0.agentBusy = busy } }
+        }
+        if state.isWaiting, !waitLongSent, now.timeIntervalSince(stateSince) > 5 * 60 {
+            waitLongSent = true
+            inbox.yield(.signal(Signal(.agents, .agentWaitingLong, ts: now)))
+        }
+    }
+
+    /// hideWhenIdle: прячется после долгого простоя, возвращается к твоему приходу. Агент важнее.
+    private func handleIdleHide(_ signal: Signal) {
+        guard config.character.hideWhenIdle else { return }
+        switch signal.kind {
+        case .minute where !hiddenForIdle && !agentBusy:
+            if PresenceSense.idleSeconds > Double(config.character.hideAfterMinutes * 60) {
+                hiddenForIdle = true
+                onIdleHide?(true)
+            }
+        case .userBack, .screenUnlocked, .systemWake, .agentStep, .agentDone, .agentWaitingLong:
+            if signal.kind != .agentStep { onUserBack?() }
+            if hiddenForIdle {
+                hiddenForIdle = false
+                onIdleHide?(false)
+            }
+        default:
+            break
+        }
+    }
+
+    private func saveMemoryIfNeeded(_ now: Date) async {
+        guard now.timeIntervalSince(lastMemorySave) > 10 * 60 else { return }
+        lastMemorySave = now
+        let memory = await director.snapshot.memory
+        try? memory.save()
+    }
+
+    /// Применить характер из настроек (слайдеры, тихие часы, день рождения).
+    func applyCharacter() {
+        try? config.save()
+        let settings = config.character.directorSettings
+        let director = director
+        Task { await director.update { $0.settings = settings } }
+    }
+
+    func resetMemory() {
+        let director = director
+        Task {
+            await director.update { $0.memory.reset() }
+            try? DayMemory().save()
+        }
+    }
+
+    // MARK: - «Мило» и «бесит»
+
+    static var feedbackURL: URL {
+        PulsePaths.supportDirectory.appending(path: "feedback.jsonl")
+    }
+
+    /// Локальный лог оценок последней реакции — для недели валидации.
+    func feedback(_ verdict: String) {
+        guard let reaction = lastReaction else { return }
+        let entry: [String: Any] = [
+            "ts": ISO8601DateFormatter().string(from: Date()), "reaction": reaction, "verdict": verdict,
+            "line": lastLine ?? "",
+        ]
+        guard var data = try? JSONSerialization.data(withJSONObject: entry, options: [.sortedKeys]) else { return }
+        data.append(0x0A)
+        let url = Self.feedbackURL
+        try? FileManager.default.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
+        if let handle = try? FileHandle(forWritingTo: url) {
+            handle.seekToEndOfFile()
+            handle.write(data)
+            try? handle.close()
+        } else {
+            try? data.write(to: url)
+        }
+        feedbackToday[verdict, default: 0] += 1
+    }
+}

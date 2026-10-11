@@ -7,6 +7,10 @@ final class MascotAnimator {
     var tuning = MascotTuning()
     /// Настроение и самочувствие ноутбука окрашивают движение.
     var baseline = Baseline()
+    /// Эксперимент: угол крышки сдвигает взгляд по вертикали.
+    var lidGaze = 0.0
+    /// Пока маскота тащат — глаза смотрят в сторону движения.
+    var dragLook: SIMD2<Double>?
     var reduceMotion = false
     /// Центр маскота в экранных координатах — для слежения за курсором.
     var screenCenter: CGPoint?
@@ -124,6 +128,14 @@ final class MascotAnimator {
                 frame.gaze = follow
                 followingCursor = true
             }
+        }
+
+        if let dragLook {
+            frame.gaze = dragLook
+            frame.eyeScale = max(frame.eyeScale, 1.1)
+        }
+        if lidGaze != 0 && !frame.motionless && !state.isWaiting {
+            frame.gaze.y += lidGaze
         }
 
         // Микродвижения: живые глаза не застывают даже в фиксации. Не во сне и не когда смотрит на пользователя.

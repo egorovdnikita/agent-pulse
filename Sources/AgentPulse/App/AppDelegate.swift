@@ -7,11 +7,13 @@ import SwiftUI
 final class AppDelegate: NSObject, NSApplicationDelegate {
     let model = PulseModel()
     private let notifier = Notifier()
-    private var panel: OverlayPanel?
+    private(set) var panel: OverlayPanel?
     private var server: SocketServer?
     private var cowork: CoworkWatcher?
     private var companion: LocalHTTPServer?
     private var chatWindow: ChatWindowWatcher?
+    private var senses: [Sense] = []
+    private var settingsWindow: NSWindow?
     private var trustTimer: Timer?
     private var labWindow: NSWindow?
     private var screenTimer: Timer?
@@ -57,6 +59,23 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         startCompanion()
         startChatWindow()
         model.start()
+        startSenses()
+        model.onIdleHide = { [weak self] hide in
+            guard let self, self.model.overlayVisible else { return }
+            if hide { self.panel?.orderOut(nil) } else { self.panel?.orderFrontRegardless() }
+        }
+        model.onSpecial = { [weak self] action, line in
+            self?.panel?.perform(action, line: line)
+        }
+        model.onUserBack = { [weak self] in
+            self?.panel?.returnHomeIfWandering()
+        }
+        // Отладка: `open AgentPulse.app --args --signal capsLockOn [значение]` — как SignalSimulator.
+        if let index = CommandLine.arguments.firstIndex(of: "--signal"), index + 1 < CommandLine.arguments.count,
+           let kind = SignalKind(rawValue: CommandLine.arguments[index + 1]) {
+            let value = index + 2 < CommandLine.arguments.count ? Double(CommandLine.arguments[index + 2]) : nil
+            DispatchQueue.main.asyncAfter(deadline: .now() + 2) { [model] in model.simulate(kind, value: value) }
+        }
     }
 
     func applicationWillTerminate(_ notification: Notification) {
@@ -64,6 +83,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         cowork?.stop()
         companion?.stop()
         chatWindow?.stop()
+        senses.forEach { $0.stop() }
     }
 
     private func startServer() {
@@ -120,6 +140,28 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         } catch {
             model.companionError = "\(error)"
         }
+    }
+
+    // MARK: - Органы чувств
+
+    func startSenses() {
+        senses.forEach { $0.stop() }
+        let inbox = model.inbox
+        senses = SenseRegistry.make(model.config)
+        for sense in senses {
+            sense.start { signal in inbox.yield(.signal(signal)) }
+        }
+    }
+
+    func showSettings() {
+        if settingsWindow == nil {
+            let window = NSWindow(contentViewController: NSHostingController(rootView: CharacterSettingsView(app: self)))
+            window.title = "Характер"
+            window.isReleasedWhenClosed = false
+            settingsWindow = window
+        }
+        NSApp.activate()
+        settingsWindow?.makeKeyAndOrderFront(nil)
     }
 
     // MARK: - Чат в Claude desktop

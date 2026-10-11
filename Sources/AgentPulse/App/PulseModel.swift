@@ -12,6 +12,7 @@ struct MirrorFrame {
 
 enum PulseInput: Sendable {
     case event(AgentEvent)
+    case signal(Signal)
     case tick(Date)
 }
 
@@ -43,6 +44,15 @@ final class PulseModel {
     var serverError: String?
     var config = PulseConfig.load()
 
+    // Мозг
+    var mood = Mood()
+    var quiet = false
+    /// Последняя реакция — для кнопок «мило» и «бесит».
+    var lastReaction: String?
+    var lastLine: String?
+    /// Оценки за сегодня: «мило» и «бесит».
+    var feedbackToday: [String: Int] = [:]
+
     /// MascotLab: ручное состояние поверх живого.
     var labOverride: MascotState? {
         didSet { update(now: Date()) }
@@ -63,12 +73,27 @@ final class PulseModel {
     @ObservationIgnored nonisolated let inbox: AsyncStream<PulseInput>.Continuation
     @ObservationIgnored private let stream: AsyncStream<PulseInput>
     @ObservationIgnored private let store = SessionStore()
-    @ObservationIgnored private var scheduler = BubbleScheduler()
-    @ObservationIgnored private var stateSince = Date()
+    @ObservationIgnored var scheduler = BubbleScheduler()
+    @ObservationIgnored private(set) var stateSince = Date()
     /// Читает HTTP-сервер плагина: нужен ли кадр зеркала прямо сейчас.
     @ObservationIgnored let mirrorWish = MirrorWish()
     @ObservationIgnored private var timer: Timer?
     @ObservationIgnored private var consumer: Task<Void, Never>?
+    @ObservationIgnored private(set) var director = DirectorActor()
+    @ObservationIgnored var body = BodyCondition()
+    /// Особые поведения двигают саму панель — их исполняет делегат.
+    @ObservationIgnored var onSpecial: ((SpecialAction, String?) -> Void)?
+    /// Спрятать панель после долгого простоя (hideWhenIdle) и показать снова.
+    @ObservationIgnored var onIdleHide: ((Bool) -> Void)?
+    /// Ты пришёл — маскот возвращается домой (после лунатизма или пряток).
+    @ObservationIgnored var onUserBack: (() -> Void)?
+    @ObservationIgnored var strokeTrail: [(Date, Double)] = []
+    @ObservationIgnored var hiddenForIdle = false
+    @ObservationIgnored var promptAt: [String: Date] = [:]
+    @ObservationIgnored var toolErrorStreak = 0
+    @ObservationIgnored var waitLongSent = false
+    @ObservationIgnored var agentBusy = false
+    @ObservationIgnored var lastMemorySave = Date()
 
     init() {
         (stream, inbox) = AsyncStream.makeStream(of: PulseInput.self, bufferingPolicy: .bufferingNewest(256))
@@ -77,6 +102,10 @@ final class PulseModel {
     }
 
     func start() {
+        var initial = Director(settings: config.character.directorSettings)
+        initial.memory = DayMemory.load()
+        director = DirectorActor(initial)
+        body.darkTheme = AppearanceSense.isDark
         let stream = stream
         consumer = Task { [weak self] in
             for await input in stream {
@@ -85,6 +114,8 @@ final class PulseModel {
                 case .event(let event):
                     let sessions = await self.store.apply(event)
                     self.handle(event, sessions: sessions)
+                case .signal(let signal):
+                    await self.handleSignal(signal)
                 case .tick(let now):
                     let sessions = await self.store.tick(now: now)
                     if sessions != self.sessions { self.sessions = sessions }
@@ -140,6 +171,7 @@ final class PulseModel {
         lastEventBySource[event.source] = now
         if sessions != self.sessions { self.sessions = sessions }
         lastTask = LastTask.updated(lastTask, event: event, session: sessions.first { $0.id == event.sessionId })
+        feedAgentSignals(event)
 
         if let reaction = MascotStateMapper.reaction(for: event), MascotStateMapper.dominant(sessions)?.id == event.sessionId {
             playReaction(reaction, now: now)
@@ -150,6 +182,7 @@ final class PulseModel {
 
     func playReaction(_ reaction: MascotReaction, now: Date = Date()) {
         animator.enqueue(reaction)
+        lastReaction = "agent.\(reaction.rawValue)"
         if let trigger = reaction.bubbleTrigger {
             scheduler.react(trigger, now: now)
         }
@@ -201,6 +234,7 @@ final class PulseModel {
         scheduler.tick(now: now)
         updateHover()
         updateMirror(now: now)
+        updateAgentBusy(now: now)
 
         if scheduler.current != bubble {
             let isNew = scheduler.current != nil && scheduler.current?.id != bubble?.id
@@ -225,6 +259,7 @@ final class PulseModel {
         }
         state = target
         stateSince = now
+        waitLongSent = false
         animator.setState(target, at: now.timeIntervalSinceReferenceDate)
     }
 
@@ -249,6 +284,8 @@ final class PulseModel {
             interactive = nowInteractive
             onInteractiveChange?(nowInteractive)
         }
+
+        if inside { detectStroke(mouse.x) } else if !strokeTrail.isEmpty { strokeTrail.removeAll() }
 
         guard inside != isHovering else { return }
         isHovering = inside
@@ -279,6 +316,45 @@ final class PulseModel {
         let age = mirror.map { now.timeIntervalSince($0.at) } ?? .infinity
         let visible = (drawing && age < 60) || (isHovering && age < 600)
         if visible != showMirror { showMirror = visible }
+    }
+
+    /// Клик по маскоту: в агентном состоянии — переход к источнику, иначе — тычок.
+    func tapMascot() {
+        switch state {
+        case .work, .think, .waitYou:
+            activateSource()
+        case .idle, .sleep:
+            if let done = lastTask, Date().timeIntervalSince(done.at) < 60, dominant?.hostBundleId != nil {
+                activateSource()
+            } else {
+                simulate(.poke)
+            }
+        }
+    }
+
+    /// Поглаживание: курсор ходит туда-сюда над маскотом — три разворота за полторы секунды.
+    private func detectStroke(_ x: Double) {
+        let now = Date()
+        strokeTrail = strokeTrail.filter { now.timeIntervalSince($0.0) < 1.5 } + [(now, x)]
+        var reversals = 0
+        var direction = 0.0
+        var travel = 0.0
+        for (previous, next) in zip(strokeTrail, strokeTrail.dropFirst()) {
+            let dx = next.1 - previous.1
+            guard abs(dx) > 2 else { continue }
+            travel += abs(dx)
+            if direction != 0, (dx > 0) != (direction > 0) { reversals += 1 }
+            direction = dx
+        }
+        if reversals >= 3, travel > 30 {
+            strokeTrail.removeAll()
+            simulate(.stroke)
+        }
+    }
+
+    /// Реплика от имени тела (прятки: «Ку-ку»).
+    func say(_ text: String, duration: TimeInterval) {
+        scheduler.say(text, duration: duration, now: Date())
     }
 
     /// Переход к источнику: активируем приложение, в котором живёт агент.

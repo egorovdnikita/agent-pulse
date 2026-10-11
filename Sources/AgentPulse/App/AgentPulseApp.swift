@@ -106,6 +106,14 @@ struct MenuContent: View {
         } else {
             Button("Установить хуки Claude Code…") { app.installHooks() }
         }
+        if let reaction = model.lastReaction {
+            Section("Последняя реакция: \(model.lastLine ?? reaction)") {
+                Button("Мило") { model.feedback("мило") }
+                Button("Бесит") { model.feedback("бесит") }
+            }
+        }
+        Button("Характер…") { app.showSettings() }
+        Button("Вернуть маскота в угол") { app.panel?.resetPosition() }
         Toggle("Запускать при входе", isOn: Binding(get: { model.launchAtLogin }, set: { app.setLaunchAtLogin($0) }))
         Button("Mascot Lab") { app.showLab() }
         Divider()

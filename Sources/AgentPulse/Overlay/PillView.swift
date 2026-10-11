@@ -78,7 +78,13 @@ struct PillView: View {
             lowFrameRate: model.state == .sleep
         )
         .contentShape(Circle())
-        .onTapGesture { model.activateSource() }
+        .onTapGesture { model.tapMascot() }
+        // Перетаскивание и бросок: окно двигает панель по положению курсора на экране.
+        .gesture(
+            DragGesture(minimumDistance: 4)
+                .onChanged { _ in app.panel?.dragChanged() }
+                .onEnded { _ in app.panel?.dragEnded() }
+        )
         // То же меню, что в строке меню: значок там легко потерять среди других.
         .contextMenu { MenuContent(app: app) }
         .overlay(alignment: model.config.display.anchor.isRight ? .topLeading : .topTrailing) {

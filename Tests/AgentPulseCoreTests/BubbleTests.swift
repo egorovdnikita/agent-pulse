@@ -3,7 +3,7 @@ import Testing
 @testable import AgentPulseCore
 
 @Suite struct PhrasesTests {
-    @Test(arguments: BubbleTrigger.allCases)
+    @Test(arguments: BubbleTrigger.allCases.filter { $0 != .line })
     func everyPhraseFitsTheWordLimit(_ trigger: BubbleTrigger) {
         let pool = Phrases.pool(for: trigger)
         #expect(!pool.isEmpty)
@@ -35,7 +35,7 @@ import Testing
     @Test func pickerNeverRepeatsBackToBack() {
         var picker = PhrasePicker()
         var rng = SystemRandomNumberGenerator()
-        for trigger in BubbleTrigger.allCases where Phrases.pool(for: trigger).count > 1 {
+        for trigger in BubbleTrigger.allCases where Phrases.pool(for: trigger).count > 1 && trigger != .line {
             var last = ""
             for _ in 0..<100 {
                 let phrase = picker.pick(trigger, using: &rng)
@@ -118,5 +118,26 @@ import Testing
 
         scheduler.endWait(now: at(61))
         #expect(scheduler.current == nil)
+    }
+
+    @Test func catalogLinesQueueBehindAgentAndRespectQuiet() {
+        var scheduler = BubbleScheduler()
+        scheduler.say("Жарко…", duration: 2.5, now: at(0))
+        #expect(scheduler.current?.text == "Жарко…")
+        scheduler.say("Тише…", duration: 2.5, now: at(0.1))
+        scheduler.react(.done, now: at(0.2))
+        // Агентная реплика обгоняет реплику тела и вытесняет текущую после минимального показа.
+        scheduler.tick(now: at(1.1))
+        #expect(scheduler.current?.trigger == .done)
+
+        var quiet = BubbleScheduler()
+        quiet.quiet = true
+        quiet.say("Жарко…", duration: 2.5, now: at(0))
+        quiet.react(.done, now: at(0))
+        #expect(quiet.current == nil)
+        quiet.say("Эй…", duration: 3, agent: true, now: at(0))
+        #expect(quiet.current?.text == "Эй…")
+        quiet.react(.waitPermission, now: at(1))
+        #expect(quiet.current?.trigger == .waitPermission)
     }
 }

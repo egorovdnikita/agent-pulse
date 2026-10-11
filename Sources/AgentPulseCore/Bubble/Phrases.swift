@@ -10,6 +10,8 @@ public enum BubbleTrigger: String, Sendable, CaseIterable, Codable {
     case error
     case fallAsleep
     case hoverSleep
+    /// Реплика каталога реакций: текст выбирает Director.
+    case line
 
     /// Фоновые реплики `think`/`work`: троттлятся, вытесняются реакциями.
     public var isAmbient: Bool {
@@ -51,6 +53,7 @@ public enum Phrases {
         case .error: ["Упс…", "Не вышло", "Что-то не то"]
         case .fallAsleep: ["Вздремну"]
         case .hoverSleep: ["Привет", "Я тут"]
+        case .line: []
         }
     }
 }

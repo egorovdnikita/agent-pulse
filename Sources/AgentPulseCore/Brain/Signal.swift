@@ -35,6 +35,32 @@ public enum SignalKind: String, Sendable, Codable, CaseIterable {
     case lidAngle
 }
 
+extension SignalKind {
+    /// Орган чувств по умолчанию — для SignalSimulator.
+    public var defaultSense: SenseID {
+        switch self {
+        case .batteryLow, .batteryCritical, .batteryRecovered, .chargerConnected, .chargerDisconnected, .fullyCharged,
+             .lowPowerOn, .lowPowerOff: .power
+        case .thermalHigh, .thermalNormal: .thermal
+        case .memoryPressure, .memoryNormal: .memory
+        case .diskLow, .diskOK: .disk
+        case .networkLost, .networkBack: .network
+        case .displayAdded, .displayRemoved: .display
+        case .systemWake, .systemSleep, .screenLocked, .screenUnlocked: .sleepWake
+        case .userAway, .userBack, .longWork: .presence
+        case .minute, .uptimeLong: .clock
+        case .darkMode, .lightMode: .appearance
+        case .headphonesOn, .headphonesOff, .volumeMax: .audio
+        case .capsLockOn, .capsLockOff: .keyboard
+        case .quietOn, .quietOff: .quiet
+        case .spaceChanged: .space
+        case .stroke, .poke, .dragged, .thrown, .dropped: .interaction
+        case .agentWaitingLong, .agentErrorStreak, .agentStep, .agentDone, .agentError: .agents
+        case .lidAngle: .lidAngle
+        }
+    }
+}
+
 public struct Signal: Sendable, Equatable {
     public let sense: SenseID
     public let kind: SignalKind

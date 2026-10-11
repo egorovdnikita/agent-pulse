@@ -73,4 +73,20 @@ public struct DayMemory: Sendable, Codable, Equatable {
     public mutating func reset() {
         days.removeAll()
     }
+
+    public static var defaultURL: URL {
+        PulsePaths.supportDirectory.appending(path: "memory.json")
+    }
+
+    public static func load(from url: URL = defaultURL) -> DayMemory {
+        guard let data = try? Data(contentsOf: url), let memory = try? JSONDecoder().decode(DayMemory.self, from: data) else {
+            return DayMemory()
+        }
+        return memory
+    }
+
+    public func save(to url: URL = defaultURL) throws {
+        try FileManager.default.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
+        try JSONEncoder().encode(self).write(to: url, options: .atomic)
+    }
 }
