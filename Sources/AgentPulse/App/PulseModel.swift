@@ -1,0 +1,213 @@
+import AgentPulseCore
+import AppKit
+import Observation
+
+enum PulseInput: Sendable {
+    case event(AgentEvent)
+    case tick(Date)
+}
+
+/// Связывает ядро с UI: события → `SessionStore` → состояние маскота, облачко, уведомления.
+/// Все входы идут через одну очередь, поэтому порядок событий и тиков сохраняется.
+@MainActor
+@Observable
+final class PulseModel {
+    private(set) var sessions: [SessionInfo] = []
+    private(set) var state: MascotState = .sleep
+    private(set) var bubble: Bubble?
+    private(set) var hoverText: String?
+    var overlayVisible = true
+    var hooksInstalled = false
+    var serverError: String?
+    var config = PulseConfig.load()
+
+    /// MascotLab: ручное состояние поверх живого.
+    var labOverride: MascotState? {
+        didSet { update(now: Date()) }
+    }
+    var labReduceMotion = false
+    var tuning = MascotTuning() {
+        didSet {
+            animator.tuning = tuning
+            scheduler.tuning = tuning.bubble
+        }
+    }
+
+    @ObservationIgnored let animator = MascotAnimator()
+    @ObservationIgnored weak var notifier: Notifier?
+    @ObservationIgnored nonisolated let inbox: AsyncStream<PulseInput>.Continuation
+    @ObservationIgnored private let stream: AsyncStream<PulseInput>
+    @ObservationIgnored private let store = SessionStore()
+    @ObservationIgnored private var scheduler = BubbleScheduler()
+    @ObservationIgnored private var stateSince = Date()
+    @ObservationIgnored private var hovering = false
+    @ObservationIgnored private var timer: Timer?
+    @ObservationIgnored private var consumer: Task<Void, Never>?
+
+    init() {
+        (stream, inbox) = AsyncStream.makeStream(of: PulseInput.self, bufferingPolicy: .bufferingNewest(256))
+        animator.tuning = tuning
+        animator.setState(.sleep, at: Date.timeIntervalSinceReferenceDate)
+    }
+
+    func start() {
+        let stream = stream
+        consumer = Task { [weak self] in
+            for await input in stream {
+                guard let self else { return }
+                switch input {
+                case .event(let event):
+                    let sessions = await self.store.apply(event)
+                    self.handle(event, sessions: sessions)
+                case .tick(let now):
+                    let sessions = await self.store.tick(now: now)
+                    if sessions != self.sessions { self.sessions = sessions }
+                    self.update(now: now)
+                }
+            }
+        }
+        let inbox = inbox
+        timer = Timer.scheduledTimer(withTimeInterval: 0.1, repeats: true) { _ in
+            inbox.yield(.tick(Date()))
+        }
+    }
+
+    // MARK: - Производные для UI
+
+    var dominant: SessionInfo? {
+        MascotStateMapper.dominant(sessions)
+    }
+
+    var statusLine: String {
+        guard let top = dominant else { return "Нет активных сессий" }
+        let project = top.context.map { "\($0): " } ?? ""
+        return project + top.phase.text
+    }
+
+    var menuSymbol: String {
+        switch state {
+        case .waitYou: "exclamationmark.circle.fill"
+        case .sleep: "moon.circle"
+        default: "circle.circle"
+        }
+    }
+
+    var visibleBubbleText: String? {
+        bubble?.text ?? hoverText
+    }
+
+    /// Ключ для анимации появления: новое облачко — новая вставка.
+    var bubbleKey: Int {
+        bubble?.id ?? (hoverText == nil ? 0 : -1)
+    }
+
+    // MARK: - События
+
+    private func handle(_ event: AgentEvent, sessions: [SessionInfo]) {
+        let now = event.ts
+        if sessions != self.sessions { self.sessions = sessions }
+
+        if let reaction = MascotStateMapper.reaction(for: event), MascotStateMapper.dominant(sessions)?.id == event.sessionId {
+            playReaction(reaction, now: now)
+        }
+        notify(event)
+        update(now: now)
+    }
+
+    func playReaction(_ reaction: MascotReaction, now: Date = Date()) {
+        animator.enqueue(reaction)
+        scheduler.react(reaction.bubbleTrigger, now: now)
+    }
+
+    private func notify(_ event: AgentEvent) {
+        guard let notifier else { return }
+        let awaitId = "await-\(event.sessionId)"
+        let title = ["Claude Code", event.context].compactMap(\.self).joined(separator: " · ")
+        switch event.kind {
+        case .awaitingUser where config.events.awaitingUser.notification:
+            let fallback = event.awaitReason == .permission ? "Нужно твоё разрешение" : "Агент ждёт тебя"
+            notifier.post(id: awaitId, title: title, body: event.summary ?? fallback, sound: config.events.awaitingUser.sound != "none")
+        case .stopped:
+            notifier.remove(id: awaitId)
+            // Если терминал с агентом и так перед глазами — не дублируем.
+            let hostIsFront = event.hostBundleId != nil && NSWorkspace.shared.frontmostApplication?.bundleIdentifier == event.hostBundleId
+            if config.events.done.notification && !hostIsFront {
+                notifier.post(id: "done-\(event.sessionId)", title: title, body: "Готово", sound: config.events.done.sound != "none")
+            }
+        case .promptSubmitted, .toolStarted, .toolFinished, .sessionEnded:
+            notifier.remove(id: awaitId)
+        default:
+            break
+        }
+    }
+
+    // MARK: - Тик
+
+    private func update(now: Date) {
+        animator.reduceMotion = labReduceMotion || NSWorkspace.shared.accessibilityDisplayShouldReduceMotion
+
+        let target = labOverride ?? MascotStateMapper.state(for: sessions, now: now, sleepAfter: tuning.sleepAfter)
+        if target != state {
+            // Анти-дребезг: состояние держится минимум minStateHold; ожидание пользователя — сразу.
+            if target.isWaiting || now.timeIntervalSince(stateSince) >= tuning.minStateHold {
+                transition(to: target, now: now)
+            }
+        }
+
+        let activityTarget: WorkTarget? = if case .working(let activity) = dominant?.phase { activity.target } else { nil }
+        scheduler.ambient(MascotStateMapper.ambientTrigger(for: state, target: activityTarget), heldSince: stateSince, now: now)
+        scheduler.tick(now: now)
+        updateHover()
+
+        if scheduler.current != bubble {
+            let isNew = scheduler.current != nil && scheduler.current?.id != bubble?.id
+            bubble = scheduler.current
+            if isNew {
+                // Маскот на мгновение смотрит на облачко — связывает реплику с персонажем.
+                animator.glance(towardX: config.display.anchor.isRight ? -1 : 1, at: now.timeIntervalSinceReferenceDate)
+            }
+        }
+    }
+
+    private func transition(to target: MascotState, now: Date) {
+        let previous = state
+        if previous.isWaiting && !target.isWaiting {
+            scheduler.endWait(now: now)
+        }
+        if case .waitYou(let reason) = target, previous != target {
+            scheduler.react(MascotStateMapper.waitTrigger(reason), now: now)
+        }
+        if target == .sleep && previous != .sleep {
+            scheduler.react(.fallAsleep, now: now)
+        }
+        state = target
+        stateSince = now
+        animator.setState(target, at: now.timeIntervalSinceReferenceDate)
+    }
+
+    // MARK: - Hover и клик
+
+    /// Hover считаем по положению курсора, а не по tracking area: панель не бывает ключевой.
+    private func updateHover() {
+        guard let center = animator.screenCenter else { return }
+        let mouse = NSEvent.mouseLocation
+        let radius = config.display.mascotSize / 2 + 4
+        let inside = hypot(mouse.x - center.x, mouse.y - center.y) <= radius
+        guard inside != hovering else { return }
+        hovering = inside
+        if inside {
+            hoverText = state == .sleep ? scheduler.phrase(for: .hoverSleep) : scheduler.lastText
+        } else {
+            hoverText = nil
+        }
+    }
+
+    /// Переход к источнику: активируем приложение, в котором живёт агент.
+    func activateSource() {
+        guard
+            let bundleId = dominant?.hostBundleId,
+            let app = NSRunningApplication.runningApplications(withBundleIdentifier: bundleId).first
+        else { return }
+        app.activate()
+    }
+}

@@ -1,0 +1,150 @@
+import AgentPulseCore
+import AppKit
+
+/// Сводит поведение состояния, реакции, моргание, hover и Reduce Motion в одну позу на кадр.
+@MainActor
+final class MascotAnimator {
+    var tuning = MascotTuning()
+    var reduceMotion = false
+    /// Центр маскота в экранных координатах — для слежения за курсором.
+    var screenCenter: CGPoint?
+
+    private(set) var state: MascotState = .sleep
+    private var behavior: any MascotBehavior = SleepBehavior(start: 0)
+    private var queue: [MascotReaction] = []
+    private var active: ActiveReaction?
+    private var blink = BlinkEngine()
+    private var rng = SystemRandomNumberGenerator()
+    private var lastT: Double?
+
+    private var happyUntil = 0.0
+    private var lookDownUntil = 0.0
+    private var glanceUntil = 0.0
+    private var glanceX = 0.0
+
+    private var gaze = Spring2()
+    private var eyeScale = Spring(1)
+    private var happy = Spring(0)
+    private var body = Spring2()
+    private var bodyScale = Spring(1)
+    private var glowOpacity = Spring(0.5)
+    private var glowRadius = Spring(1)
+
+    func setState(_ newState: MascotState, at t: Double) {
+        state = newState
+        behavior = BehaviorFactory.make(newState, at: t, gaze: gaze.value, tuning: tuning)
+        if newState.isWaiting {
+            // wait_you прерывает всё.
+            queue.removeAll()
+            active = nil
+            happyUntil = 0
+            lookDownUntil = 0
+        }
+    }
+
+    /// Реакции не прерывают друг друга, а встают в очередь.
+    func enqueue(_ reaction: MascotReaction) {
+        guard !state.isWaiting else { return }
+        queue.append(reaction)
+        if queue.count > 4 { queue.removeFirst() }
+    }
+
+    func glance(towardX x: Double, at t: Double) {
+        glanceX = x
+        glanceUntil = t + tuning.bubbleGlance
+    }
+
+    func pose(at t: Double, cursor: CGPoint?) -> MascotPose {
+        let dt = lastT.map { min(max(t - $0, 0), 0.1) } ?? 0
+        lastT = t
+
+        var context = BehaviorContext(t: t, tuning: tuning, rng: rng)
+        var frame = behavior.step(&context)
+
+        if active == nil, !queue.isEmpty {
+            active = ActiveReaction(kind: queue.removeFirst(), start: t)
+        }
+        if var reaction = active {
+            let progress = (t - reaction.start) / ReactionPlayer.duration(reaction.kind, tuning: tuning)
+            if progress >= 1 {
+                finish(reaction.kind, at: t)
+                active = nil
+            } else {
+                ReactionPlayer.apply(&reaction, progress: progress, tuning: tuning, to: &frame)
+                active = reaction
+            }
+        }
+        if active == nil {
+            if t < happyUntil { frame.happy = 1 }
+            if t < lookDownUntil {
+                frame.gaze = SIMD2(0, 0.8)
+                frame.restGaze = frame.gaze
+            }
+        }
+
+        if !state.isWaiting && !frame.motionless {
+            if t < glanceUntil {
+                frame.gaze = SIMD2(glanceX, -0.1)
+            }
+            if let offset = cursorOffset(cursor), let follow = CursorGaze.gaze(offset: offset, radius: tuning.hoverRadius) {
+                frame.gaze = follow
+            }
+        }
+
+        if reduceMotion {
+            // Никаких саккад и подпрыгиваний: только форма глаз, статичный взгляд и свечение.
+            frame.gaze = frame.restGaze
+            frame.bodyOffset = .zero
+            frame.bodyScale = 1
+            frame.saccade = nil
+        }
+
+        // Большая саккада в 30% случаев сопровождается морганием — так делают живые глаза.
+        if let jump = frame.saccade, jump > tuning.bigSaccade, context.chance(tuning.bigSaccadeBlinkChance) {
+            blink.trigger(at: t, double: false, tuning: tuning)
+        }
+        if let request = frame.blink {
+            blink.trigger(at: t, double: request == .double, tuning: tuning)
+        }
+        blink.update(t: t, interval: frame.blinkInterval, context: &context)
+        let lid = blink.openness(at: t, tuning: tuning)
+        rng = context.rng
+
+        if dt == 0 {
+            gaze = Spring2(frame.gaze)
+            eyeScale = Spring(frame.eyeScale)
+            glowOpacity = Spring(frame.glowOpacity)
+        }
+        gaze.update(toward: frame.gaze, omega: tuning.saccadeOmega, dt: dt)
+        eyeScale.update(toward: frame.eyeScale, omega: 18, dt: dt)
+        happy.update(toward: frame.happy, omega: 20, dt: dt)
+        body.update(toward: frame.bodyOffset, omega: 60, dt: dt)
+        bodyScale.update(toward: frame.bodyScale, omega: 40, dt: dt)
+        glowOpacity.update(toward: frame.glowOpacity, omega: 10, dt: dt)
+        glowRadius.update(toward: frame.glowRadiusScale, omega: 12, dt: dt)
+
+        return MascotPose(
+            gaze: gaze.value.clamped(1),
+            eyeScale: max(0, eyeScale.value) * lid,
+            happy: min(max(happy.value, 0), 1),
+            bodyOffset: body.value,
+            bodyScale: bodyScale.value,
+            glowRadius: tuning.glowRadius * glowRadius.value,
+            glowOpacity: min(max(glowOpacity.value, 0), 1)
+        )
+    }
+
+    private func finish(_ reaction: MascotReaction, at t: Double) {
+        switch reaction {
+        case .done: happyUntil = t + tuning.doneHappyHold
+        case .error: lookDownUntil = t + tuning.errorLookDown
+        default: break
+        }
+    }
+
+    /// Смещение курсора от центра маскота в pt, y вниз.
+    private func cursorOffset(_ cursor: CGPoint?) -> SIMD2<Double>? {
+        guard let cursor, let center = screenCenter else { return nil }
+        return SIMD2(cursor.x - center.x, -(cursor.y - center.y))
+    }
+}
