@@ -150,7 +150,9 @@ final class PulseModel {
 
     func playReaction(_ reaction: MascotReaction, now: Date = Date()) {
         animator.enqueue(reaction)
-        scheduler.react(reaction.bubbleTrigger, now: now)
+        if let trigger = reaction.bubbleTrigger {
+            scheduler.react(trigger, now: now)
+        }
     }
 
     private func notify(_ event: AgentEvent) {

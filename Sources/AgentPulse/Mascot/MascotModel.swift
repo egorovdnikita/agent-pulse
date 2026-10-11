@@ -23,6 +23,12 @@ struct MascotPose: Equatable {
     var zzzSide: Double = -1
     /// Время кадра — для «Zzz».
     var time: Double = 0
+    /// 0…1 — глаза меняются местами.
+    var eyeSwap: Double = 0
+    /// Глаза расходятся, pt.
+    var eyeSpread: Double = 0
+    /// 0 — холодный белый свет, 1 — тёплый.
+    var glowWarmth: Double = 0
 }
 
 /// Критически задемпфированная пружина: быстрый переход без перелёта. Точное решение, не зависит от fps.

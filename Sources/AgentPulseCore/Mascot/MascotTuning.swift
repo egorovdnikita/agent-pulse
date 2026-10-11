@@ -79,6 +79,15 @@ public struct MascotTuning: Codable, Sendable, Equatable {
     public var doneHappyHold: Double = 3
     public var errorLookDown: Double = 2
 
+    /// Длительности реакций каталога, s. Агентные — выше, отдельными полями.
+    public var reactionDurations: [String: Double] = [
+        "startle": 0.5, "relax": 1.4, "contentSquint": 1.6, "lookAround": 1.8, "lookLeft": 2, "lookRight": 2,
+        "stretch": 1.8, "slowClose": 2.4, "puff": 2, "wideEyes": 1.2, "squint": 1.2, "fastBlink": 1.2,
+        "wobble": 2.4, "yawn": 2.4, "purr": 1.8, "flinch": 0.45, "turnAway": 2, "turnAwayLong": 10,
+        "dizzy": 2.4, "lookDown": 2, "sideEye": 2.2, "eyeSwap": 1.4,
+        "sneeze": 1.4, "hiccup": 4.6, "fly": 5, "nap": 4.5, "stare": 5,
+    ]
+
     // Анти-дребезг: состояние держится минимум столько.
     public var minStateHold: Double = 0.4
 

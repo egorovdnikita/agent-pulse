@@ -79,10 +79,12 @@ enum MascotRenderer {
         )
 
         let glowRadius = radius + pose.glowRadius * unit
+        // Ночью свечение теплеет.
+        let glow = Color(red: 1, green: 1 - 0.07 * pose.glowWarmth, blue: 1 - 0.2 * pose.glowWarmth)
         context.fill(
             Path(ellipseIn: circle(center, glowRadius)),
             with: .radialGradient(
-                Gradient(colors: [.white.opacity(pose.glowOpacity), .white.opacity(0)]),
+                Gradient(colors: [glow.opacity(pose.glowOpacity), glow.opacity(0)]),
                 center: center, startRadius: radius * 0.8, endRadius: glowRadius
             )
         )
@@ -103,7 +105,9 @@ enum MascotRenderer {
         let (tiltSin, tiltCos) = (sin(pose.tilt), cos(pose.tilt))
         for side in [-1.0, 1.0] {
             // Позиция глаза относительно центра тела, повёрнутая на наклон «головы».
-            let local = SIMD2((side * 8 + pose.gaze.x * 6) * unit * scaleX, (-2 + pose.gaze.y * 4) * unit * scaleY)
+            // 1 апреля глаза меняются местами; при нехватке памяти — расходятся.
+            let spot = side * (8 + pose.eyeSpread) * (1 - 2 * pose.eyeSwap)
+            let local = SIMD2((spot + pose.gaze.x * 6) * unit * scaleX, (-2 + pose.gaze.y * 4) * unit * scaleY)
             let rotated = SIMD2(local.x * tiltCos - local.y * tiltSin, local.x * tiltSin + local.y * tiltCos)
             // При взгляде вбок дальний глаз сужается — объём шара без лишних элементов.
             let isFar = (side < 0 && pose.gaze.x > 0) || (side > 0 && pose.gaze.x < 0)

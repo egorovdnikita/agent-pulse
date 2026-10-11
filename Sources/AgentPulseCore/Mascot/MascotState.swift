@@ -16,16 +16,44 @@ public enum MascotState: Sendable, Hashable {
     }
 }
 
-/// One-shot анимации поверх состояния.
-public enum MascotReaction: String, Sendable, CaseIterable {
+/// One-shot анимации поверх состояния. Используют только параметры тела — без новых элементов.
+public enum MascotReaction: String, Sendable, CaseIterable, Codable {
+    // Агенты
     case notice, step, done, error
+    // Тело ноутбука
+    case startle        // вздрагивает
+    case relax          // выдох: сжатие-расширение
+    case contentSquint  // довольный прищур
+    case lookAround     // озирается
+    case lookLeft, lookRight
+    case stretch        // потягивается
+    case slowClose      // глаза медленно закрываются
+    case puff           // надувается
+    case wideEyes       // глаза 1.2
+    case squint         // прищур
+    case fastBlink      // частое моргание
+    case wobble         // покачивание
+    case yawn           // зевок — глазами и телом
+    // Взаимодействие и характер
+    case purr           // жмурится от поглаживания
+    case flinch         // тычок
+    case turnAway       // отворачивается
+    case turnAwayLong   // отворачивается на 10 s
+    case dizzy          // глаза кружатся
+    case lookDown
+    case sideEye        // косится
+    case eyeSwap        // 1 апреля: глаза меняются местами
+    // Приколы
+    case sneeze, hiccup, fly, nap, stare
 
-    public var bubbleTrigger: BubbleTrigger {
+    /// Реплика агентного конвейера; у остальных реакций реплики задаёт каталог.
+    public var bubbleTrigger: BubbleTrigger? {
         switch self {
         case .notice: .notice
         case .step: .step
         case .done: .done
         case .error: .error
+        default: nil
         }
     }
 }
