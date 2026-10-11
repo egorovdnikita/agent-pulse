@@ -23,6 +23,19 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         model.hooksInstalled = HookInstaller.isInstalled()
         model.browserBridgeInstalled = BrowserBridgeInstaller.isInstalled()
         model.launchAtLogin = SMAppService.mainApp.status == .enabled
+        if CommandLine.arguments.contains("--register-login-item") && !model.launchAtLogin {
+            setLaunchAtLogin(true)
+        }
+        // Отладка: `open AgentPulse.app --args --state sleep|idle|think|wait` — как ручное состояние в MascotLab.
+        if let index = CommandLine.arguments.firstIndex(of: "--state"), index + 1 < CommandLine.arguments.count {
+            model.labOverride = switch CommandLine.arguments[index + 1] {
+            case "sleep": .sleep
+            case "idle": .idle
+            case "think": .think
+            case "wait": .waitYou(.permission)
+            default: nil
+            }
+        }
         repairInstallations()
 
         let panel = OverlayPanel(app: self)

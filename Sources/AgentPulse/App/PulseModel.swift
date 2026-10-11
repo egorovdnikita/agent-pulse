@@ -34,6 +34,8 @@ final class PulseModel {
     /// Есть ли у приложения разрешение «Универсальный доступ» (нужно для чата в Claude desktop).
     var accessibilityTrusted = false
     var launchAtLogin = false
+    /// Когда от каждого источника пришло последнее событие.
+    private(set) var lastEventBySource: [AgentEvent.Source: Date] = [:]
     /// Последний кадр зеркала Figma.
     private(set) var mirror: MirrorFrame?
     private(set) var showMirror = false
@@ -135,6 +137,7 @@ final class PulseModel {
 
     private func handle(_ event: AgentEvent, sessions: [SessionInfo]) {
         let now = event.ts
+        lastEventBySource[event.source] = now
         if sessions != self.sessions { self.sessions = sessions }
         lastTask = LastTask.updated(lastTask, event: event, session: sessions.first { $0.id == event.sessionId })
 

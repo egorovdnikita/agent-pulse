@@ -14,8 +14,9 @@ struct MascotView: View {
     static let awakeFrameInterval = 1.0 / 30
     static let sleepFrameInterval = 1.0 / 10
 
+    /// Холст с запасом над головой — под «Zzz».
     static func boxSize(_ diameter: Double) -> Double {
-        diameter * 1.75
+        diameter * 2.2
     }
 
     var body: some View {
@@ -129,12 +130,12 @@ enum MascotRenderer {
         guard pose.zzz > 0.01 else { return }
         let period = 2.6
         context.drawLayer { layer in
-            layer.addFilter(.shadow(color: .black.opacity(0.45), radius: 1.5 * unit))
+            layer.addFilter(.shadow(color: .black.opacity(0.45), radius: 2 * unit))
             for index in 0..<3 {
                 let phase = (pose.time / period + Double(index) / 3).truncatingRemainder(dividingBy: 1)
-                let x = center.x + pose.zzzSide * (radius * 0.55 + 12 * unit * phase)
-                let y = center.y - radius * 0.7 - 16 * unit * phase
-                let size = (8 + 6 * phase) * unit
+                let x = center.x + pose.zzzSide * (radius * 0.55 + 20 * unit * phase)
+                let y = center.y - radius * 0.7 - 26 * unit * phase
+                let size = (16 + 12 * phase) * unit
                 let opacity = pose.zzz * sin(.pi * phase)
                 layer.draw(
                     Text("z").font(.system(size: size, weight: .heavy, design: .rounded)).foregroundStyle(.white.opacity(opacity)),

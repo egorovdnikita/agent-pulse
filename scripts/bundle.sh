@@ -21,6 +21,11 @@ cp -R FigmaCompanion "$APP/Contents/Resources/FigmaCompanion"
 # Ad-hoc подпись для локального запуска. Для дистрибуции — Developer ID + нотаризация.
 # macOS привязывает «Универсальный доступ» к подписи: с ad-hoc разрешение слетает после каждой сборки.
 # Постоянный сертификат: AGENT_PULSE_SIGN_IDENTITY="Имя сертификата" scripts/bundle.sh
+# По умолчанию — локальный сертификат «Agent Pulse Local Signing», если он есть в связке ключей.
+LOCAL_IDENTITY="Agent Pulse Local Signing"
+if [[ -z "${AGENT_PULSE_SIGN_IDENTITY:-}" ]] && security find-identity -p codesigning 2>/dev/null | grep -q "$LOCAL_IDENTITY"; then
+    AGENT_PULSE_SIGN_IDENTITY="$LOCAL_IDENTITY"
+fi
 IDENTITY="${AGENT_PULSE_SIGN_IDENTITY:--}"
 codesign --force --sign "$IDENTITY" "$APP/Contents/MacOS/pulse-hook"
 codesign --force --sign "$IDENTITY" "$APP"

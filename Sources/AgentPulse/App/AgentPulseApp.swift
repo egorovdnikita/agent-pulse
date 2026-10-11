@@ -21,16 +21,28 @@ struct MenuContent: View {
     private func chatTitle(_ model: PulseModel) -> String {
         guard model.config.sources.claudeChat else { return "Claude Chat в приложении" }
         return model.accessibilityTrusted
-            ? "Claude Chat в приложении: слежу"
+            ? "Claude Chat в приложении: слежу" + lastEvent(model, .claudeChat)
             : "Claude Chat в приложении: нужен «Универсальный доступ»"
     }
 
-    private func coworkTitle(_ watching: Bool?) -> String {
-        switch watching {
-        case true?: "Cowork: слежу"
+    private func coworkTitle(_ model: PulseModel) -> String {
+        switch model.coworkWatching {
+        case true?: "Cowork: слежу" + lastEvent(model, .cowork)
         case false?: "Cowork: не найден"
         case nil: "Cowork"
         }
+    }
+
+    /// « · 3 мин назад» — когда источник последний раз подавал голос.
+    private func lastEvent(_ model: PulseModel, _ source: AgentEvent.Source) -> String {
+        guard let date = model.lastEventBySource[source] else { return "" }
+        let seconds = Date().timeIntervalSince(date)
+        let ago = switch seconds {
+        case ..<60: "только что"
+        case ..<3600: "\(Int(seconds / 60)) мин назад"
+        default: "\(Int(seconds / 3600)) ч назад"
+        }
+        return " · " + ago
     }
 
     var body: some View {
@@ -50,8 +62,9 @@ struct MenuContent: View {
         }
         Divider()
         Section("Источники") {
-            Text(model.hooksInstalled ? "Claude Code: хуки установлены" : "Claude Code: хуки не установлены")
-            Toggle(coworkTitle(model.coworkWatching), isOn: Binding(
+            Text((model.hooksInstalled ? "Claude Code: хуки установлены" : "Claude Code: хуки не установлены")
+                + lastEvent(model, .claudeCode))
+            Toggle(coworkTitle(model), isOn: Binding(
                 get: { model.config.sources.cowork },
                 set: { app.setCoworkEnabled($0) }
             ))

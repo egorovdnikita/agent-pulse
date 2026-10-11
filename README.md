@@ -30,9 +30,10 @@
 Нужны macOS 14+ и Swift 6 (хватает Command Line Tools, Xcode не обязателен).
 
 ```bash
-scripts/bundle.sh            # → build/AgentPulse.app
-open build/AgentPulse.app
+scripts/install.sh --login   # сборка → /Applications/AgentPulse.app, запуск при входе
 ```
+
+`scripts/bundle.sh` только собирает `build/AgentPulse.app`. Подпись — локальным сертификатом «Agent Pulse Local Signing», если он есть в связке ключей (иначе ad-hoc). С постоянной подписью macOS не сбрасывает «Универсальный доступ» после пересборки. Отладка состояний: `open /Applications/AgentPulse.app --args --state sleep` (`idle`, `think`, `wait`).
 
 В меню-баре появится значок. «Установить хуки Claude Code…» добавит хуки в `~/.claude/settings.json` (с бэкапом рядом). Чужие хуки не трогаются; удаление возвращает файл к исходному виду.
 
