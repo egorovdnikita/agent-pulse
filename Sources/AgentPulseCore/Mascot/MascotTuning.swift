@@ -44,6 +44,21 @@ public struct MascotTuning: Codable, Sendable, Equatable {
     // Тело
     public var hopHeight: Double = 3
     public var waitPeriod: Double = 3
+    /// Растяжение по вертикали на 1 pt/s скорости тела — живой прыжок без ручных ключей.
+    public var stretchPerSpeed: Double = 0.0022
+    public var maxStretch: Double = 0.07
+    /// Сплющивание при приземлении.
+    public var landingSquash: Double = 0.07
+    /// Приседание перед прыжком, pt.
+    public var anticipation: Double = 1.2
+    /// Дыхание тела: доля масштаба и период.
+    public var breathAmount: Double = 0.012
+    public var breathPeriod: Double = 3.6
+    /// Микродвижения взгляда во время фиксации — глаза не застывают.
+    public var microSaccade: Double = 0.035
+    /// Наклон пары глаз, рад: когда думает и когда рядом курсор.
+    public var thinkTilt: Double = 0.12
+    public var hoverTilt: Double = 0.07
 
     // Сон
     public var sleepAfter: Double = 60

@@ -33,7 +33,10 @@ enum ReactionPlayer {
             frame.gaze = .zero
             frame.restGaze = .zero
             frame.saccade = nil
-            frame.bodyOffset.y = -tuning.hopHeight * sin(.pi * progress)
+            // Присел — и подпрыгнул.
+            frame.bodyOffset.y = progress < 0.2
+                ? tuning.anticipation * sin(.pi * progress / 0.2)
+                : -tuning.hopHeight * sin(.pi * (progress - 0.2) / 0.8)
             blinkOnce(0, at: 0.45, .double)
         case .step:
             // Кивок: тело вниз и обратно, короткое моргание.

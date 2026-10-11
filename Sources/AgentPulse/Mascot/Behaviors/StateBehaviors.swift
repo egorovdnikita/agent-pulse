@@ -171,9 +171,13 @@ struct WaitBehavior: MascotBehavior {
             lastCycle = cycle
             frame.blink = .double
         }
+        let crouch = 0.12
         let pulse = 0.45
-        if phase < pulse {
-            let progress = phase / pulse
+        if phase < crouch {
+            // Присел перед прыжком.
+            frame.bodyOffset.y = tuning.anticipation * sin(.pi * phase / crouch)
+        } else if phase < crouch + pulse {
+            let progress = (phase - crouch) / pulse
             frame.bodyOffset.y = -tuning.hopHeight * sin(.pi * progress)
             frame.glowOpacity = min(1, tuning.glowOpacity + 0.4 * (1 - progress))
             frame.glowRadiusScale = 1 + 0.4 * (1 - progress)

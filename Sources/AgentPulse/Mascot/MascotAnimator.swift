@@ -35,6 +35,9 @@ final class MascotAnimator {
     private var glowRadius = Spring(1)
     private var wake = Spring(0)
     private var zzz = Spring(0)
+    private var impact = Spring(0)
+    private var tilt = Spring(0)
+    private var lastVelocityY = 0.0
 
     func setState(_ newState: MascotState, at t: Double) {
         state = newState
@@ -107,12 +110,34 @@ final class MascotAnimator {
             }
         }
 
+        // Микродвижения: живые глаза не застывают даже в фиксации. Не во сне и не когда смотрит на пользователя.
+        if !frame.motionless && !state.isWaiting && !followingCursor {
+            let drift = SIMD2(
+                sin(t * 1.9) * 0.6 + sin(t * 3.7 + 1) * 0.4,
+                sin(t * 2.3 + 2) * 0.6 + sin(t * 4.1) * 0.4
+            )
+            frame.gaze += drift * tuning.microSaccade
+        }
+
+        // Наклон: задумался — пара глаз чуть поворачивается к взгляду; курсор рядом — с любопытством к нему.
+        var tiltTarget = 0.0
+        if state == .think {
+            tiltTarget = tuning.thinkTilt * (frame.gaze.x >= 0 ? 1 : -1)
+        } else if followingCursor {
+            tiltTarget = tuning.hoverTilt * max(-1, min(1, frame.gaze.x))
+        }
+
         if reduceMotion {
             // Никаких саккад и подпрыгиваний: только форма глаз, статичный взгляд и свечение.
             frame.gaze = frame.restGaze
             frame.bodyOffset = .zero
             frame.bodyScale = 1
             frame.saccade = nil
+            tiltTarget = 0
+        } else {
+            // Дыхание тела; во сне — медленнее, в ритм свечения.
+            let period = state == .sleep ? tuning.sleepGlowPeriod : tuning.breathPeriod
+            frame.bodyScale *= 1 + tuning.breathAmount * sin(2 * .pi * t / period)
         }
 
         // Большая саккада в 30% случаев сопровождается морганием — так делают живые глаза.
@@ -140,6 +165,17 @@ final class MascotAnimator {
         bodyScale.update(toward: frame.bodyScale, omega: 40, dt: dt)
         glowOpacity.update(toward: frame.glowOpacity, omega: 10, dt: dt)
         glowRadius.update(toward: frame.glowRadiusScale, omega: 12, dt: dt)
+        tilt.update(toward: tiltTarget, omega: 8, dt: dt)
+
+        // Растяжение и сжатие из скорости тела: летит — вытянут, приземлился — сплющился.
+        let velocityY = body.y.velocity
+        if lastVelocityY > 12, velocityY <= 2, !reduceMotion {
+            impact.value = -tuning.landingSquash * min(1, lastVelocityY / 40)
+            impact.velocity = 0
+        }
+        lastVelocityY = velocityY
+        impact.update(toward: 0, omega: 16, dt: dt)
+        let stretch = reduceMotion ? 0 : min(tuning.maxStretch, abs(velocityY) * tuning.stretchPerSpeed)
 
         return MascotPose(
             gaze: gaze.value.clamped(1),
@@ -147,6 +183,8 @@ final class MascotAnimator {
             happy: min(max(happy.value, 0), 1),
             bodyOffset: body.value,
             bodyScale: bodyScale.value,
+            squash: stretch + impact.value,
+            tilt: tilt.value,
             glowRadius: tuning.glowRadius * glowRadius.value,
             glowOpacity: min(max(glowOpacity.value, 0), 1),
             zzz: reduceMotion ? frame.sleepiness * (1 - awake) : min(max(zzz.value, 0), 1),

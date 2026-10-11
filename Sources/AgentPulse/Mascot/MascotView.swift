@@ -46,25 +46,35 @@ struct MascotView: View {
 enum MascotRenderer {
     static func draw(_ pose: MascotPose, in context: inout GraphicsContext, size: CGSize, diameter: Double) {
         let unit = diameter / 48
-        let center = CGPoint(
+        let base = CGPoint(
             x: size.width / 2 + pose.bodyOffset.x * unit,
             y: size.height / 2 + pose.bodyOffset.y * unit
         )
         let radius = diameter / 2 * pose.bodyScale
-        let body = Path(ellipseIn: circle(center, radius))
+        // Растяжение и сжатие с сохранением объёма; нижний край тела остаётся на месте — тело «стоит».
+        let scaleY = 1 + pose.squash
+        let scaleX = 1 / scaleY.squareRoot()
+        let center = CGPoint(x: base.x, y: base.y + radius * (1 - scaleY))
+        let bodyRect = CGRect(
+            x: center.x - radius * scaleX, y: center.y - radius * scaleY,
+            width: 2 * radius * scaleX, height: 2 * radius * scaleY
+        )
+        let body = Path(ellipseIn: bodyRect)
 
         // Тень держит силуэт на светлом холсте Figma и белых окнах; считывается как часть свечения.
         // Радиальный градиент вместо фильтра размытия: вид тот же, а рисуется в разы дешевле.
+        // Чуть ниже тела — свет сверху, маскот не висит в пустоте.
+        let shadowCenter = CGPoint(x: base.x, y: base.y + 1.5 * unit)
         let shadowRadius = radius + 8 * unit
         context.fill(
-            Path(ellipseIn: circle(center, shadowRadius)),
+            Path(ellipseIn: circle(shadowCenter, shadowRadius)),
             with: .radialGradient(
                 Gradient(stops: [
                     .init(color: .black.opacity(0.25), location: 0),
                     .init(color: .black.opacity(0.25), location: (radius - 4 * unit) / shadowRadius),
                     .init(color: .black.opacity(0), location: 1),
                 ]),
-                center: center, startRadius: 0, endRadius: shadowRadius
+                center: shadowCenter, startRadius: 0, endRadius: shadowRadius
             )
         )
 
@@ -77,20 +87,30 @@ enum MascotRenderer {
             )
         )
 
-        context.fill(body, with: .color(.white))
+        // Белое тело с едва заметной светотенью: свет сверху слева — шар, а не плоский круг.
+        context.fill(
+            body,
+            with: .radialGradient(
+                Gradient(colors: [.white, .white, Color(white: 0.9)]),
+                center: CGPoint(x: center.x - radius * 0.3, y: center.y - radius * 0.35),
+                startRadius: 0, endRadius: radius * 1.35
+            )
+        )
         drawZzz(pose, in: &context, center: center, radius: radius, unit: unit)
 
-        let eyeWidth = 7 * unit * pose.bodyScale
-        let eyeHeight = 10 * unit * pose.bodyScale
+        let eyeWidth = 7 * unit * pose.bodyScale * scaleX
+        let eyeHeight = 10 * unit * pose.bodyScale * scaleY
+        let (tiltSin, tiltCos) = (sin(pose.tilt), cos(pose.tilt))
         for side in [-1.0, 1.0] {
-            let eyeCenter = CGPoint(
-                x: center.x + (side * 8 + pose.gaze.x * 6) * unit,
-                y: center.y + (-2 + pose.gaze.y * 4) * unit
-            )
+            // Позиция глаза относительно центра тела, повёрнутая на наклон «головы».
+            let local = SIMD2((side * 8 + pose.gaze.x * 6) * unit * scaleX, (-2 + pose.gaze.y * 4) * unit * scaleY)
+            let rotated = SIMD2(local.x * tiltCos - local.y * tiltSin, local.x * tiltSin + local.y * tiltCos)
             // При взгляде вбок дальний глаз сужается — объём шара без лишних элементов.
             let isFar = (side < 0 && pose.gaze.x > 0) || (side > 0 && pose.gaze.x < 0)
             let width = eyeWidth * (isFar ? 1 - 0.15 * min(1, abs(pose.gaze.x)) : 1)
             let height = eyeHeight * pose.eyeScale
+            // Веко опускается сверху: прикрытый глаз оседает вниз, а не сжимается к центру.
+            let eyeCenter = CGPoint(x: center.x + rotated.x, y: center.y + rotated.y + (eyeHeight - height) * 0.3)
 
             // Почти закрытый овал плавно перетекает в веко «‿» — закрытые глаза видны, а не исчезают.
             let closed = min(max((0.35 - pose.eyeScale) / 0.25, 0), 1) * (1 - pose.happy)
@@ -133,9 +153,9 @@ enum MascotRenderer {
             layer.addFilter(.shadow(color: .black.opacity(0.45), radius: 2 * unit))
             for index in 0..<3 {
                 let phase = (pose.time / period + Double(index) / 3).truncatingRemainder(dividingBy: 1)
-                let x = center.x + pose.zzzSide * (radius * 0.55 + 20 * unit * phase)
-                let y = center.y - radius * 0.7 - 26 * unit * phase
-                let size = (16 + 12 * phase) * unit
+                let x = center.x + pose.zzzSide * (radius * 0.55 + 4 * unit + 18 * unit * phase)
+                let y = center.y - radius * 0.7 - 24 * unit * phase
+                let size = (13 + 9 * phase) * unit
                 let opacity = pose.zzz * sin(.pi * phase)
                 layer.draw(
                     Text("z").font(.system(size: size, weight: .heavy, design: .rounded)).foregroundStyle(.white.opacity(opacity)),

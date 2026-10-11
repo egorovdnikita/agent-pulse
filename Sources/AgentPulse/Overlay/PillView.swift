@@ -8,6 +8,11 @@ struct PillView: View {
 
     static let mirrorSlot = MirrorView.maxSize.height + 12
 
+    /// Облачко заходит на поле холста маскота: хвостик в 8 pt от тела, а не у края холста.
+    static func bubbleOverlap(diameter: Double) -> Double {
+        max(0, (MascotView.boxSize(diameter) - diameter) / 2 - 8)
+    }
+
     static func rowHeight(diameter: Double) -> Double {
         max(MascotView.boxSize(diameter), 64)
     }
@@ -15,7 +20,10 @@ struct PillView: View {
     /// Над рядом (под ним, если маскот сверху) — место под зеркало Figma. Пустое место пропускает клики.
     static func size(diameter: Double) -> CGSize {
         let box = MascotView.boxSize(diameter)
-        return CGSize(width: BubbleView.maxWidth + box, height: rowHeight(diameter: diameter) + mirrorSlot)
+        return CGSize(
+            width: BubbleView.maxWidth + box - bubbleOverlap(diameter: diameter),
+            height: rowHeight(diameter: diameter) + mirrorSlot
+        )
     }
 
     var body: some View {
@@ -35,7 +43,7 @@ struct PillView: View {
     }
 
     private func row(_ diameter: Double, anchorRight: Bool) -> some View {
-        HStack(spacing: 0) {
+        HStack(spacing: -Self.bubbleOverlap(diameter: diameter)) {
             if anchorRight {
                 bubbleSlot(tailOnRight: true)
                 mascot(diameter)

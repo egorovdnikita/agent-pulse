@@ -11,6 +11,10 @@ struct MascotPose: Equatable {
     /// В pt при диаметре 48.
     var bodyOffset: SIMD2<Double> = .zero
     var bodyScale: Double = 1
+    /// > 0 — вытянут по вертикали, < 0 — сплющен; нижний край тела на месте.
+    var squash: Double = 0
+    /// Наклон пары глаз, рад.
+    var tilt: Double = 0
     var glowRadius: Double = 10
     var glowOpacity: Double = 0.55
     /// 0…1 — видимость «Zzz».

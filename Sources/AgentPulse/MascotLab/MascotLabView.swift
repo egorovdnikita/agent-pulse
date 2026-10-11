@@ -67,6 +67,14 @@ struct MascotLabView: View {
                     slider("Радиус свечения", $model.tuning.glowRadius, 0...30)
                     slider("Яркость свечения", $model.tuning.glowOpacity, 0...1)
                 }
+                Section("Живость") {
+                    slider("Растяжение в прыжке", $model.tuning.stretchPerSpeed, 0...0.006)
+                    slider("Сплющивание при приземлении", $model.tuning.landingSquash, 0...0.2)
+                    slider("Приседание перед прыжком, pt", $model.tuning.anticipation, 0...4)
+                    slider("Дыхание тела", $model.tuning.breathAmount, 0...0.05)
+                    slider("Микродвижения глаз", $model.tuning.microSaccade, 0...0.12)
+                    slider("Наклон, когда думает", $model.tuning.thinkTilt, 0...0.4)
+                }
                 Section("Облачко") {
                     slider("Фон не чаще, s", $model.tuning.bubble.ambientInterval, 2...30)
                     slider("Модус держится, s", $model.tuning.bubble.ambientMinHold, 0...6)

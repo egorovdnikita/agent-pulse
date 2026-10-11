@@ -237,7 +237,8 @@ final class PulseModel {
 
         // Облачко лежит со стороны, противоположной краю экрана.
         let box = MascotView.boxSize(diameter)
-        let bubbleMinX = config.display.anchor.isRight ? center.x - box / 2 - BubbleView.maxWidth : center.x + box / 2
+        let near = box / 2 - PillView.bubbleOverlap(diameter: diameter)
+        let bubbleMinX = config.display.anchor.isRight ? center.x - near - BubbleView.maxWidth : center.x + near
         let overBubble = visibleBubbleText != nil
             && mouse.x >= bubbleMinX && mouse.x <= bubbleMinX + BubbleView.maxWidth
             && abs(mouse.y - center.y) <= 26
