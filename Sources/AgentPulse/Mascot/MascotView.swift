@@ -7,21 +7,37 @@ struct MascotView: View {
     let diameter: Double
     /// Панель скрыта — ноль кадров, ноль CPU.
     var paused = false
-    /// Во сне хватает 15 fps.
+    /// Во сне хватает 10 fps: дыхание и «Zzz» медленные.
     var lowFrameRate = false
+
+    /// Бодрствующему маскоту в 48 pt хватает 30 fps — глазу не отличить от 60, CPU вдвое меньше.
+    static let awakeFrameInterval = 1.0 / 30
+    static let sleepFrameInterval = 1.0 / 10
 
     static func boxSize(_ diameter: Double) -> Double {
         diameter * 1.75
     }
 
     var body: some View {
-        TimelineView(.animation(minimumInterval: lowFrameRate ? 1.0 / 15 : nil, paused: paused)) { timeline in
-            let pose = animator.pose(at: timeline.date.timeIntervalSinceReferenceDate, cursor: NSEvent.mouseLocation)
-            Canvas { context, size in
-                MascotRenderer.draw(pose, in: &context, size: size, diameter: diameter)
+        Group {
+            if paused {
+                frame(at: Date())
+            } else {
+                // Строго периодическое расписание: `.animation(minimumInterval:)` всё равно будит
+                // отрисовку с частотой экрана, и сон стоил столько же CPU, сколько работа.
+                TimelineView(.periodic(from: .now, by: lowFrameRate ? Self.sleepFrameInterval : Self.awakeFrameInterval)) { timeline in
+                    frame(at: timeline.date)
+                }
             }
         }
         .frame(width: Self.boxSize(diameter), height: Self.boxSize(diameter))
+    }
+
+    private func frame(at date: Date) -> some View {
+        let pose = animator.pose(at: date.timeIntervalSinceReferenceDate, cursor: NSEvent.mouseLocation)
+        return Canvas { context, size in
+            MascotRenderer.draw(pose, in: &context, size: size, diameter: diameter)
+        }
     }
 }
 
@@ -37,10 +53,19 @@ enum MascotRenderer {
         let body = Path(ellipseIn: circle(center, radius))
 
         // Тень держит силуэт на светлом холсте Figma и белых окнах; считывается как часть свечения.
-        context.drawLayer { layer in
-            layer.addFilter(.blur(radius: 8 * unit))
-            layer.fill(body, with: .color(.black.opacity(0.25)))
-        }
+        // Радиальный градиент вместо фильтра размытия: вид тот же, а рисуется в разы дешевле.
+        let shadowRadius = radius + 8 * unit
+        context.fill(
+            Path(ellipseIn: circle(center, shadowRadius)),
+            with: .radialGradient(
+                Gradient(stops: [
+                    .init(color: .black.opacity(0.25), location: 0),
+                    .init(color: .black.opacity(0.25), location: (radius - 4 * unit) / shadowRadius),
+                    .init(color: .black.opacity(0), location: 1),
+                ]),
+                center: center, startRadius: 0, endRadius: shadowRadius
+            )
+        )
 
         let glowRadius = radius + pose.glowRadius * unit
         context.fill(

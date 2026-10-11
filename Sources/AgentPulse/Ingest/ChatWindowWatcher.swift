@@ -83,7 +83,16 @@ final class ChatWindowWatcher: @unchecked Sendable {
         transition(to: ChatWindowSignals.state(buttonLabels: labels, approvalVisible: approvalVisible))
     }
 
+    private var lastLookup = Date.distantPast
+
     private func claudeApp() -> AXUIElement? {
+        // Процесс уже известен и жив — не дёргаем LaunchServices каждые 150 ms.
+        if let pid, appElement != nil, kill(pid, 0) == 0 {
+            return appElement
+        }
+        // Claude не запущен — ищем его не чаще раза в 2 секунды.
+        guard Date().timeIntervalSince(lastLookup) >= 2 else { return nil }
+        lastLookup = Date()
         guard let running = NSRunningApplication.runningApplications(withBundleIdentifier: ChatWindowSignals.hostBundleId).first else {
             return nil
         }

@@ -33,6 +33,7 @@ final class PulseModel {
     var companionError: String?
     /// Есть ли у приложения разрешение «Универсальный доступ» (нужно для чата в Claude desktop).
     var accessibilityTrusted = false
+    var launchAtLogin = false
     /// Последний кадр зеркала Figma.
     private(set) var mirror: MirrorFrame?
     private(set) var showMirror = false
@@ -101,6 +102,11 @@ final class PulseModel {
         MascotStateMapper.dominant(sessions)
     }
 
+    /// Сессии, где агент что-то делает или ждёт: их больше одной — на маскоте счётчик.
+    var activeSessions: [SessionInfo] {
+        sessions.filter { $0.phase != .idle }
+    }
+
     var statusLine: String {
         guard let top = dominant else { return "Нет активных сессий" }
         let project = top.context.map { "\($0): " } ?? ""
@@ -151,13 +157,19 @@ final class PulseModel {
         switch event.kind {
         case .awaitingUser where config.events.awaitingUser.notification:
             let fallback = event.awaitReason == .permission ? "Нужно твоё разрешение" : "Агент ждёт тебя"
-            notifier.post(id: awaitId, title: title, body: event.summary ?? fallback, sound: config.events.awaitingUser.sound != "none")
+            notifier.post(
+                id: awaitId, title: title, body: event.summary ?? fallback,
+                sound: config.events.awaitingUser.sound != "none", host: event.hostBundleId
+            )
         case .stopped:
             notifier.remove(id: awaitId)
             // Если терминал с агентом и так перед глазами — не дублируем.
             let hostIsFront = event.hostBundleId != nil && NSWorkspace.shared.frontmostApplication?.bundleIdentifier == event.hostBundleId
             if config.events.done.notification && !hostIsFront {
-                notifier.post(id: "done-\(event.sessionId)", title: title, body: "Готово", sound: config.events.done.sound != "none")
+                notifier.post(
+                    id: "done-\(event.sessionId)", title: title, body: "Готово",
+                    sound: config.events.done.sound != "none", host: event.hostBundleId
+                )
             }
         case .promptSubmitted, .toolStarted, .toolFinished, .sessionEnded:
             notifier.remove(id: awaitId)

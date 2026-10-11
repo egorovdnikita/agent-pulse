@@ -35,7 +35,16 @@ struct MenuContent: View {
 
     var body: some View {
         let model = app.model
-        Text(model.statusLine)
+        let active = model.activeSessions
+        if active.count > 1 {
+            Section("Сейчас") {
+                ForEach(active.prefix(6)) { session in
+                    Text([session.source.displayName, session.context].compactMap(\.self).joined(separator: " · ") + ": " + session.phase.text)
+                }
+            }
+        } else {
+            Text(model.statusLine)
+        }
         if let error = model.serverError {
             Text("Сокет недоступен: \(error)")
         }
@@ -84,6 +93,7 @@ struct MenuContent: View {
         } else {
             Button("Установить хуки Claude Code…") { app.installHooks() }
         }
+        Toggle("Запускать при входе", isOn: Binding(get: { model.launchAtLogin }, set: { app.setLaunchAtLogin($0) }))
         Button("Mascot Lab") { app.showLab() }
         Divider()
         Button("Выйти") { NSApp.terminate(nil) }

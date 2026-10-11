@@ -55,6 +55,15 @@ public enum BrowserBridgeInstaller {
         }
     }
 
+    /// Мост установлен, но указывает на другой `pulse-hook`.
+    public static func needsUpdate(hookPath: String, applicationSupport: URL = applicationSupport) -> Bool {
+        manifestURLs(applicationSupport: applicationSupport).contains { url in
+            guard let data = try? Data(contentsOf: url),
+                  let manifest = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else { return false }
+            return manifest["path"] as? String != hookPath
+        }
+    }
+
     public static func isInstalled(applicationSupport: URL = applicationSupport) -> Bool {
         manifestURLs(applicationSupport: applicationSupport).contains { FileManager.default.fileExists(atPath: $0.path) }
     }

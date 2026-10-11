@@ -1,5 +1,6 @@
 import AgentPulseCore
 import AppKit
+import ServiceManagement
 import SwiftUI
 
 @MainActor
@@ -21,8 +22,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         model.notifier = notifier
         model.hooksInstalled = HookInstaller.isInstalled()
         model.browserBridgeInstalled = BrowserBridgeInstaller.isInstalled()
+        model.launchAtLogin = SMAppService.mainApp.status == .enabled
+        repairInstallations()
 
-        let panel = OverlayPanel(model: model)
+        let panel = OverlayPanel(app: self)
         panel.orderFrontRegardless()
         self.panel = panel
 
@@ -171,14 +174,21 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
     }
 
-    func revealFigmaPlugin() {
-        guard let url = Bundle.main.resourceURL?.appending(path: "FigmaCompanion/manifest.json"),
-              FileManager.default.fileExists(atPath: url.path) else { return }
+    /// Figma, как и Chrome, грузит плагин из постоянной копии — бандл пересобирается.
+    @discardableResult
+    private func copyFigmaPlugin() -> URL? {
+        guard let source = Bundle.main.resourceURL?.appending(path: "FigmaCompanion"),
+              FileManager.default.fileExists(atPath: source.path) else { return nil }
         let stable = PulsePaths.supportDirectory.appending(path: "FigmaCompanion", directoryHint: .isDirectory)
         let fileManager = FileManager.default
         try? fileManager.createDirectory(at: PulsePaths.supportDirectory, withIntermediateDirectories: true)
         try? fileManager.removeItem(at: stable)
-        try? fileManager.copyItem(at: url.deletingLastPathComponent(), to: stable)
+        try? fileManager.copyItem(at: source, to: stable)
+        return stable
+    }
+
+    func revealFigmaPlugin() {
+        guard let stable = copyFigmaPlugin() else { return }
         NSWorkspace.shared.activateFileViewerSelecting([stable.appending(path: "manifest.json")])
     }
 
@@ -231,6 +241,37 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     private var hookCommand: String? {
         hookPath.map { "\"\($0)\"" }
+    }
+
+    /// Хуки и мост браузера ставились с согласия пользователя. Если приложение с тех пор переехало,
+    /// они указывают на старый `pulse-hook` — молча чиним путь (с бэкапом settings.json) и обновляем копии
+    /// расширения и плагина, чтобы в них были свежие версии.
+    private func repairInstallations() {
+        guard let hookPath, let hookCommand else { return }
+        if model.hooksInstalled, HookInstaller.needsUpdate(command: hookCommand) {
+            _ = try? HookInstaller.install(command: hookCommand)
+        }
+        if model.browserBridgeInstalled {
+            if BrowserBridgeInstaller.needsUpdate(hookPath: hookPath) {
+                _ = try? BrowserBridgeInstaller.install(hookPath: hookPath)
+            }
+            try? copyExtension()
+        }
+        let plugin = PulsePaths.supportDirectory.appending(path: "FigmaCompanion", directoryHint: .isDirectory)
+        if FileManager.default.fileExists(atPath: plugin.path) {
+            copyFigmaPlugin()
+        }
+    }
+
+    // MARK: - Запуск при входе
+
+    func setLaunchAtLogin(_ enabled: Bool) {
+        do {
+            if enabled { try SMAppService.mainApp.register() } else { try SMAppService.mainApp.unregister() }
+        } catch {
+            showAlert("Не получилось", "\(error.localizedDescription)")
+        }
+        model.launchAtLogin = SMAppService.mainApp.status == .enabled
     }
 
     // MARK: - Браузер

@@ -8,7 +8,8 @@ final class OverlayPanel: NSPanel {
     private let model: PulseModel
     private var currentScreen: NSScreen?
 
-    init(model: PulseModel) {
+    init(app: AppDelegate) {
+        let model = app.model
         self.model = model
         super.init(
             contentRect: NSRect(x: 0, y: 0, width: 1, height: 1),
@@ -29,7 +30,11 @@ final class OverlayPanel: NSPanel {
         model.onInteractiveChange = { [weak self] interactive in
             self?.ignoresMouseEvents = !interactive
         }
-        contentView = FirstMouseHostingView(rootView: PillView(model: model))
+        let host = FirstMouseHostingView(rootView: PillView(model: model, app: app))
+        // Размер панели задаём сами. Иначе хост пересчитывает размеры окна на каждом кадре анимации —
+        // это был главный расход CPU в простое.
+        host.sizingOptions = []
+        contentView = host
         reposition()
     }
 

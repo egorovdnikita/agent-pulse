@@ -81,6 +81,23 @@ public enum HookInstaller {
         }
     }
 
+    /// Хуки стоят, но указывают на другой `pulse-hook` (приложение переехали или пересобрали в другом месте).
+    public static func needsUpdate(_ settings: [String: Any], command: String) -> Bool {
+        guard let hooks = settings["hooks"] as? [String: Any] else { return false }
+        let commands = hooks.values.flatMap { value in
+            (value as? [[String: Any]] ?? []).flatMap { group in
+                (group["hooks"] as? [Any] ?? []).filter(isOurs).compactMap { ($0 as? [String: Any])?["command"] as? String }
+            }
+        }
+        return !commands.isEmpty && (commands.contains { $0 != command } || !events.allSatisfy { event in
+            (hooks[event] as? [[String: Any]] ?? []).contains { ($0["hooks"] as? [Any] ?? []).contains(where: isOurs) }
+        })
+    }
+
+    public static func needsUpdate(command: String, settingsURL: URL = PulsePaths.claudeSettingsURL) -> Bool {
+        (try? readSettings(settingsURL.resolvingSymlinksInPath())).map { needsUpdate($0, command: command) } ?? false
+    }
+
     static func isOurs(_ hook: Any) -> Bool {
         ((hook as? [String: Any])?["command"] as? String)?.contains(marker) == true
     }

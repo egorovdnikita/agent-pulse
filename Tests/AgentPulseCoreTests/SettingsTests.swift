@@ -123,3 +123,28 @@ import Testing
         _ = data.withUnsafeBytes { write(fd, $0.baseAddress, $0.count) }
     }
 }
+
+@Suite struct InstallRepairTests {
+    @Test func hooksPointingElsewhereNeedUpdate() {
+        let old = HookInstaller.installing(into: [:], command: "\"/old/pulse-hook\"")
+        #expect(HookInstaller.needsUpdate(old, command: "\"/new/pulse-hook\""))
+        #expect(!HookInstaller.needsUpdate(old, command: "\"/old/pulse-hook\""))
+        // Не установлены — чинить нечего.
+        #expect(!HookInstaller.needsUpdate([:], command: "\"/new/pulse-hook\""))
+        // Кто-то удалил часть событий — восстановим.
+        var partial = old
+        var hooks = partial["hooks"] as! [String: Any]
+        hooks["Stop"] = nil
+        partial["hooks"] = hooks
+        #expect(HookInstaller.needsUpdate(partial, command: "\"/old/pulse-hook\""))
+    }
+
+    @Test func bridgePointingElsewhereNeedsUpdate() throws {
+        let root = FileManager.default.temporaryDirectory.appending(path: "nmh-\(UUID().uuidString)")
+        try FileManager.default.createDirectory(at: root.appending(path: "Google/Chrome"), withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: root) }
+        try BrowserBridgeInstaller.install(hookPath: "/old/pulse-hook", applicationSupport: root)
+        #expect(BrowserBridgeInstaller.needsUpdate(hookPath: "/new/pulse-hook", applicationSupport: root))
+        #expect(!BrowserBridgeInstaller.needsUpdate(hookPath: "/old/pulse-hook", applicationSupport: root))
+    }
+}
