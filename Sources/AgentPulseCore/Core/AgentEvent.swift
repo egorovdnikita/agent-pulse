@@ -3,7 +3,16 @@ import Foundation
 /// Единая модель события. Все источники приводятся к ней; UI и маскот ничего не знают об источниках.
 public struct AgentEvent: Codable, Sendable, Equatable {
     public enum Source: String, Codable, Sendable {
-        case claudeCode, figmaMCP, figmaCompanion
+        case claudeCode, cowork, claudeChat, figmaMCP, figmaCompanion
+
+        public var displayName: String {
+            switch self {
+            case .claudeCode: "Claude Code"
+            case .cowork: "Cowork"
+            case .claudeChat: "Claude Chat"
+            case .figmaMCP, .figmaCompanion: "Figma"
+            }
+        }
     }
 
     public enum Kind: String, Codable, Sendable {

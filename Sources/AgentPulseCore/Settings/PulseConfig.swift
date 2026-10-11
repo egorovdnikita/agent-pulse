@@ -14,7 +14,10 @@ public struct PulseConfig: Codable, Sendable, Equatable {
 
     public struct Sources: Codable, Sendable, Equatable {
         public var claudeCode = true
+        public var cowork = true
+        public var claudeChat = false
         public var figmaMCP = true
+        public var figmaAI = true
         public var figmaMirror = true
     }
 

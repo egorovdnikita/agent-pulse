@@ -18,11 +18,27 @@ struct AgentPulseApp: App {
 struct MenuContent: View {
     let app: AppDelegate
 
+    private func coworkTitle(_ watching: Bool?) -> String {
+        switch watching {
+        case true?: "Cowork: слежу"
+        case false?: "Cowork: не найден"
+        case nil: "Cowork"
+        }
+    }
+
     var body: some View {
         let model = app.model
         Text(model.statusLine)
         if let error = model.serverError {
             Text("Сокет недоступен: \(error)")
+        }
+        Divider()
+        Section("Источники") {
+            Text(model.hooksInstalled ? "Claude Code: хуки установлены" : "Claude Code: хуки не установлены")
+            Toggle(coworkTitle(model.coworkWatching), isOn: Binding(
+                get: { model.config.sources.cowork },
+                set: { app.setCoworkEnabled($0) }
+            ))
         }
         Divider()
         Toggle("Показывать маскота", isOn: Binding(get: { model.overlayVisible }, set: { app.setOverlayVisible($0) }))

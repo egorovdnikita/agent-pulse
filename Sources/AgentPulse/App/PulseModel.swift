@@ -19,6 +19,8 @@ final class PulseModel {
     private(set) var lastTask: LastTask?
     var overlayVisible = true
     var hooksInstalled = false
+    /// Следим ли за журналами Cowork (nil — выключено в настройках).
+    var coworkWatching: Bool?
     var serverError: String?
     var config = PulseConfig.load()
 
@@ -128,7 +130,7 @@ final class PulseModel {
     private func notify(_ event: AgentEvent) {
         guard let notifier else { return }
         let awaitId = "await-\(event.sessionId)"
-        let title = ["Claude Code", event.context].compactMap(\.self).joined(separator: " · ")
+        let title = [event.source.displayName, event.context].compactMap(\.self).joined(separator: " · ")
         switch event.kind {
         case .awaitingUser where config.events.awaitingUser.notification:
             let fallback = event.awaitReason == .permission ? "Нужно твоё разрешение" : "Агент ждёт тебя"

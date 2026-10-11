@@ -18,6 +18,32 @@ public enum Humanizer {
         "get_libraries", "html_to_figma",
     ]
 
+    /// Инструменты, которыми агент спрашивает пользователя: это ожидание, а не работа.
+    public static let questionTools: [String: String] = [
+        "AskUserQuestion": "Агент задаёт вопрос",
+        "ExitPlanMode": "Агент ждёт одобрения плана",
+    ]
+
+    /// Инструменты MCP-серверов окружения (Cowork, браузер), узнаваемые по имени при любом сервере.
+    static func genericMCP(_ tool: String, input: [String: Any]) -> HumanizedTool? {
+        switch tool {
+        case "bash", "run_command", "execute_command":
+            return HumanizedTool(kind: .run, target: .code, text: bash(input))
+        case "read_file", "read_file_content", "get_file_metadata", "get_page_text", "read_page":
+            return HumanizedTool(kind: .read, target: .code, text: "Читает файл")
+        case "search_files", "find", "grep":
+            return HumanizedTool(kind: .read, target: .code, text: "Ищет файлы")
+        case "write_file", "edit_file", "create_file":
+            return HumanizedTool(kind: .edit, target: .code, text: "Пишет файл")
+        case "web_fetch", "navigate", "web_search":
+            return HumanizedTool(kind: .search, target: .code, text: "Смотрит в сети")
+        case "computer":
+            return HumanizedTool(kind: .other, target: .code, text: "Управляет компьютером")
+        default:
+            return nil
+        }
+    }
+
     public static func classify(tool: String) -> HumanizedTool {
         describe(tool: tool, input: [:])
     }
@@ -26,6 +52,9 @@ public enum Humanizer {
         if let mcp = splitMCP(tool) {
             if isFigma(server: mcp.server, tool: mcp.tool) {
                 return figma(mcp.tool)
+            }
+            if let generic = genericMCP(mcp.tool, input: input) {
+                return generic
             }
             let readLike = ["get_", "list_", "search_", "read_", "fetch_", "query_"].contains { mcp.tool.hasPrefix($0) }
             return HumanizedTool(kind: readLike ? .read : .other, target: .code, text: "Работает с \(mcp.server)")
@@ -64,8 +93,12 @@ public enum Humanizer {
                 return HumanizedTool(kind: .search, target: .code, text: "Субагент: \(clip(description, 40))")
             }
             return HumanizedTool(kind: .search, target: .code, text: "Запускает субагента")
-        case "TodoWrite":
+        case "TodoWrite", "TaskCreate", "TaskUpdate":
             return HumanizedTool(kind: .other, target: .code, text: "Планирует шаги")
+        case "ToolSearch":
+            return HumanizedTool(kind: .other, target: .code, text: "Подбирает инструменты")
+        case "Skill":
+            return HumanizedTool(kind: .other, target: .code, text: "Применяет навык")
         default:
             return HumanizedTool(kind: .other, target: .code, text: "Работает: \(tool)")
         }

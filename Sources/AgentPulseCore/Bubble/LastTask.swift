@@ -10,12 +10,14 @@ public struct LastTask: Sendable, Equatable {
         case failed
     }
 
+    public var source: AgentEvent.Source
     public var usedFigma: Bool
     public var context: String?
     public var status: Status
     public var at: Date
 
-    public init(usedFigma: Bool, context: String?, status: Status, at: Date) {
+    public init(source: AgentEvent.Source, usedFigma: Bool, context: String?, status: Status, at: Date) {
+        self.source = source
         self.usedFigma = usedFigma
         self.context = context
         self.status = status
@@ -35,12 +37,13 @@ public struct LastTask: Sendable, Equatable {
             guard let previous else { return nil }
             status = previous.status
         }
-        return LastTask(usedFigma: session.usedFigma, context: session.context, status: status, at: event.ts)
+        return LastTask(source: session.source, usedFigma: session.usedFigma, context: session.context, status: status, at: event.ts)
     }
 
-    /// Две строки: откуда и что с ним. «Figma · agent-pulse» / «Готово · 5 мин назад».
+    /// Две строки: откуда и что с ним. «Figma (Cowork)» / «Готово · 5 мин назад».
     public func summary(now: Date) -> String {
-        let head = [usedFigma ? "Figma" : "Claude", context].compactMap(\.self).joined(separator: " · ")
+        let origin = usedFigma ? "Figma (\(source.displayName))" : source.displayName
+        let head = [origin, context].compactMap(\.self).joined(separator: " · ")
         let tail = switch status {
         case .active(let text): text
         case .waiting: "Ждёт тебя"

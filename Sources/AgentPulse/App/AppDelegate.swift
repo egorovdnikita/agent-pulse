@@ -8,6 +8,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private let notifier = Notifier()
     private var panel: OverlayPanel?
     private var server: SocketServer?
+    private var cowork: CoworkWatcher?
     private var labWindow: NSWindow?
     private var screenTimer: Timer?
 
@@ -32,11 +33,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
 
         startServer()
+        startCowork()
         model.start()
     }
 
     func applicationWillTerminate(_ notification: Notification) {
         server?.stop()
+        cowork?.stop()
     }
 
     private func startServer() {
@@ -53,6 +56,27 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         } catch {
             model.serverError = "\(error)"
         }
+    }
+
+    private func startCowork() {
+        guard model.config.sources.cowork else {
+            model.coworkWatching = nil
+            return
+        }
+        let inbox = model.inbox
+        let watcher = CoworkWatcher { events in
+            for event in events { inbox.yield(.event(event)) }
+        }
+        model.coworkWatching = watcher.start()
+        cowork = watcher
+    }
+
+    func setCoworkEnabled(_ enabled: Bool) {
+        model.config.sources.cowork = enabled
+        try? model.config.save()
+        cowork?.stop()
+        cowork = nil
+        startCowork()
     }
 
     // MARK: - Меню

@@ -35,6 +35,9 @@ public enum ClaudeCodeHooks {
             // Текст промпта намеренно не читаем: приватность по умолчанию.
             return event(.promptSubmitted)
         case "PreToolUse":
+            if let tool, let question = Humanizer.questionTools[tool] {
+                return event(.awaitingUser, summary: question, awaitReason: .input)
+            }
             let input = object["tool_input"] as? [String: Any] ?? [:]
             return event(.toolStarted, summary: Humanizer.describe(tool: tool ?? "unknown", input: input).text)
         case "PostToolUse":

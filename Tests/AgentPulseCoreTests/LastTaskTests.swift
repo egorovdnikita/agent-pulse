@@ -22,12 +22,12 @@ import Testing
         ]))
         #expect(task.usedFigma)
         #expect(task.status == .done)
-        #expect(task.summary(now: t0.addingTimeInterval(3 + 5 * 60)) == "Figma · agent-pulse\nГотово · 5 мин назад")
+        #expect(task.summary(now: t0.addingTimeInterval(3 + 5 * 60)) == "Figma (Claude Code) · agent-pulse\nГотово · 5 мин назад")
     }
 
     @Test func claudeTaskInProgress() throws {
         let task = try #require(try replay([Fixtures.promptSubmitted, Fixtures.preToolBashTests]))
-        #expect(task.summary(now: t0) == "Claude · agent-pulse\nЗапускает тесты")
+        #expect(task.summary(now: t0) == "Claude Code · agent-pulse\nЗапускает тесты")
     }
 
     @Test func newPromptResetsFigmaFlag() throws {
