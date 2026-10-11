@@ -25,6 +25,14 @@ final class ChatWindowWatcher: @unchecked Sendable {
     private var approvalVisible = false
     private var state = ChatWindowSignals.State.idle
     private var session = "desktop-chat"
+    /// Сколько полных обходов подряд не нашли кнопок композера.
+    private var missedScans = 0
+    private var diagnosticWritten = false
+
+    /// Сюда пишется снимок кнопок, если признаки не нашлись, — по нему выставляются точные подписи.
+    static var diagnosticURL: URL {
+        PulsePaths.supportDirectory.appending(path: "claude-window.txt")
+    }
 
     init(handler: @escaping Handler) {
         self.handler = handler
@@ -132,7 +140,17 @@ final class ChatWindowWatcher: @unchecked Sendable {
             }
             queue += Self.children(element) ?? []
         }
-        if let foundComposer { composer = foundComposer }
+        if let foundComposer {
+            composer = foundComposer
+            missedScans = 0
+        } else if composer == nil {
+            missedScans += 1
+            // Окно есть, а кнопок с известными подписями нет — сохраняем снимок один раз за запуск.
+            if missedScans == 5, !diagnosticWritten {
+                diagnosticWritten = true
+                writeSnapshot(app)
+            }
+        }
         if let foundURL { url = foundURL }
         approvalVisible = approval
         let id = ChatWindowSignals.sessionId(url)
@@ -166,23 +184,32 @@ final class ChatWindowWatcher: @unchecked Sendable {
         queue.async { [self] in
             guard Self.isTrusted else { return completion("Нет разрешения «Универсальный доступ».") }
             guard let app = claudeApp() else { return completion("Claude не запущен.") }
-            var lines: [String] = []
-            var queue: [(AXUIElement, Int)] = Self.windows(app).map { ($0, 0) }
-            var visited = 0
-            while !queue.isEmpty, visited < Self.scanLimit {
-                let (element, depth) = queue.removeFirst()
-                visited += 1
-                let role = Self.string(element, kAXRoleAttribute) ?? "?"
-                if role == "AXWebArea" {
-                    lines.append("\(depth) AXWebArea url=\(Self.url(element) ?? "-")")
-                } else if role == kAXButtonRole as String {
-                    lines.append("\(depth) AXButton label=\(Self.label(element) ?? "-")")
-                }
-                queue += (Self.children(element) ?? []).map { ($0, depth + 1) }
-            }
-            lines.insert("элементов обойдено: \(visited)", at: 0)
-            completion(lines.joined(separator: "\n"))
+            completion(Self.describe(app))
         }
+    }
+
+    private func writeSnapshot(_ app: AXUIElement) {
+        try? FileManager.default.createDirectory(at: PulsePaths.supportDirectory, withIntermediateDirectories: true)
+        try? Self.describe(app).write(to: Self.diagnosticURL, atomically: true, encoding: .utf8)
+    }
+
+    private static func describe(_ app: AXUIElement) -> String {
+        var lines: [String] = []
+        var queue: [(AXUIElement, Int)] = windows(app).map { ($0, 0) }
+        var visited = 0
+        while !queue.isEmpty, visited < Self.scanLimit {
+            let (element, depth) = queue.removeFirst()
+            visited += 1
+            let role = string(element, kAXRoleAttribute) ?? "?"
+            if role == "AXWebArea" {
+                lines.append("\(depth) AXWebArea url=\(url(element) ?? "-")")
+            } else if role == kAXButtonRole as String {
+                lines.append("\(depth) AXButton label=\(label(element) ?? "-")")
+            }
+            queue += (children(element) ?? []).map { ($0, depth + 1) }
+        }
+        lines.insert("элементов обойдено: \(visited)", at: 0)
+        return lines.joined(separator: "\n")
     }
 
     // MARK: - AX-помощники
