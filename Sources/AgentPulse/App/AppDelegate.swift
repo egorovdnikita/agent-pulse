@@ -79,6 +79,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         for (order, kind) in kinds.enumerated() {
             DispatchQueue.main.asyncAfter(deadline: .now() + 2 + Double(order) * 0.5) { [model] in model.simulate(kind) }
         }
+        // Отладка: `--behavior doze` — как «Поведение вручную» в MascotLab.
+        let behaviors = arguments.indices.compactMap { index in
+            arguments[index] == "--behavior" && index + 1 < arguments.count ? MascotReaction(rawValue: arguments[index + 1]) : nil
+        }
+        for behavior in behaviors {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 2) { [model] in model.animator.enqueue(behavior) }
+        }
     }
 
     func applicationWillTerminate(_ notification: Notification) {
@@ -154,6 +161,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         for sense in senses {
             sense.start { signal in inbox.yield(.signal(signal)) }
         }
+    }
+
+    func setGravity(_ on: Bool) {
+        model.config.display.gravity = on
+        try? model.config.save()
+        panel?.gravityChanged()
     }
 
     func showSettings() {

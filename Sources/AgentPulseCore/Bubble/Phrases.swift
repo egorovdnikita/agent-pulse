@@ -27,6 +27,30 @@ public enum BubbleTrigger: String, Sendable, CaseIterable, Codable {
     }
 }
 
+/// Реплики окрашиваются настроением: уставший договаривает с «…», радостному есть что добавить.
+public enum MoodVoice {
+    /// Варианты, которые появляются только в хорошем настроении.
+    static func joyful(_ trigger: BubbleTrigger) -> [String] {
+        switch trigger {
+        case .done: ["Ура", "Красота"]
+        case .notice: ["О, давай"]
+        default: []
+        }
+    }
+
+    public static func pool(for trigger: BubbleTrigger, mood: Mood?) -> [String] {
+        let base = Phrases.pool(for: trigger)
+        guard let mood, mood.joy > 0.7 else { return base }
+        return base + joyful(trigger)
+    }
+
+    /// Уставший договаривает с «…»: «Готово» → «Готово…». Вопросы и восклицания не трогаем.
+    public static func color(_ text: String, mood: Mood?) -> String {
+        guard let mood, mood.energy < 0.35, let last = text.last, !"…?!".contains(last) else { return text }
+        return text + "…"
+    }
+}
+
 /// Пулы реплик. Правила тона: ≤ 10 слов, без рода в прошедшем времени, без техники, без эмодзи и капса.
 /// Лимит проверяется тестом по всем репликам.
 public enum Phrases {

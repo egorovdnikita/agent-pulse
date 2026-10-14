@@ -56,7 +56,8 @@ struct ZeroRNG: RandomNumberGenerator {
         var rng = FixedRNG()
         var d = director()
         // Пять дней привычки: начало в 10:00.
-        for day in 5...9 {
+        // Пять дней привычки подряд, последний — вчера (иначе это «давно не виделись»).
+        for day in 9...13 {
             d.memory.notePresence(date(2026, 10, day, 10), calendar: calendar)
         }
         let decision = d.handle(Signal(.presence, .userBack), now: date(2026, 10, 14, 7, 30), rng: &rng)
@@ -99,7 +100,7 @@ struct ZeroRNG: RandomNumberGenerator {
 
     @Test func funBudgetGapAndGates() {
         var rng = ZeroRNG()
-        var d = director(mischief: 0.4) // 2 в день
+        var d = director(mischief: 0.8) // незнакомым — половина: 2 в день
         let start = date(2026, 10, 14, 11)
         _ = d.handle(Signal(.presence, .userBack), now: start, rng: &rng)
         #expect(d.handle(Signal(.clock, .minute), now: start.addingTimeInterval(60), rng: &rng)?.tier == .fun)
@@ -251,6 +252,60 @@ struct ZeroRNG: RandomNumberGenerator {
         #expect(Baseline.from(mood: Mood(), body: body).motionSpeed < 1)
         body.apply(Signal(.presence, .userPaused))
         #expect(Baseline.from(mood: Mood(), body: body).motionSpeed == 1)
+    }
+
+    @Test func moodColorsVoice() {
+        let tired = Mood(energy: 0.2)
+        #expect(MoodVoice.color("Готово", mood: tired) == "Готово…")
+        #expect(MoodVoice.color("Можно?", mood: tired) == "Можно?")
+        #expect(MoodVoice.color("Хмм…", mood: tired) == "Хмм…")
+        #expect(MoodVoice.color("Готово", mood: Mood()) == "Готово")
+        #expect(MoodVoice.pool(for: .done, mood: Mood(joy: 0.9)).contains("Ура"))
+        #expect(!MoodVoice.pool(for: .done, mood: Mood()).contains("Ура"))
+
+        // Ожидание пользователя всегда без окраски.
+        var scheduler = BubbleScheduler()
+        scheduler.mood = tired
+        scheduler.react(.waitPermission, now: wednesday)
+        #expect(!(scheduler.current?.text.hasSuffix("…") ?? true))
+        for trigger in BubbleTrigger.allCases where trigger != .line {
+            for line in MoodVoice.pool(for: trigger, mood: Mood(joy: 1)) {
+                #expect(Phrases.wordCount(MoodVoice.color(line, mood: tired)) <= Phrases.maxWords)
+            }
+        }
+    }
+
+    @Test func familiarityAndLongAbsence() {
+        var rng = FixedRNG()
+        var d = director()
+        for day in 1...5 {
+            d.memory.notePresence(date(2026, 10, day, 10), calendar: calendar)
+        }
+        #expect(d.memory.familiarity > 0.2)
+        #expect(d.memory.daysSinceLastVisit(before: date(2026, 10, 14, 9), calendar: calendar) == 9)
+        let back = d.handle(Signal(.presence, .userBack), now: date(2026, 10, 14, 9), rng: &rng)
+        #expect(["Давно не виделись", "Наконец-то"].contains(back?.line ?? ""))
+
+        var settings = DirectorSettings()
+        settings.mischief = 1
+        #expect(settings.funLimit(familiarity: 0) < settings.funLimit(familiarity: 1))
+        #expect(settings.funLimit(familiarity: 1) == 5)
+    }
+
+    @Test func nodsOffOnlyLateAndWhenStill() {
+        var rng = FixedRNG()
+        var d = director()
+        _ = d.handle(Signal(.presence, .userBack), now: date(2026, 10, 14, 23, 10), rng: &rng)
+        // Днём носом не клюёт.
+        #expect(d.handle(Signal(.clock, .minute), now: date(2026, 10, 15, 14), rng: &rng)?.behavior != .doze)
+        var body = BodyCondition()
+        body.hour = 23
+        let night = Baseline.from(mood: Mood(), body: body)
+        body.hour = 9
+        let morning = Baseline.from(mood: Mood(), body: body)
+        #expect(night.droop > 0)
+        #expect(night.motionSpeed < morning.motionSpeed)
+        #expect(Baseline.from(mood: Mood(joy: 1), body: BodyCondition()).bounce == 1)
     }
 
     @Test func memoryKeepsThirtyDays() {

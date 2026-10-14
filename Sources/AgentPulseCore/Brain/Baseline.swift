@@ -12,6 +12,8 @@ public struct BodyCondition: Sendable, Equatable {
     public var night = false
     /// Ты давно работаешь без пауз — маскот спокойнее, не отвлекает.
     public var userFocused = false
+    /// Час суток — осанка меняется в течение дня.
+    public var hour: Int?
 
     public init() {}
 
@@ -60,6 +62,10 @@ public struct Baseline: Sendable, Equatable {
     public var eyeSpread = 0.0
     /// Постоянное надувание (мало места).
     public var bodyScale = 1.0
+    /// Тело оседает, pt (устал, поздний вечер).
+    public var droop = 0.0
+    /// 0…1 — довольный маскот изредка подпрыгивает на месте.
+    public var bounce = 0.0
 
     public init() {}
 
@@ -86,6 +92,17 @@ public struct Baseline: Sendable, Equatable {
         if body.darkTheme { base.glowOpacity -= 0.1 }
         if body.night { base.glowWarmth = 1 }
         if body.userFocused { base.motionSpeed -= 0.2; base.blinkInterval += 0.15 }
+
+        // Ритм суток: утром бодрее, после обеда спад, поздно вечером клюёт носом.
+        switch body.hour {
+        case (6..<11)?: base.blinkInterval -= 0.15; base.motionSpeed += 0.1
+        case (14..<16)?: base.motionSpeed -= 0.1; base.eyeOpen -= 0.05
+        case (22..<24)?, (0..<3)?: base.motionSpeed -= 0.15; base.eyeOpen -= 0.1; base.droop += 1
+        default: break
+        }
+        // Настроение заметнее: довольный подпрыгивает, уставший оседает.
+        base.bounce = max(0, (mood.joy - 0.65) / 0.35)
+        base.droop += tired * 1.5
 
         base.blinkInterval = min(2.5, max(0.35, base.blinkInterval))
         base.motionSpeed = min(1.3, max(0.35, base.motionSpeed))

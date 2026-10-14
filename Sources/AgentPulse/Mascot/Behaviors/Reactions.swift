@@ -182,6 +182,23 @@ enum ReactionPlayer {
                 blinkOnce(0, at: 0.82, .double)
             }
             frame.blinkInterval = nil
+        case .hop:
+            // Присел — подскок — приземлился (сплющивание добавит физика тела).
+            frame.bodyOffset.y = p < 0.25
+                ? tuning.anticipation * 0.8 * sin(.pi * p / 0.25)
+                : -tuning.hopHeight * 0.8 * sin(.pi * (p - 0.25) / 0.75)
+        case .doze:
+            // Клюёт носом: веки слипаются, тело оседает — и вздрагивает, просыпаясь.
+            if p < 0.7 {
+                frame.eyeScale = 1 - 0.75 * (p / 0.7)
+                frame.bodyOffset.y = 1.5 * (p / 0.7)
+                frame.gaze = SIMD2(0, 0.4 * p / 0.7)
+            } else {
+                frame.eyeScale = 1.15
+                frame.bodyScale = 1 - 0.05 * sin(.pi * (p - 0.7) / 0.3)
+                blinkOnce(0, at: 0.72, .double)
+            }
+            frame.blinkInterval = nil
         case .stare:
             // Засмотрелся в одну точку — и вздрогнул, будто вспомнил что-то.
             if p < 0.85 {

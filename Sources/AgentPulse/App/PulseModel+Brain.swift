@@ -8,6 +8,7 @@ extension PulseModel {
             let hour = Calendar.current.component(.hour, from: signal.ts)
             // После заката свечение теплеет — без реплики.
             body.night = hour >= 20 || hour < 6
+            body.hour = hour
         }
         body.apply(signal)
         if signal.kind == .lidAngle, let angle = signal.value {
@@ -17,6 +18,7 @@ extension PulseModel {
 
         let outcome = await director.handle(signal)
         if outcome.mood != mood { mood = outcome.mood }
+        scheduler.mood = outcome.mood
         if outcome.quiet != quiet {
             quiet = outcome.quiet
             scheduler.quiet = outcome.quiet

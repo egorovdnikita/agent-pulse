@@ -67,6 +67,10 @@ public struct MascotTuning: Codable, Sendable, Equatable {
     /// Курсор быстрее этого (pt/s) прошёл сквозь маскота — вздрагивает.
     public var flybySpeed: Double = 1800
 
+    // Гравитация (если включена): ускорение, pt/s², и упругость отскока от пола.
+    public var gravity: Double = 2600
+    public var floorBounce: Double = 0.35
+
     // Сон
     public var sleepAfter: Double = 60
     public var fallAsleepDuration: Double = 1.2
@@ -92,7 +96,7 @@ public struct MascotTuning: Codable, Sendable, Equatable {
         "stretch": 1.8, "slowClose": 2.4, "puff": 2, "wideEyes": 1.2, "squint": 1.2, "fastBlink": 1.2,
         "wobble": 2.4, "yawn": 2.4, "purr": 1.8, "flinch": 0.45, "turnAway": 2, "turnAwayLong": 10,
         "dizzy": 2.4, "lookDown": 2, "sideEye": 2.2, "eyeSwap": 1.4,
-        "sneeze": 1.4, "hiccup": 4.6, "fly": 5, "nap": 4.5, "stare": 5,
+        "sneeze": 1.4, "hiccup": 4.6, "fly": 5, "nap": 4.5, "stare": 5, "doze": 3.2, "hop": 0.55,
     ]
 
     // Анти-дребезг: состояние держится минимум столько.

@@ -6,8 +6,8 @@ public struct PhrasePicker: Sendable {
 
     public init() {}
 
-    public mutating func pick<G: RandomNumberGenerator>(_ trigger: BubbleTrigger, using rng: inout G) -> String {
-        let pool = Phrases.pool(for: trigger)
+    public mutating func pick<G: RandomNumberGenerator>(_ trigger: BubbleTrigger, mood: Mood? = nil, using rng: inout G) -> String {
+        let pool = MoodVoice.pool(for: trigger, mood: mood)
         let candidates = pool.count > 1 ? pool.filter { $0 != last[trigger] } : pool
         let phrase = candidates.randomElement(using: &rng) ?? ""
         last[trigger] = phrase

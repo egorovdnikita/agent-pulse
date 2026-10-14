@@ -48,6 +48,11 @@ public struct DirectorSettings: Sendable, Equatable {
     public init() {}
 
     public var funDailyLimit: Int { Int((mischief * 5).rounded()) }
+
+    /// Чем лучше знакомы, тем смелее: незнакомому — половина бюджета приколов.
+    public func funLimit(familiarity: Double) -> Int {
+        Int((mischief * 5 * (0.5 + 0.5 * familiarity)).rounded())
+    }
 }
 
 /// Единственное место, где решается «реагировать ли сейчас»: приоритет, бюджет, кулдауны, тишина, настроение.
@@ -146,7 +151,7 @@ public struct Director: Sendable {
             firstPresence = memory.notePresence(now, calendar: calendar)
         }
 
-        let context = DirectorContext(
+        var context = DirectorContext(
             now: now, calendar: calendar, mood: mood, today: memory.today(now, calendar: calendar),
             firstPresenceToday: firstPresence, earlyBy: earlyBy(now),
             idleSeconds: idleSince.map { now.timeIntervalSince($0) } ?? 0,
@@ -155,6 +160,8 @@ public struct Director: Sendable {
             spaceChangesRecent: spaceTimes.count,
             news: newsOnReturn
         )
+        context.familiarity = memory.familiarity
+        context.daysAway = memory.daysSinceLastVisit(before: now, calendar: calendar)
         if returning, !news.isEmpty {
             deliveredNews = news
             news = AwayNews()
@@ -176,7 +183,7 @@ public struct Director: Sendable {
         guard spec.tier == .fun else { return true }
         // Приколы: тишина и агенты выключают их полностью; бюджет на день; не чаще раза в 40 мин; не в стрессе.
         return !quiet && !agentBusy
-            && funToday < settings.funDailyLimit
+            && funToday < settings.funLimit(familiarity: context.familiarity)
             && now.timeIntervalSince(lastFunAt) >= Self.funMinGap
             && mood.stress < Self.funStressLimit
             && (spec.needsPresence ? context.userPresent && context.idleSeconds < 120 : !context.userPresent)

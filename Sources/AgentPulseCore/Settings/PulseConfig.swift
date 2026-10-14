@@ -82,6 +82,8 @@ public struct PulseConfig: Codable, Sendable, Equatable {
         public var expandOn = ["awaitingUser", "done"]
         /// Куда маскота перетащили: сдвиг от угла по умолчанию, pt, на каждый монитор (ключ — номер дисплея).
         public var offsets: [String: [Double]] = [:]
+        /// Отпущенный посреди экрана маскот падает на «пол». Выключено: висит, где поставили.
+        public var gravity = false
     }
 
     public struct EventRule: Codable, Sendable, Equatable {

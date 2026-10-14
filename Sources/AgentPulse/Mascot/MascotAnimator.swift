@@ -20,6 +20,8 @@ final class MascotAnimator {
     private var farLook = SIMD2<Double>.zero
     private var lastCursor: CGPoint?
     private var cursorMovedAt = 0.0
+    // Довольный изредка подпрыгивает на месте.
+    private var nextBounce: Double?
     var reduceMotion = false
     /// Центр маскота в экранных координатах — для слежения за курсором.
     var screenCenter: CGPoint?
@@ -223,6 +225,19 @@ final class MascotAnimator {
             frame.eyeScale *= baseline.eyeOpen
         }
         frame.bodyScale *= baseline.bodyScale
+        // Устал или поздно — тело оседает.
+        if state != .sleep && active == nil { frame.bodyOffset.y += baseline.droop }
+        // Довольный в покое изредка подпрыгивает: чем радостнее, тем чаще.
+        if baseline.bounce > 0, state == .idle, active == nil, !reduceMotion {
+            let due = nextBounce ?? (t + 20 / baseline.bounce)
+            nextBounce = due
+            if t >= due {
+                nextBounce = t + Double.random(in: 15...40, using: &context.rng) / baseline.bounce
+                queue.append(.hop)
+            }
+        } else {
+            nextBounce = nil
+        }
         frame.glowOpacity *= baseline.glowOpacity
         if baseline.glowFlicker > 0 && !reduceMotion {
             frame.glowOpacity += baseline.glowFlicker * 0.12 * (sin(t * 23) * 0.6 + sin(t * 37) * 0.4)

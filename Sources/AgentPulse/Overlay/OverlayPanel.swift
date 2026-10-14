@@ -174,6 +174,7 @@ final class OverlayPanel: NSPanel {
         if hypot(v.dx, v.dy) > 900 {
             fling(v)
         } else {
+            velocity = .zero
             settle(thrown: false)
         }
     }
@@ -182,6 +183,54 @@ final class OverlayPanel: NSPanel {
         guard let first = samples.first, let last = samples.last, last.0 > first.0 else { return .zero }
         let dt = last.0.timeIntervalSince(first.0)
         return CGVector(dx: (last.1.x - first.1.x) / dt, dy: (last.1.y - first.1.y) / dt)
+    }
+
+    /// Пол: нижний край экрана, на уровне Dock — туда падает маскот при включённой гравитации.
+    private func floorY(_ bounds: CGRect) -> Double {
+        let size = PillView.size(diameter: model.config.display.mascotSize)
+        let row = PillView.rowHeight(diameter: model.config.display.mascotSize)
+        return (model.config.display.anchor.isTop ? bounds.minY - (size.height - row) : bounds.minY) + 4
+    }
+
+    /// Падение на пол с затухающими отскоками, затем — обычное приземление.
+    private func fall(thrown: Bool, bounds: CGRect) {
+        let floor = floorY(bounds)
+        guard model.config.display.gravity, frame.minY > floor + 1 else {
+            finishSettle(thrown: thrown)
+            return
+        }
+        var speed = velocity.dy
+        var last = Date()
+        let tuning = model.animator.tuning
+        motion = Timer.scheduledTimer(withTimeInterval: 1.0 / 60, repeats: true) { [weak self] _ in
+            MainActor.assumeIsolated {
+                guard let self else { return }
+                let now = Date()
+                let dt = min(1.0 / 30, now.timeIntervalSince(last))
+                last = now
+                speed -= tuning.gravity * dt
+                var y = self.frame.minY + speed * dt
+                if y <= floor {
+                    y = floor
+                    speed = -speed * tuning.floorBounce
+                    if abs(speed) < 90 {
+                        self.motion?.invalidate()
+                        self.motion = nil
+                        self.place(NSPoint(x: self.frame.minX, y: floor))
+                        self.finishSettle(thrown: thrown)
+                        return
+                    }
+                }
+                self.place(NSPoint(x: self.frame.minX, y: y))
+            }
+        }
+    }
+
+    /// Гравитацию включили из меню — падает сразу.
+    func gravityChanged() {
+        guard model.config.display.gravity, !dragging, motion == nil, let screen = currentScreen ?? targetScreen() else { return }
+        velocity = .zero
+        fall(thrown: false, bounds: screen.frame)
     }
 
     /// Бросок: летит по инерции, отскакивает от краёв экрана, затем «Укачало».
@@ -198,6 +247,8 @@ final class OverlayPanel: NSPanel {
                 last = now
                 let friction = pow(0.08, dt)
                 self.velocity = CGVector(dx: self.velocity.dx * friction, dy: self.velocity.dy * friction)
+                // С гравитацией полёт — дугой.
+                if self.model.config.display.gravity { self.velocity.dy -= self.model.animator.tuning.gravity * dt }
                 var origin = NSPoint(x: self.frame.minX + self.velocity.dx * dt, y: self.frame.minY + self.velocity.dy * dt)
                 let clamped = self.clamp(origin, in: bounds)
                 if clamped.x != origin.x { self.velocity.dx = -self.velocity.dx * 0.6 }
@@ -213,8 +264,14 @@ final class OverlayPanel: NSPanel {
         }
     }
 
-    /// Отпустили: запоминаем новое место как дом на этом мониторе.
+    /// Отпустили: с гравитацией — сначала падение на пол; потом новое место становится домом.
     private func settle(thrown: Bool) {
+        guard let screen = currentScreen ?? targetScreen() else { return }
+        place(clamp(frame.origin, on: screen))
+        fall(thrown: thrown, bounds: screen.frame)
+    }
+
+    private func finishSettle(thrown: Bool) {
         guard let screen = currentScreen ?? targetScreen() else { return }
         let origin = clamp(frame.origin, on: screen)
         place(origin)

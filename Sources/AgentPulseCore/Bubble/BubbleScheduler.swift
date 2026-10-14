@@ -53,6 +53,8 @@ public struct BubbleScheduler: Sendable {
     public var tuning: BubbleTuning
     /// Тишина: облачко молчит, кроме ожидания пользователя.
     public var quiet = false
+    /// Настроение окрашивает реплики.
+    public var mood: Mood?
     public private(set) var current: Bubble?
     public private(set) var lastText: String?
     private var queue: [Item] = []
@@ -133,7 +135,9 @@ public struct BubbleScheduler: Sendable {
     }
 
     private mutating func show(_ item: Item, now: Date) {
-        let text = item.text ?? picker.pick(item.trigger, using: &rng)
+        let picked = item.text ?? picker.pick(item.trigger, mood: mood, using: &rng)
+        // Ожидание пользователя — всегда ясно и без окраски.
+        let text = item.trigger.isWait ? picked : MoodVoice.color(picked, mood: mood)
         nextId += 1
         current = Bubble(id: nextId, trigger: item.trigger, text: text, shownAt: now, duration: item.duration)
         lastText = text

@@ -28,6 +28,9 @@ public struct DirectorContext: Sendable {
     public let spaceChangesRecent: Int
     /// Что случилось у агентов, пока тебя не было (заполнено на сигнале возвращения).
     public let news: AwayNews
+    /// Знакомство 0…1 и сколько дней не виделись.
+    public var familiarity = 0.0
+    public var daysAway: Int?
 
     public init(
         now: Date, calendar: Calendar, mood: Mood, today: DayMemory.Day, firstPresenceToday: Bool, earlyBy: Double?,
@@ -194,6 +197,9 @@ public enum ReactionCatalog {
                      when: { _, c in c.userPresent && c.month == 4 && c.day == 1 }, behavior: .eyeSwap),
         ReactionSpec("friday13", on: present, tier: .rhythm,
                      when: { _, c in c.userPresent && c.weekday == 6 && c.day == 13 }, behavior: .sideEye, lines: ["Осторожно"]),
+        ReactionSpec("greeting.longAbsence", group: "greeting", on: present, tier: .rhythm,
+                     when: { _, c in c.firstPresenceToday && (c.daysAway ?? 0) >= 3 }, behavior: .done,
+                     lines: ["Давно не виделись", "Наконец-то"]),
         ReactionSpec("greeting.early", group: "greeting", on: present, tier: .rhythm,
                      when: { _, c in c.firstPresenceToday && (c.earlyBy ?? 0) >= 2 }, behavior: .notice, lines: ["Рано ты"]),
         ReactionSpec("greeting.friday", group: "greeting", on: present, tier: .rhythm,
@@ -202,7 +208,15 @@ public enum ReactionCatalog {
                      when: { _, c in c.firstPresenceToday && c.weekday == 2 }, behavior: .notice, lines: ["Ну, начнём"]),
         ReactionSpec("greeting", group: "greeting", on: present, tier: .rhythm,
                      when: { _, c in c.firstPresenceToday }, behavior: .notice,
-                     linesFor: { _, c in c.hour < 12 ? ["Привет", "Утречко"] : ["Привет"] }),
+                     linesFor: { _, c in
+                         // Знакомы давно — приветствие теплее.
+                         let warm = c.familiarity > 0.6 ? ["Привет-привет"] : []
+                         return (c.hour < 12 ? ["Привет", "Утречко"] : ["Привет"]) + warm
+                     }),
+        // Поздно вечером клюёт носом: глаза слипаются — и вздрагивает. Без реплики.
+        ReactionSpec("nodOff", on: [.minute], tier: .rhythm, cooldown: 15 * 60, dailyLimit: 4,
+                     when: { _, c in c.userPresent && (c.hour >= 22 || c.hour < 3) && c.idleSeconds > 20 && c.idleSeconds < 300 },
+                     behavior: .doze),
         ReactionSpec("late.veryLate", group: "late", on: [.minute], tier: .rhythm,
                      when: { _, c in c.userPresent && c.idleSeconds < 120 && (3..<5).contains(c.hour) }, lines: ["Не спится?"]),
         ReactionSpec("late.midnight", group: "late", on: [.minute], tier: .rhythm,

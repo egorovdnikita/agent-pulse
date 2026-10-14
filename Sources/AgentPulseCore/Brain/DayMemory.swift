@@ -70,6 +70,24 @@ public struct DayMemory: Sendable, Codable, Equatable {
         return starts[starts.count / 2]
     }
 
+    /// Знакомство 0…1: растёт с днями рядом и поглаживаниями. Две недели вместе — уже свои.
+    public var familiarity: Double {
+        let together = Double(days.filter { $0.firstPresence != nil }.count)
+        let strokes = Double(days.reduce(0) { $0 + $1.strokes })
+        return min(1, together / 14 * 0.7 + min(1, strokes / 40) * 0.3)
+    }
+
+    /// Сколько дней прошло с прошлого присутствия (не считая сегодня).
+    public func daysSinceLastVisit(before now: Date, calendar: Calendar = .current) -> Int? {
+        let todayKey = Self.key(now, calendar: calendar)
+        guard let last = days.last(where: { $0.date != todayKey && $0.firstPresence != nil }) else { return nil }
+        let parts = last.date.split(separator: "-").compactMap { Int($0) }
+        guard parts.count == 3, let date = calendar.date(from: DateComponents(year: parts[0], month: parts[1], day: parts[2])) else {
+            return nil
+        }
+        return calendar.dateComponents([.day], from: calendar.startOfDay(for: date), to: calendar.startOfDay(for: now)).day
+    }
+
     public mutating func reset() {
         days.removeAll()
     }

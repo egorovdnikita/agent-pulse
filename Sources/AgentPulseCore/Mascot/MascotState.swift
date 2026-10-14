@@ -45,6 +45,9 @@ public enum MascotReaction: String, Sendable, CaseIterable, Codable {
     case eyeSwap        // 1 апреля: глаза меняются местами
     // Приколы
     case sneeze, hiccup, fly, nap, stare
+    // Ритм суток
+    case doze           // клюёт носом: глаза слипаются — вздрагивает
+    case hop            // довольный подскок на месте
 
     /// Реплика агентного конвейера; у остальных реакций реплики задаёт каталог.
     public var bubbleTrigger: BubbleTrigger? {
