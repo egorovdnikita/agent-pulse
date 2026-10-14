@@ -22,6 +22,13 @@ extension PulseModel {
             scheduler.quiet = outcome.quiet
         }
         animator.baseline = Baseline.from(mood: outcome.mood, body: body)
+        // Агент закончил без тебя — маскот ждёт с новостями; ты вернулся — рассказывает.
+        animator.contented = outcome.newsPending
+        if let news = outcome.deliveredNews {
+            awayNews = news
+            awayNewsAt = signal.ts
+        }
+        if today != outcome.today { today = outcome.today }
         handleIdleHide(signal)
         await saveMemoryIfNeeded(signal.ts)
 

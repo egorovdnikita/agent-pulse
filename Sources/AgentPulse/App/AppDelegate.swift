@@ -70,11 +70,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         model.onUserBack = { [weak self] in
             self?.panel?.returnHomeIfWandering()
         }
-        // Отладка: `open AgentPulse.app --args --signal capsLockOn [значение]` — как SignalSimulator.
-        if let index = CommandLine.arguments.firstIndex(of: "--signal"), index + 1 < CommandLine.arguments.count,
-           let kind = SignalKind(rawValue: CommandLine.arguments[index + 1]) {
-            let value = index + 2 < CommandLine.arguments.count ? Double(CommandLine.arguments[index + 2]) : nil
-            DispatchQueue.main.asyncAfter(deadline: .now() + 2) { [model] in model.simulate(kind, value: value) }
+        // Отладка: `open AgentPulse.app --args --signal userAway --signal agentDone` — как SignalSimulator,
+        // сигналы по очереди с интервалом в полсекунды.
+        let arguments = CommandLine.arguments
+        let kinds = arguments.indices.compactMap { index in
+            arguments[index] == "--signal" && index + 1 < arguments.count ? SignalKind(rawValue: arguments[index + 1]) : nil
+        }
+        for (order, kind) in kinds.enumerated() {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 2 + Double(order) * 0.5) { [model] in model.simulate(kind) }
         }
     }
 

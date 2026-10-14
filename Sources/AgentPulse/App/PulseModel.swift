@@ -50,6 +50,11 @@ final class PulseModel {
     /// Последняя реакция — для кнопок «мило» и «бесит».
     var lastReaction: String?
     var lastLine: String?
+    /// Что случилось у агентов без тебя — показывается при наведении 10 минут после возвращения.
+    var awayNews: AwayNews?
+    var awayNewsAt: Date?
+    /// Счётчики дня — вечерний итог при наведении.
+    var today: DayMemory.Day?
     /// Оценки за сегодня: «мило» и «бесит».
     var feedbackToday: [String: Int] = [:]
 
@@ -88,6 +93,7 @@ final class PulseModel {
     /// Ты пришёл — маскот возвращается домой (после лунатизма или пряток).
     @ObservationIgnored var onUserBack: (() -> Void)?
     @ObservationIgnored var strokeTrail: [(Date, Double)] = []
+    @ObservationIgnored var lastMouse: (Date, CGPoint)?
     @ObservationIgnored var hiddenForIdle = false
     @ObservationIgnored var promptAt: [String: Date] = [:]
     @ObservationIgnored var toolErrorStreak = 0
@@ -286,6 +292,7 @@ final class PulseModel {
         }
 
         if inside { detectStroke(mouse.x) } else if !strokeTrail.isEmpty { strokeTrail.removeAll() }
+        detectFlyby(mouse, center: center, radius: diameter / 2)
 
         guard inside != isHovering else { return }
         isHovering = inside
@@ -293,7 +300,7 @@ final class PulseModel {
         if inside {
             switch state {
             case .sleep, .idle:
-                hoverText = lastTask?.summary(now: Date()) ?? scheduler.phrase(for: .hoverSleep)
+                hoverText = restingSummary(now: Date())
             default:
                 hoverText = scheduler.lastText ?? dominant?.phase.text
             }
@@ -349,6 +356,40 @@ final class PulseModel {
         if reversals >= 3, travel > 30 {
             strokeTrail.removeAll()
             simulate(.stroke)
+        }
+    }
+
+    /// Что рассказать при наведении в покое: новости без тебя, последний запрос, вечером — итог дня.
+    private func restingSummary(now: Date) -> String {
+        var lines: [String] = []
+        if let news = awayNews, let at = awayNewsAt, now.timeIntervalSince(at) < 10 * 60 {
+            lines.append(news.summary)
+        } else if let task = lastTask {
+            lines.append(task.summary(now: now))
+        }
+        if Calendar.current.component(.hour, from: now) >= 18, let today, today.agentTasks > 0 || today.strokes > 0 {
+            var day = "Сегодня: \(today.agentTasks) задач"
+            if today.strokes > 0 { day += ", гладили \(today.strokes)" }
+            lines.append(day)
+        }
+        return lines.isEmpty ? scheduler.phrase(for: .hoverSleep) : lines.joined(separator: "\n")
+    }
+
+    /// Курсор быстро прошёл сквозь маскота: отрезок между двумя замерами задевает тело.
+    private func detectFlyby(_ mouse: CGPoint, center: CGPoint, radius: Double) {
+        let now = Date()
+        defer { lastMouse = (now, mouse) }
+        guard let (then, from) = lastMouse, !isHovering else { return }
+        let dt = now.timeIntervalSince(then)
+        guard dt > 0, dt < 0.3 else { return }
+        let dx = mouse.x - from.x, dy = mouse.y - from.y
+        let length = hypot(dx, dy)
+        guard length / dt > tuning.flybySpeed, length > 0 else { return }
+        // Ближайшая к центру точка отрезка.
+        let along = max(0, min(1, ((center.x - from.x) * dx + (center.y - from.y) * dy) / (length * length)))
+        let closest = CGPoint(x: from.x + along * dx, y: from.y + along * dy)
+        if hypot(closest.x - center.x, closest.y - center.y) <= radius {
+            simulate(.cursorFlyby, value: length / dt)
         }
     }
 

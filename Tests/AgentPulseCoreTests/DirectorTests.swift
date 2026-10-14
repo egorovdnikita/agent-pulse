@@ -213,6 +213,46 @@ struct ZeroRNG: RandomNumberGenerator {
         }
     }
 
+    @Test func newsWhileAwayAreDeliveredOnReturn() {
+        var rng = FixedRNG()
+        var d = director()
+        let t = wednesday
+        _ = d.handle(Signal(.presence, .userBack), now: t, rng: &rng)
+        _ = d.handle(Signal(.presence, .userAway, value: 300), now: t.addingTimeInterval(600), rng: &rng)
+        _ = d.handle(Signal(.agents, .agentDone), now: t.addingTimeInterval(700), rng: &rng)
+        _ = d.handle(Signal(.agents, .agentDone), now: t.addingTimeInterval(800), rng: &rng)
+        #expect(d.news == AwayNews(done: 2))
+        let back = d.handle(Signal(.presence, .userBack, value: 900), now: t.addingTimeInterval(1500), rng: &rng)
+        #expect(back?.reaction == "agent.news")
+        #expect(back?.behavior == .done)
+        #expect(d.deliveredNews == AwayNews(done: 2))
+        #expect(d.news.isEmpty)
+        #expect(AwayNews(done: 3, waiting: 1).summary == "Пока тебя не было: 3 готово, 1 ждёт")
+        // При тебе — не новости.
+        _ = d.handle(Signal(.agents, .agentDone), now: t.addingTimeInterval(1600), rng: &rng)
+        #expect(d.news.isEmpty)
+    }
+
+    @Test func rhythmAndFlyby() {
+        var rng = FixedRNG()
+        var d = director()
+        let t = wednesday
+        _ = d.handle(Signal(.presence, .userBack), now: t, rng: &rng)
+        let paused = d.handle(Signal(.presence, .userPaused, value: 50), now: t.addingTimeInterval(60), rng: &rng)
+        #expect(paused?.behavior == .lookAround)
+        #expect(paused?.line == nil)
+        let flyby = d.handle(Signal(.interaction, .cursorFlyby), now: t.addingTimeInterval(70), rng: &rng)
+        #expect(flyby?.behavior == .startle)
+        // Кулдаун: не дёргается на каждый пролёт.
+        #expect(d.handle(Signal(.interaction, .cursorFlyby), now: t.addingTimeInterval(80), rng: &rng) == nil)
+
+        var body = BodyCondition()
+        body.apply(Signal(.presence, .userFocused))
+        #expect(Baseline.from(mood: Mood(), body: body).motionSpeed < 1)
+        body.apply(Signal(.presence, .userPaused))
+        #expect(Baseline.from(mood: Mood(), body: body).motionSpeed == 1)
+    }
+
     @Test func memoryKeepsThirtyDays() {
         var memory = DayMemory()
         for offset in 0..<40 {

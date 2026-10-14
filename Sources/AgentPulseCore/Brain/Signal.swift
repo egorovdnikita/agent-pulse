@@ -19,6 +19,8 @@ public enum SignalKind: String, Sendable, Codable, CaseIterable {
     case systemWake, systemSleep, screenLocked, screenUnlocked
     // Присутствие (value у userBack — сколько отсутствовал, s)
     case userAway, userBack, longWork
+    // Ритм: сосредоточен (давно без пауз), замер (пауза посреди работы)
+    case userFocused, userPaused
     // Часы: раз в минуту; uptime > 7 дней
     case minute, uptimeLong
     // Тема, звук, клавиатура
@@ -29,6 +31,8 @@ public enum SignalKind: String, Sendable, Codable, CaseIterable {
     case spaceChanged
     // Взаимодействие (value у dragged — скорость, pt/s)
     case stroke, poke, dragged, thrown, dropped
+    // Курсор быстро пролетел сквозь маскота
+    case cursorFlyby
     // Агенты — сверх основного конвейера состояний
     case agentWaitingLong, agentErrorStreak, agentStep, agentDone, agentError
     // Эксперимент: угол крышки, градусы
@@ -47,14 +51,14 @@ extension SignalKind {
         case .networkLost, .networkBack: .network
         case .displayAdded, .displayRemoved: .display
         case .systemWake, .systemSleep, .screenLocked, .screenUnlocked: .sleepWake
-        case .userAway, .userBack, .longWork: .presence
+        case .userAway, .userBack, .longWork, .userFocused, .userPaused: .presence
         case .minute, .uptimeLong: .clock
         case .darkMode, .lightMode: .appearance
         case .headphonesOn, .headphonesOff, .volumeMax: .audio
         case .capsLockOn, .capsLockOff: .keyboard
         case .quietOn, .quietOff: .quiet
         case .spaceChanged: .space
-        case .stroke, .poke, .dragged, .thrown, .dropped: .interaction
+        case .stroke, .poke, .dragged, .thrown, .dropped, .cursorFlyby: .interaction
         case .agentWaitingLong, .agentErrorStreak, .agentStep, .agentDone, .agentError: .agents
         case .lidAngle: .lidAngle
         }

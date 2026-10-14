@@ -60,6 +60,13 @@ public struct MascotTuning: Codable, Sendable, Equatable {
     public var thinkTilt: Double = 0.12
     public var hoverTilt: Double = 0.07
 
+    // Замечает тебя
+    /// Раз в столько секунд находит курсор где угодно на экране и коротко на него смотрит.
+    public var farGlanceInterval: ClosedRange<Double> = 120...360
+    public var farGlanceDuration: Double = 1.4
+    /// Курсор быстрее этого (pt/s) прошёл сквозь маскота — вздрагивает.
+    public var flybySpeed: Double = 1800
+
     // Сон
     public var sleepAfter: Double = 60
     public var fallAsleepDuration: Double = 1.2

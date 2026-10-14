@@ -194,11 +194,19 @@ final class PresenceSense: Sense {
     let id = SenseID.presence
     static let awayAfter: TimeInterval = 5 * 60
     static let longWork: TimeInterval = 3 * 3600
+    /// Столько работы без пауз длиннее `focusGap` — «сосредоточен».
+    static let focusAfter: TimeInterval = 2 * 60
+    static let focusGap: TimeInterval = 3
+    /// Пауза посреди работы, но ещё не перерыв — «замер».
+    static let pauseAfter: TimeInterval = 45
 
     private var timer: Timer?
     private var awaySince: Date?
     private var activeSince = Date()
     private var longWorkSent = false
+    private var focusSince: Date?
+    private var focused = false
+    private var paused = false
 
     static var idleSeconds: TimeInterval {
         CGEventSource.secondsSinceLastEventType(.combinedSessionState, eventType: CGEventType(rawValue: ~0)!)
@@ -213,6 +221,7 @@ final class PresenceSense: Sense {
     private func check(_ emit: @Sendable (Signal) -> Void) {
         let idle = Self.idleSeconds
         let now = Date()
+        checkRhythm(idle: idle, now: now, emit)
         if awaySince == nil, idle >= Self.awayAfter {
             awaySince = now.addingTimeInterval(-idle)
             emit(Signal(.presence, .userAway, value: idle))
@@ -224,6 +233,26 @@ final class PresenceSense: Sense {
         } else if awaySince == nil, !longWorkSent, now.timeIntervalSince(activeSince) >= Self.longWork {
             longWorkSent = true
             emit(Signal(.presence, .longWork))
+        }
+    }
+
+    /// Ритм: давно работаешь без пауз — «сосредоточен»; замер посреди работы — «замер».
+    private func checkRhythm(idle: TimeInterval, now: Date, _ emit: @Sendable (Signal) -> Void) {
+        if idle < Self.focusGap {
+            paused = false
+            let since = focusSince ?? now
+            focusSince = since
+            if !focused, now.timeIntervalSince(since) >= Self.focusAfter {
+                focused = true
+                emit(Signal(.presence, .userFocused))
+            }
+        } else {
+            focusSince = nil
+            if focused, !paused, idle >= Self.pauseAfter, idle < Self.awayAfter {
+                focused = false
+                paused = true
+                emit(Signal(.presence, .userPaused, value: idle))
+            }
         }
     }
 

@@ -26,6 +26,27 @@ public struct DirectorContext: Sendable {
     public let birthday: DateComponents?
     public let pokeStreak: Int
     public let spaceChangesRecent: Int
+    /// Что случилось у агентов, пока тебя не было (заполнено на сигнале возвращения).
+    public let news: AwayNews
+
+    public init(
+        now: Date, calendar: Calendar, mood: Mood, today: DayMemory.Day, firstPresenceToday: Bool, earlyBy: Double?,
+        idleSeconds: TimeInterval, userPresent: Bool, birthday: DateComponents?, pokeStreak: Int, spaceChangesRecent: Int,
+        news: AwayNews = AwayNews()
+    ) {
+        self.now = now
+        self.calendar = calendar
+        self.mood = mood
+        self.today = today
+        self.firstPresenceToday = firstPresenceToday
+        self.earlyBy = earlyBy
+        self.idleSeconds = idleSeconds
+        self.userPresent = userPresent
+        self.birthday = birthday
+        self.pokeStreak = pokeStreak
+        self.spaceChangesRecent = spaceChangesRecent
+        self.news = news
+    }
 
     public var hour: Int { calendar.component(.hour, from: now) }
     /// 1 — воскресенье, 2 — понедельник, …, 6 — пятница.
@@ -112,6 +133,14 @@ public enum ReactionCatalog {
     // MARK: - Агенты (сверх основного конвейера состояний)
 
     static let agents: [ReactionSpec] = [
+        // Пока тебя не было, агент закончил или ждал — первым делом об этом.
+        ReactionSpec("agent.news", on: [.userBack, .screenUnlocked, .systemWake], tier: .agent, cooldown: 0,
+                     when: { _, c in !c.news.isEmpty },
+                     behaviorFor: { _, c in c.news.failed > 0 && c.news.done == 0 ? .lookDown : .done },
+                     linesFor: { _, c in
+                         if c.news.waiting > 0 { return ["Жду тебя", "Глянешь?"] }
+                         return c.news.done > 0 ? ["Готово", "Есть новости"] : ["Не вышло"]
+                     }, bubble: 4),
         ReactionSpec("agent.waitLong", on: [.agentWaitingLong], tier: .agent, cooldown: 5 * 60,
                      behavior: .turnAway, lines: ["Эй…"], bubble: 3),
         ReactionSpec("agent.errorStreak", on: [.agentErrorStreak], tier: .agent, cooldown: 10 * 60,
@@ -149,6 +178,8 @@ public enum ReactionCatalog {
         ReactionSpec("volume.max", on: [.volumeMax], tier: .body, behavior: .squint, lines: ["Тише…"]),
         ReactionSpec("capsLock", on: [.capsLockOn], tier: .body, cooldown: 10 * 60, behavior: .wideEyes, lines: ["Кричишь?"]),
         ReactionSpec("theme.dark", on: [.darkMode], tier: .body, lines: ["Уютно"]),
+        // Замер посреди работы — с любопытством осматривается, молча.
+        ReactionSpec("user.paused", on: [.userPaused], tier: .body, cooldown: 10 * 60, behavior: .lookAround),
     ]
 
     // MARK: - Ритм и время (каждая — не чаще раза в день)
@@ -199,6 +230,8 @@ public enum ReactionCatalog {
         ReactionSpec("poke", group: "poke", on: [.poke], tier: .interaction, cooldown: 0,
                      when: { _, c in c.pokeStreak < 3 }, behavior: .flinch, lines: ["Ай"], bubble: 1.2),
         ReactionSpec("stroke", on: [.stroke], tier: .interaction, cooldown: 8, behavior: .purr, lines: ["Хорошо…"]),
+        // Курсор пролетел сквозь — вздрогнул, только глазами.
+        ReactionSpec("flyby", on: [.cursorFlyby], tier: .interaction, cooldown: 30, behavior: .startle),
         ReactionSpec("drag.fast", on: [.dragged], tier: .interaction, cooldown: 10,
                      when: { signal, _ in (signal.value ?? 0) > 900 }, lines: ["Уиии"], bubble: 1.2),
         ReactionSpec("thrown", on: [.thrown], tier: .interaction, cooldown: 2, behavior: .dizzy, lines: ["Укачало"]),

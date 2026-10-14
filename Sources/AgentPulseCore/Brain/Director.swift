@@ -1,5 +1,29 @@
 import Foundation
 
+/// Что случилось у агентов, пока тебя не было.
+public struct AwayNews: Sendable, Equatable {
+    public var done = 0
+    public var failed = 0
+    public var waiting = 0
+
+    public init(done: Int = 0, failed: Int = 0, waiting: Int = 0) {
+        self.done = done
+        self.failed = failed
+        self.waiting = waiting
+    }
+
+    public var isEmpty: Bool { done == 0 && failed == 0 && waiting == 0 }
+
+    /// «Пока тебя не было: 3 готово, 1 ждёт».
+    public var summary: String {
+        var parts: [String] = []
+        if done > 0 { parts.append("\(done) готово") }
+        if failed > 0 { parts.append("\(failed) не вышло") }
+        if waiting > 0 { parts.append("\(waiting) ждёт") }
+        return "Пока тебя не было: " + parts.joined(separator: ", ")
+    }
+}
+
 /// Решение «реагировать сейчас»: что сыграть телом и что (если можно) сказать.
 public struct Decision: Sendable, Equatable {
     public let reaction: String
@@ -55,6 +79,10 @@ public struct Director: Sendable {
     private var idleSince: Date?
     private var pokeTimes: [Date] = []
     private var spaceTimes: [Date] = []
+    /// Новости агентов, накопленные, пока тебя нет.
+    public private(set) var news = AwayNews()
+    /// Новости, отданные при последнем возвращении.
+    public private(set) var deliveredNews: AwayNews?
     private let calendar: Calendar
 
     public init(settings: DirectorSettings = DirectorSettings(), catalog: [ReactionSpec] = ReactionCatalog.all, calendar: Calendar = .current) {
@@ -83,6 +111,17 @@ public struct Director: Sendable {
 
         // Состояние, которое ведёт сам Director.
         var firstPresence = false
+        deliveredNews = nil
+        if !userPresent {
+            switch signal.kind {
+            case .agentDone: news.done += 1
+            case .agentError: news.failed += 1
+            case .agentWaitingLong: news.waiting += 1
+            default: break
+            }
+        }
+        let returning = !userPresent && [.userBack, .screenUnlocked, .systemWake].contains(signal.kind)
+        let newsOnReturn = returning ? news : AwayNews()
         switch signal.kind {
         case .quietOn: quietReasons.insert(signal.sense.rawValue)
         case .quietOff: quietReasons.remove(signal.sense.rawValue)
@@ -113,8 +152,13 @@ public struct Director: Sendable {
             idleSeconds: idleSince.map { now.timeIntervalSince($0) } ?? 0,
             userPresent: userPresent, birthday: settings.birthday,
             pokeStreak: signal.kind == .poke ? pokeTimes.count : 0,
-            spaceChangesRecent: spaceTimes.count
+            spaceChangesRecent: spaceTimes.count,
+            news: newsOnReturn
         )
+        if returning, !news.isEmpty {
+            deliveredNews = news
+            news = AwayNews()
+        }
         let quiet = isQuiet || isQuietHours(now)
 
         for spec in catalog where spec.kinds.contains(signal.kind) {
@@ -190,6 +234,12 @@ public struct DirectorOutcome: Sendable {
     public let mood: Mood
     /// Тишина сейчас: созвон, полный экран или тихие часы.
     public let quiet: Bool
+    /// Пока тебя нет, у агентов что-то случилось — маскот ждёт с новостями.
+    public let newsPending: Bool
+    /// Ты вернулся — что случилось без тебя.
+    public let deliveredNews: AwayNews?
+    /// Счётчики сегодняшнего дня — для итога при наведении.
+    public let today: DayMemory.Day
 }
 
 /// Актор-обёртка: решения принимаются последовательно, вне главного потока.
@@ -205,7 +255,9 @@ public actor DirectorActor {
         let decision = director.handle(signal, now: signal.ts, rng: &rng)
         return DirectorOutcome(
             decision: decision, mood: director.mood,
-            quiet: director.isQuiet || director.isQuietHours(signal.ts)
+            quiet: director.isQuiet || director.isQuietHours(signal.ts),
+            newsPending: !director.news.isEmpty, deliveredNews: director.deliveredNews,
+            today: director.memory.today(signal.ts)
         )
     }
 

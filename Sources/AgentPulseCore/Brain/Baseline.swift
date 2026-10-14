@@ -10,6 +10,8 @@ public struct BodyCondition: Sendable, Equatable {
     public var diskFull = false
     public var darkTheme = false
     public var night = false
+    /// Ты давно работаешь без пауз — маскот спокойнее, не отвлекает.
+    public var userFocused = false
 
     public init() {}
 
@@ -29,6 +31,8 @@ public struct BodyCondition: Sendable, Equatable {
         case .memoryNormal: memoryTight = false
         case .diskLow: diskFull = true
         case .diskOK: diskFull = false
+        case .userFocused: userFocused = true
+        case .userPaused, .userAway: userFocused = false
         case .darkMode: darkTheme = true
         case .lightMode: darkTheme = false
         default: break
@@ -81,6 +85,7 @@ public struct Baseline: Sendable, Equatable {
         if body.diskFull { base.bodyScale = 1.03 }
         if body.darkTheme { base.glowOpacity -= 0.1 }
         if body.night { base.glowWarmth = 1 }
+        if body.userFocused { base.motionSpeed -= 0.2; base.blinkInterval += 0.15 }
 
         base.blinkInterval = min(2.5, max(0.35, base.blinkInterval))
         base.motionSpeed = min(1.3, max(0.35, base.motionSpeed))

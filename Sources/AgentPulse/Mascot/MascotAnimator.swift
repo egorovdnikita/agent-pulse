@@ -11,6 +11,15 @@ final class MascotAnimator {
     var lidGaze = 0.0
     /// Пока маскота тащат — глаза смотрят в сторону движения.
     var dragLook: SIMD2<Double>?
+    /// Агент закончил, пока тебя не было: спит довольным — глаза «^ ^».
+    var contented = false
+
+    // Взгляд на курсор издалека.
+    private var nextFarGlance: Double?
+    private var farLookUntil = 0.0
+    private var farLook = SIMD2<Double>.zero
+    private var lastCursor: CGPoint?
+    private var cursorMovedAt = 0.0
     var reduceMotion = false
     /// Центр маскота в экранных координатах — для слежения за курсором.
     var screenCenter: CGPoint?
@@ -85,6 +94,9 @@ final class MascotAnimator {
     func isCalm(at t: Double) -> Bool {
         state == .sleep && !hovered && active == nil && queue.isEmpty && dragLook == nil
             && wake.value < 0.01 && t - stateStart > tuning.fallAsleepDuration + 1.5
+            // Поза устоялась: веки и «^ ^» дошли до конца — иначе застынет полузакрытой.
+            && abs(happy.value - (contented ? 1 : 0)) < 0.02
+            && abs(eyeScale.value - tuning.sleepLid) < 0.02 && abs(eyeScale.velocity) < 0.05
     }
 
     func glance(towardX x: Double, at t: Double) {
@@ -126,6 +138,32 @@ final class MascotAnimator {
         if awake > 0.01 {
             frame.eyeScale += (1.05 - frame.eyeScale) * awake
             if awake > 0.3 { frame.motionless = false }
+        }
+
+        // Замечает тебя: раз в несколько минут находит курсор где угодно (хоть на другом мониторе)
+        // и коротко смотрит в его сторону. Только когда ты двигал мышь недавно — смотрит на живого.
+        if let cursor {
+            if let last = lastCursor, hypot(cursor.x - last.x, cursor.y - last.y) > 2 { cursorMovedAt = t }
+            lastCursor = cursor
+        }
+        let calmState = state == .idle || state == .think
+        if nextFarGlance == nil { nextFarGlance = t + Double.random(in: tuning.farGlanceInterval, using: &context.rng) }
+        if calmState, active == nil, !hovered, let due = nextFarGlance, t >= due {
+            nextFarGlance = t + Double.random(in: tuning.farGlanceInterval, using: &context.rng)
+            if t - cursorMovedAt < 3, let offset = cursorOffset(cursor), offset.length > tuning.hoverRadius {
+                farLook = offset / offset.length * 0.95
+                farLookUntil = t + tuning.farGlanceDuration
+                frame.saccade = 1.2
+            }
+        }
+        if t < farLookUntil && calmState && active == nil {
+            frame.gaze = farLook
+            frame.eyeScale = max(frame.eyeScale, 1.08)
+        }
+
+        // Ждёт с новостями: спит довольным — «^ ^» вместо закрытых век.
+        if contented && state == .sleep && active == nil {
+            frame.happy = 1
         }
 
         var followingCursor = false
