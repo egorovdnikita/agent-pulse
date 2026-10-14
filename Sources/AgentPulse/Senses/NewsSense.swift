@@ -48,7 +48,7 @@ final class NewsSense: Sense {
                     request.setValue("Pulse/1.0 (macOS; design news)", forHTTPHeaderField: "User-Agent")
                     guard let (data, response) = try? await URLSession.shared.data(for: request),
                           (response as? HTTPURLResponse)?.statusCode == 200 else { return [] }
-                    return FeedParser.parse(data, source: feed.name)
+                    return DesignFeeds.filter(FeedParser.parse(data, source: feed.name), feed: feed)
                 }
             }
             var all: [NewsItem] = []

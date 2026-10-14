@@ -33,13 +33,11 @@ import Testing
         #expect(atomItems[0].date == ISO8601DateFormatter().date(from: "2026-10-14T08:30:00Z"))
     }
 
-    @Test func teaserFitsTenWords() {
+    @Test func teaserIsGistWithinLimit() {
         let item = FeedParser.parse(atom, source: "Figma")[0]
-        #expect(Phrases.wordCount(item.teaser) <= Phrases.maxWords)
-        #expect(item.teaser.hasPrefix("Figma: Introducing"))
-        #expect(item.teaser.hasSuffix("…"))
+        #expect(item.teaser.split(separator: " ").count <= NewsGist.maxWords)
         let short = NewsItem(title: "Error messages", link: "https://x", source: "NN/g", date: nil)
-        #expect(short.teaser == "NN/g: Error messages")
+        #expect(short.teaser == "Error messages")
     }
 
     @Test func deskShowsFreshUnseenAndAlternatesSources() {
@@ -79,5 +77,43 @@ import Testing
         _ = quiet.handle(Signal(.quiet, .quietOn), now: noon, rng: &rng)
         _ = quiet.handle(Signal(.news, .newsFresh, value: 4), now: noon, rng: &rng)
         #expect(quiet.handle(Signal(.clock, .minute), now: noon.addingTimeInterval(120), rng: &rng)?.special != .news)
+    }
+}
+
+@Suite struct NewsGistTests {
+    @Test func skipsIntrosAndPersonalStories() {
+        let gist = NewsGist.make(
+            title: "Как мы готовили редизайн продукта с помощью исследований",
+            description: "<p>Привет, Хабр! Меня зовут Илона, я продуктовый дизайнер. В Naumen я работаю больше года.</p>"
+        )
+        #expect(gist == "Как мы готовили редизайн продукта с помощью исследований")
+    }
+
+    @Test func takesShortFactualSentence() {
+        let gist = NewsGist.make(
+            title: "Дизайн детских площадок: почему они стали серыми",
+            description: "Цвет площадки почти никогда не выбирает дизайнер и тем более ребенок. Его решают безопасность, материалы и деньги."
+        )
+        #expect(gist == "Цвет площадки почти никогда не выбирает дизайнер и тем более ребенок.")
+    }
+
+    @Test func dropsFillersAndReadMore() {
+        let gist = NewsGist.make(title: "T", description: "Кажется, в финтехе формируется новый тренд на главные экраны. Читать далее")
+        #expect(gist == "В финтехе формируется новый тренд на главные экраны.")
+    }
+
+    @Test func neverLongerThanLimit() {
+        let long = Array(repeating: "слово", count: 40).joined(separator: " ")
+        #expect(NewsGist.make(title: long, description: long).split(separator: " ").count <= NewsGist.maxWords)
+    }
+
+    @Test func topicFilterAndDedupe() {
+        let heating = NewsItem(title: "Как я выбирал систему отопления", link: "https://a", source: "Хабр · Дизайн", date: nil, gist: "Котёл и трубы")
+        let logo = NewsItem(title: "Логотип в малом размере", link: "https://b", source: "Хабр · Дизайн", date: nil)
+        #expect(!DesignFeeds.isOnTopic(heating))
+        #expect(DesignFeeds.isOnTopic(logo))
+        var desk = NewsDesk()
+        desk.update([logo, logo])
+        #expect(desk.items.count == 1)
     }
 }
