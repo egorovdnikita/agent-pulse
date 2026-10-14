@@ -10,6 +10,8 @@ public enum Tier: Int, Sendable, Comparable, Codable, CaseIterable {
 /// Особые поведения, которые двигают саму панель — их исполняет приложение.
 public enum SpecialAction: String, Sendable, Codable {
     case peekaboo, sleepwalk
+    /// Рассказать свежую новость дизайна — текст и ссылку подставляет приложение.
+    case news
 }
 
 /// Что известно в момент решения.
@@ -31,6 +33,10 @@ public struct DirectorContext: Sendable {
     /// Знакомство 0…1 и сколько дней не виделись.
     public var familiarity = 0.0
     public var daysAway: Int?
+    /// Сколько свежих новостей дизайна ждёт; тишина и занятость агента — новости молчат.
+    public var newsWaiting = 0
+    public var quiet = false
+    public var agentBusy = false
 
     public init(
         now: Date, calendar: Calendar, mood: Mood, today: DayMemory.Day, firstPresenceToday: Bool, earlyBy: Double?,
@@ -131,7 +137,7 @@ public struct ReactionSpec: Sendable {
 public enum ReactionCatalog {
     static let present: Set<SignalKind> = [.userBack, .systemWake, .screenUnlocked, .minute, .stroke, .poke, .dragged]
 
-    public static let all: [ReactionSpec] = agents + body + rhythm + interaction + fun
+    public static let all: [ReactionSpec] = agents + body + rhythm + interaction + news + fun
 
     // MARK: - Агенты (сверх основного конвейера состояний)
 
@@ -252,6 +258,18 @@ public enum ReactionCatalog {
         ReactionSpec("dropped", on: [.dropped], tier: .interaction, cooldown: 5, behavior: .lookAround, lines: ["Так лучше"]),
         ReactionSpec("spaces.dizzy", on: [.spaceChanged], tier: .interaction, cooldown: 60,
                      when: { _, c in c.spaceChangesRecent > 5 }, behavior: .dizzy, lines: ["Укачало"]),
+    ]
+
+    // MARK: - Новости дизайна [решение]
+
+    /// Время от времени, когда ты рядом и ничего не мешает: не чаще раза в 2 часа, до 3 в день.
+    static let news: [ReactionSpec] = [
+        ReactionSpec("news.design", on: [.minute], tier: .rhythm, cooldown: 2 * 3600, dailyLimit: 3,
+                     when: { _, c in
+                         c.newsWaiting > 0 && c.userPresent && c.idleSeconds < 120 && !c.quiet && !c.agentBusy
+                             && (9..<22).contains(c.hour)
+                     },
+                     behavior: .wideEyes, bubble: 8, chance: 1.0 / 10, special: .news),
     ]
 
     // MARK: - Приколы (в бюджете)

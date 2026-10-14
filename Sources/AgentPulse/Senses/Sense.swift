@@ -13,7 +13,7 @@ protocol Sense: AnyObject {
 @MainActor
 enum SenseRegistry {
     /// Какие органы включены — по настройкам `senses`.
-    static func make(_ config: PulseConfig) -> [Sense] {
+    static func make(_ config: PulseConfig, news: @escaping @MainActor ([NewsItem]) -> Void) -> [Sense] {
         var senses: [Sense] = []
         if config.senses.body {
             senses += [PowerSense(), ThermalSense(), MemorySense(), DiskSense(), NetworkSense(), DisplaySense(), KeyboardSense()]
@@ -25,6 +25,9 @@ enum SenseRegistry {
             senses += [AudioSense()]
         }
         senses.append(QuietSense())
+        if config.character.designNews {
+            senses.append(NewsSense(deliver: news))
+        }
         if config.senses.experimental {
             senses.append(LidAngleSense())
         }

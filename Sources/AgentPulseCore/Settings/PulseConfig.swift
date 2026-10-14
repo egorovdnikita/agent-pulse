@@ -33,6 +33,8 @@ public struct PulseConfig: Codable, Sendable, Equatable {
         /// «MM-dd».
         public var birthday: String?
         public var hideWhenIdle = true
+        /// Время от времени рассказывает новости UI/UX-дизайна **[решение]**.
+        public var designNews = true
         public var hideAfterMinutes = 30
 
         static func minutes(_ text: String?) -> Int? {

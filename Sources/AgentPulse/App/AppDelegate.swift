@@ -79,6 +79,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         for (order, kind) in kinds.enumerated() {
             DispatchQueue.main.asyncAfter(deadline: .now() + 2 + Double(order) * 0.5) { [model] in model.simulate(kind) }
         }
+        // Отладка: `--news-now` — загрузить ленты и сразу рассказать новость, минуя ожидание Director.
+        if arguments.contains("--news-now") {
+            Task { [model] in
+                let items = await NewsSense.load()
+                model.receiveNews(items)
+                model.scheduler.quiet = false
+                model.tellNews(at: Date(), duration: 8, ignoringQuiet: true)
+            }
+        }
         // Отладка: `--behavior doze` — как «Поведение вручную» в MascotLab.
         let behaviors = arguments.indices.compactMap { index in
             arguments[index] == "--behavior" && index + 1 < arguments.count ? MascotReaction(rawValue: arguments[index + 1]) : nil
@@ -157,10 +166,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     func startSenses() {
         senses.forEach { $0.stop() }
         let inbox = model.inbox
-        senses = SenseRegistry.make(model.config)
+        senses = SenseRegistry.make(model.config) { [model] items in model.receiveNews(items) }
         for sense in senses {
             sense.start { signal in inbox.yield(.signal(signal)) }
         }
+    }
+
+    func setDesignNews(_ on: Bool) {
+        model.config.character.designNews = on
+        try? model.config.save()
+        startSenses()
+        if !on { model.simulate(.newsFresh, value: 0) }
     }
 
     func setGravity(_ on: Bool) {

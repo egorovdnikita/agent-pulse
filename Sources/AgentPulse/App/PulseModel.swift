@@ -53,6 +53,10 @@ final class PulseModel {
     /// Что случилось у агентов без тебя — показывается при наведении 10 минут после возвращения.
     var awayNews: AwayNews?
     var awayNewsAt: Date?
+    /// Новости дизайна: что уже показано, и последняя рассказанная.
+    @ObservationIgnored var newsDesk = NewsDesk.load()
+    var currentNews: NewsItem?
+    var currentNewsAt: Date?
     /// Счётчики дня — вечерний итог при наведении.
     var today: DayMemory.Day?
     /// Оценки за сегодня: «мило» и «бесит».
@@ -297,7 +301,9 @@ final class PulseModel {
         guard inside != isHovering else { return }
         isHovering = inside
         animator.hovered = inside
-        if inside {
+        if inside, let news = recentNews {
+            hoverText = "\(news.source)\n\(news.title)"
+        } else if inside {
             switch state {
             case .sleep, .idle:
                 hoverText = restingSummary(now: Date())
@@ -325,8 +331,27 @@ final class PulseModel {
         if visible != showMirror { showMirror = visible }
     }
 
-    /// Клик по маскоту: в агентном состоянии — переход к источнику, иначе — тычок.
+    /// Только что рассказанная новость — клик открывает статью, наведение показывает заголовок целиком.
+    var recentNews: NewsItem? {
+        guard let item = currentNews, let at = currentNewsAt, Date().timeIntervalSince(at) < 90 else { return nil }
+        return item
+    }
+
+    /// Клик по облачку: новость — открыть статью, иначе как клик по маскоту.
+    func tapBubble() {
+        if let news = recentNews, let url = URL(string: news.link) {
+            NSWorkspace.shared.open(url)
+        } else {
+            activateSource()
+        }
+    }
+
+    /// Клик по маскоту: новость — открыть статью; в агентном состоянии — переход к источнику; иначе — тычок.
     func tapMascot() {
+        if let news = recentNews, let url = URL(string: news.link) {
+            NSWorkspace.shared.open(url)
+            return
+        }
         switch state {
         case .work, .think, .waitYou:
             activateSource()

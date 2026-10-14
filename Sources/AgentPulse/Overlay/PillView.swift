@@ -103,7 +103,7 @@ struct PillView: View {
                     .id(model.bubbleKey)
                     .transition(.asymmetric(insertion: insertion, removal: .opacity.animation(.easeOut(duration: 0.2))))
                     .help(model.statusLine)
-                    .onTapGesture { model.activateSource() }
+                    .onTapGesture { model.tapBubble() }
             }
         }
         .frame(width: BubbleView.maxWidth, alignment: tailOnRight ? .trailing : .leading)

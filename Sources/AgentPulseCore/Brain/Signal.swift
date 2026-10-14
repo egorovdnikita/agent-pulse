@@ -4,6 +4,8 @@ import Foundation
 public enum SenseID: String, Sendable, Codable, CaseIterable {
     case agents, power, thermal, memory, disk, network, display, sleepWake, presence, space, clock
     case appearance, audio, quiet, keyboard, interaction, lidAngle
+    /// Новости UI/UX-дизайна из публичных лент **[решение]**.
+    case news
 }
 
 /// Что заметил орган чувств. Только системные сигналы: ни окон, ни приложений, ни содержимого.
@@ -37,6 +39,8 @@ public enum SignalKind: String, Sendable, Codable, CaseIterable {
     case agentWaitingLong, agentErrorStreak, agentStep, agentDone, agentError
     // Эксперимент: угол крышки, градусы
     case lidAngle
+    // Есть свежие новости дизайна (value — сколько)
+    case newsFresh
 }
 
 extension SignalKind {
@@ -61,6 +65,7 @@ extension SignalKind {
         case .stroke, .poke, .dragged, .thrown, .dropped, .cursorFlyby: .interaction
         case .agentWaitingLong, .agentErrorStreak, .agentStep, .agentDone, .agentError: .agents
         case .lidAngle: .lidAngle
+        case .newsFresh: .news
         }
     }
 }

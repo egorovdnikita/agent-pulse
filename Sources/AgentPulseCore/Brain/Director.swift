@@ -84,6 +84,8 @@ public struct Director: Sendable {
     private var idleSince: Date?
     private var pokeTimes: [Date] = []
     private var spaceTimes: [Date] = []
+    /// Свежих новостей дизайна ждёт рассказа.
+    public private(set) var newsWaiting = 0
     /// Новости агентов, накопленные, пока тебя нет.
     public private(set) var news = AwayNews()
     /// Новости, отданные при последнем возвращении.
@@ -143,6 +145,8 @@ public struct Director: Sendable {
         case .poke:
             memory.update(now, calendar: calendar) { $0.pokes += 1 }
             pokeTimes = pokeTimes.filter { now.timeIntervalSince($0) < Self.pokeWindow } + [now]
+        case .newsFresh:
+            newsWaiting = Int(signal.value ?? 0)
         case .spaceChanged:
             spaceTimes = spaceTimes.filter { now.timeIntervalSince($0) < Self.spaceWindow } + [now]
         default: break
@@ -161,6 +165,9 @@ public struct Director: Sendable {
             news: newsOnReturn
         )
         context.familiarity = memory.familiarity
+        context.newsWaiting = newsWaiting
+        context.quiet = isQuiet || isQuietHours(now)
+        context.agentBusy = agentBusy
         context.daysAway = memory.daysSinceLastVisit(before: now, calendar: calendar)
         if returning, !news.isEmpty {
             deliveredNews = news

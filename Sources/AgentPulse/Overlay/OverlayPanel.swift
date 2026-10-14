@@ -300,6 +300,7 @@ final class OverlayPanel: NSPanel {
         switch action {
         case .peekaboo: peekaboo(line: line, screen: screen)
         case .sleepwalk: sleepwalk(screen: screen)
+        case .news: break // рассказывает модель, панель не двигается
         }
     }
 

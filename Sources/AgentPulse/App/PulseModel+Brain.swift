@@ -38,7 +38,9 @@ extension PulseModel {
         lastReaction = decision.reaction
         lastLine = decision.line
         if let behavior = decision.behavior { animator.enqueue(behavior) }
-        if let special = decision.special {
+        if decision.special == .news {
+            tellNews(at: signal.ts, duration: decision.bubbleDuration)
+        } else if let special = decision.special {
             onSpecial?(special, decision.line)
         } else if let line = decision.line {
             scheduler.say(line, duration: decision.bubbleDuration, agent: decision.tier == .agent, now: signal.ts)
@@ -132,6 +134,26 @@ extension PulseModel {
             await director.update { $0.memory.reset() }
             try? DayMemory().save()
         }
+    }
+
+    // MARK: - Новости дизайна
+
+    /// Свежие ленты: запомнить и сказать Director, сколько новостей ждёт.
+    func receiveNews(_ items: [NewsItem]) {
+        newsDesk.update(items)
+        simulate(.newsFresh, value: Double(newsDesk.available(now: Date()).count))
+    }
+
+    /// Director решил: пора рассказать новость. (Отладка: `--news-now` — сразу.)
+    func tellNews(at now: Date, duration: TimeInterval, ignoringQuiet: Bool = false) {
+        guard ignoringQuiet || !quiet, let item = newsDesk.take(now: now, lastSource: currentNews?.source) else { return }
+        currentNews = item
+        currentNewsAt = now
+        lastReaction = "news.design"
+        lastLine = item.teaser
+        scheduler.say(item.teaser, duration: duration, now: now)
+        try? newsDesk.save()
+        simulate(.newsFresh, value: Double(newsDesk.available(now: now).count))
     }
 
     // MARK: - «Мило» и «бесит»
