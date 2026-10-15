@@ -2,7 +2,7 @@ import SwiftUI
 
 /// Пузырь с хвостиком к маскоту. Белая заливка, чёрный текст, мягкая тёмная тень — палитра маскота.
 struct BubbleView: View {
-    static let maxWidth: CGFloat = 200
+    static let maxWidth: CGFloat = 220
     nonisolated static let tailSize: CGFloat = 5
 
     let text: String
@@ -13,7 +13,7 @@ struct BubbleView: View {
             .font(.system(size: 12, weight: .medium, design: .rounded))
             .foregroundStyle(.black)
             .multilineTextAlignment(.leading)
-            .lineLimit(3)
+            .lineLimit(4)
             .fixedSize(horizontal: false, vertical: true)
             .padding(.horizontal, 8)
             .padding(.vertical, 4)

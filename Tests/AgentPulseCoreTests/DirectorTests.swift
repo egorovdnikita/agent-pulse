@@ -260,7 +260,7 @@ struct ZeroRNG: RandomNumberGenerator {
         #expect(MoodVoice.color("Можно?", mood: tired) == "Можно?")
         #expect(MoodVoice.color("Хмм…", mood: tired) == "Хмм…")
         #expect(MoodVoice.color("Готово", mood: Mood()) == "Готово")
-        #expect(MoodVoice.pool(for: .done, mood: Mood(joy: 0.9)).contains("Ура"))
+        #expect(MoodVoice.pool(for: .done, mood: Mood(joy: 0.9)).contains("Ура, готово"))
         #expect(!MoodVoice.pool(for: .done, mood: Mood()).contains("Ура"))
 
         // Ожидание пользователя всегда без окраски.

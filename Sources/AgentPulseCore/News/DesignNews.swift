@@ -19,6 +19,16 @@ public struct NewsItem: Sendable, Equatable, Codable {
 
     /// Облачко: суть новости, а не заголовок.
     public var teaser: String { gist }
+
+    /// Рассказывать стоит: есть внятная суть, это не реклама, курс или вакансия.
+    public var isTellable: Bool {
+        !gist.hasSuffix("…") && NewsGist.words(gist).count >= NewsGist.minWords && !NewsGist.isWeak(gist) && !DesignFeeds.isPromo(self)
+    }
+}
+
+/// Как маскот подводит к новости — своими словами, от первого лица и без рода («нашлось», а не «нашёл»).
+public enum NewsVoice {
+    public static let leadIns = ["Смотри, что нашлось", "Я тут читаю новости", "О, свежее из дизайна", "Интересное попалось"]
 }
 
 /// Суть новости из анонса — без внешних сервисов: пропускаем вступления («Привет, Хабр! Меня зовут…»),
@@ -27,36 +37,89 @@ public enum NewsGist {
     /// Новость — не реплика: суть почти никогда не влезает в 10 слов, 14 — три строки облачка.
     public static let maxWords = 14
     static let minWords = 4
+    /// Облачко 220 pt × 4 строки — около 120 знаков; суть держим в 90, чтобы читалась с одного взгляда.
+    public static let maxChars = 90
 
     static let introMarkers = ["привет", "всем привет", "меня зовут", "на связи", "tl;dr", "hello", "добрый день", "в этой статье"]
 
     public static func make(title: String, description: String) -> String {
+        humanize(pick(title: title, description: description))
+    }
+
+    static func fits(_ text: String) -> Bool {
+        (minWords...maxWords).contains(words(text).count) && text.count <= maxChars
+    }
+
+    static func pick(title: String, description: String) -> String {
         let sentences = Self.sentences(clean(description)).filter { !isIntro($0) }.map(dropFiller)
         // Рассказ от первого лица и придаточные — слабая суть; тогда заголовок, он часто сам и есть мысль.
         let candidates = Array(sentences.prefix(3)).filter { !isWeak($0) }
-        if let fitting = candidates.first(where: { (minWords...maxWords).contains(words($0).count) }) {
+        if let fitting = candidates.first(where: fits) {
             return fitting
         }
         if let first = candidates.first {
-            // Первая смысловая часть: до двоеточия, тире или запятой — если она сама по себе мысль.
-            for separator in [": ", " — ", " – ", " - ", ", "] {
+            // Первая смысловая часть: до двоеточия или тире — если она сама по себе мысль. По запятой рвётся на обрывки.
+            for separator in [": ", " — ", " – ", " - "] {
                 if let range = first.range(of: separator) {
                     let head = String(first[..<range.lowerBound])
-                    if (minWords...maxWords).contains(words(head).count), !isWeak(head) { return head }
+                    if fits(head), !isWeak(head) { return head }
                 }
             }
         }
-        if words(title).count <= maxWords { return title }
+        if words(title).count <= maxWords, title.count <= maxChars { return title }
         return clip(candidates.first ?? title)
     }
 
-    static let weakStarts = ["когда ", "если ", "чтобы ", "хотя ", "пока ", "после того", "в этой ", "в сегодняшнем ", "сегодня ", "недавно ", "я ", "мы ", "хотелось", "хочется "]
+    /// Заголовок-вопрос — пересказом: «Как мы делали X» → «Тут рассказывают, как делали X».
+    static func retell(title: String) -> String {
+        let plain = title.trimmingCharacters(in: CharacterSet(charactersIn: "?!. "))
+        let lowered = plain.lowercased()
+        let frames: [(String, String)] = [
+            ("как мы ", "Тут рассказывают, как "), ("как я ", "Тут рассказывают, как "),
+            ("как ", "Тут разбирают, как "), ("почему ", "Тут объясняют, почему "),
+            ("зачем ", "Тут объясняют, зачем "), ("что такое ", "Тут объясняют, что такое "),
+        ]
+        for (prefix, frame) in frames where lowered.hasPrefix(prefix) {
+            return frame + plain.dropFirst(prefix.count)
+        }
+        return plain
+    }
+
+    /// Канцелярит → разговорный: «является» → «это», «в настоящее время» → «сейчас». Без точки в конце — это реплика.
+    static let plainWords: [(String, String)] = [
+        ("в настоящее время", "сейчас"), ("на сегодняшний день", "сейчас"), ("представляет собой", "это"),
+        ("является", "это"), ("являются", "это"), ("с целью", "чтобы"), ("в рамках", "в"), ("данный", "этот"),
+        ("данная", "эта"), ("данное", "это"), ("осуществляет", "делает"), ("осуществлять", "делать"),
+        ("необходимо", "нужно"), ("в случае если", "если"), ("на основе", "по"),
+    ]
+
+    static func humanize(_ text: String) -> String {
+        let text = text.replacingOccurrences(of: "\u{00A0}", with: " ")
+        var value = retell(title: text)
+        if value.count > maxChars { value = text }
+        value = value.replacingOccurrences(of: "\\s*\\([^)]*\\)", with: "", options: .regularExpression)
+        for (formal, plain) in plainWords {
+            value = value.replacingOccurrences(of: " \(formal) ", with: " \(plain) ")
+        }
+        value = value.trimmingCharacters(in: .whitespaces)
+        if value.hasSuffix("."), !value.hasSuffix("..") { value.removeLast() }
+        return value
+    }
+
+    static let weakStarts = ["когда ", "если ", "чтобы ", "хотя ", "пока ", "после того", "в этой ", "в сегодняшнем ", "сегодня ", "недавно ", "я ", "мы ", "хотелось", "хочется ",
+        // Разговорные заходы и куски истории — не суть.
+        "ну ", "теперь ", "итак", "так ли", "представ", "давайте", "часть ", "в первой", "в прошлой", "в предыдущей",
+        "решил", "«", "\"", "вот ", "и вот",
+    ]
+    /// Рассказ автора о себе и обещания «расскажу» — тоже не суть.
+    static let personalWords = ["расскажу", "покажу", "разберу", "давайте", "моих", "мой ", "моя ", "моё ", "мне ", "мою ", "моей ", "моём ", "моем "]
     static let fillers = ["Кажется, ", "Итак, ", "Короче, ", "Как известно, "]
 
     static func isWeak(_ sentence: String) -> Bool {
         let lowered = sentence.lowercased()
         if weakStarts.contains(where: { lowered.hasPrefix($0) }) { return true }
         if lowered.first?.isNumber == true { return true }
+        if personalWords.contains(where: { lowered.contains($0) }) { return true }
         // Рассказ о себе: «я работаю», «мы сделали» в первой половине предложения.
         let head = lowered.prefix(max(20, lowered.count / 2))
         return [" я ", " мы ", " меня ", " нас "].contains { head.contains($0) }
@@ -107,7 +170,7 @@ public enum NewsGist {
             || words(sentence).count < 3
     }
 
-    static func words(_ text: String) -> [Substring] {
+    public static func words(_ text: String) -> [Substring] {
         text.split(whereSeparator: \.isWhitespace)
     }
 
@@ -137,13 +200,24 @@ public enum DesignFeeds {
         "иконк", "экран", "прототип", "пользовател", "верстк", "анимац", "визуал", "цвет", "кнопк",
     ]
 
+    /// Реклама, курсы, вакансии и подборки — не новость.
+    static let promoWords = [
+        "вебинар", "курс ", "курсы", "скидк", "промокод", "ваканси", "розыгрыш", "реклам", "партнёрск", "партнерск",
+        "дайджест", "регистрац", "интенсив", "марафон", "мы ищем", "в команду",
+    ]
+
+    public static func isPromo(_ item: NewsItem) -> Bool {
+        let text = (item.title + " " + item.gist).lowercased()
+        return promoWords.contains { text.contains($0) }
+    }
+
     public static func isOnTopic(_ item: NewsItem) -> Bool {
         let text = (item.title + " " + item.gist).lowercased()
         return topicWords.contains { text.contains($0) }
     }
 
     public static func filter(_ items: [NewsItem], feed: Feed) -> [NewsItem] {
-        feed.needsTopicFilter ? items.filter(isOnTopic) : items
+        (feed.needsTopicFilter ? items.filter(isOnTopic) : items).filter(\.isTellable)
     }
 }
 

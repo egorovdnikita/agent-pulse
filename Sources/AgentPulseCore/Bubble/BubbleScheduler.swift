@@ -16,6 +16,12 @@ public struct BubbleTuning: Codable, Sendable, Equatable {
 
     public init() {}
 
+    /// Сколько нужно, чтобы заметить облачко краем глаза и дочитать: ~1 s перевести взгляд
+    /// и ~15 знаков в секунду — спокойное чтение с экрана, не скорочтение.
+    public static func readingTime(_ text: String) -> TimeInterval {
+        min(12, 1 + Double(text.count) / 15)
+    }
+
     /// `nil` — держится до реакции пользователя.
     public func duration(for trigger: BubbleTrigger) -> TimeInterval? {
         switch trigger {
@@ -139,7 +145,9 @@ public struct BubbleScheduler: Sendable {
         // Ожидание пользователя — всегда ясно и без окраски.
         let text = item.trigger.isWait ? picked : MoodVoice.color(picked, mood: mood)
         nextId += 1
-        current = Bubble(id: nextId, trigger: item.trigger, text: text, shownAt: now, duration: item.duration)
+        // Длинное успевает прочитаться: облачко держится не меньше времени чтения.
+        let duration = item.duration.map { max($0, BubbleTuning.readingTime(text)) }
+        current = Bubble(id: nextId, trigger: item.trigger, text: text, shownAt: now, duration: duration)
         lastText = text
     }
 }

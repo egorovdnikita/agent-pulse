@@ -151,6 +151,8 @@ extension PulseModel {
         currentNewsAt = now
         lastReaction = "news.design"
         lastLine = item.teaser
+        // Как человек: сначала «Смотри, что нашлось», потом суть своими словами.
+        scheduler.say(NewsVoice.leadIns.randomElement() ?? "", duration: 1.6, now: now)
         scheduler.say(item.teaser, duration: duration, now: now)
         try? newsDesk.save()
         simulate(.newsFresh, value: Double(newsDesk.available(now: now).count))

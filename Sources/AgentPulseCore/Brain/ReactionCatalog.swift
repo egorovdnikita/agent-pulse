@@ -147,8 +147,8 @@ public enum ReactionCatalog {
                      when: { _, c in !c.news.isEmpty },
                      behaviorFor: { _, c in c.news.failed > 0 && c.news.done == 0 ? .lookDown : .done },
                      linesFor: { _, c in
-                         if c.news.waiting > 0 { return ["Жду тебя", "Глянешь?"] }
-                         return c.news.done > 0 ? ["Готово", "Есть новости"] : ["Не вышло"]
+                         if c.news.waiting > 0 { return ["Я жду тебя", "Глянешь? Я жду"] }
+                         return c.news.done > 0 ? ["У меня готово, проверь", "Есть новости"] : ["У меня не вышло", "Не получилось, глянешь?"]
                      }, bubble: 4),
         ReactionSpec("agent.waitLong", on: [.agentWaitingLong], tier: .agent, cooldown: 5 * 60,
                      behavior: .turnAway, lines: ["Эй…"], bubble: 3),
@@ -161,17 +161,17 @@ public enum ReactionCatalog {
     // MARK: - Тело ноутбука
 
     static let body: [ReactionSpec] = [
-        ReactionSpec("battery.critical", on: [.batteryCritical], tier: .body, behavior: .slowClose, lines: ["Совсем всё"]),
-        ReactionSpec("battery.low", on: [.batteryLow], tier: .body, behavior: .slowClose, lines: ["Есть хочу"]),
-        ReactionSpec("charger.on", on: [.chargerConnected], tier: .body, cooldown: 5 * 60, behavior: .startle, lines: ["Ммм…"]),
+        ReactionSpec("battery.critical", on: [.batteryCritical], tier: .body, behavior: .slowClose, lines: ["Совсем всё", "Я на последнем…"]),
+        ReactionSpec("battery.low", on: [.batteryLow], tier: .body, behavior: .slowClose, lines: ["Есть хочу", "Мне бы поесть"]),
+        ReactionSpec("charger.on", on: [.chargerConnected], tier: .body, cooldown: 5 * 60, behavior: .startle, lines: ["Ммм…", "Ммм, вкусно"]),
         ReactionSpec("battery.full", on: [.fullyCharged], tier: .body, behavior: .contentSquint, lines: ["Ням", "Сыто"]),
-        ReactionSpec("lowPower", on: [.lowPowerOn], tier: .body, lines: ["Экономлю"]),
-        ReactionSpec("thermal.high", on: [.thermalHigh], tier: .body, behavior: .fastBlink, lines: ["Жарко…"]),
+        ReactionSpec("lowPower", on: [.lowPowerOn], tier: .body, lines: ["Экономлю", "Берегу силы"]),
+        ReactionSpec("thermal.high", on: [.thermalHigh], tier: .body, behavior: .fastBlink, lines: ["Жарко…", "Мне жарко…"]),
         ReactionSpec("thermal.normal", on: [.thermalNormal], tier: .body, behavior: .relax, lines: ["Фух"]),
-        ReactionSpec("memory.pressure", on: [.memoryPressure], tier: .body, behavior: .wobble, lines: ["Тесно мне"]),
+        ReactionSpec("memory.pressure", on: [.memoryPressure], tier: .body, behavior: .wobble, lines: ["Тесно мне", "Мне тут тесно…"]),
         ReactionSpec("disk.low", on: [.diskLow], tier: .body, cooldown: 6 * 3600, behavior: .puff, lines: ["Я лопну"]),
-        ReactionSpec("network.lost", on: [.networkLost], tier: .body, cooldown: 10 * 60, behavior: .lookAround, lines: ["Где все?"]),
-        ReactionSpec("network.back", on: [.networkBack], tier: .body, cooldown: 10 * 60, lines: ["Вот вы где"]),
+        ReactionSpec("network.lost", on: [.networkLost], tier: .body, cooldown: 10 * 60, behavior: .lookAround, lines: ["Где все?", "Я никого не слышу"]),
+        ReactionSpec("network.back", on: [.networkBack], tier: .body, cooldown: 10 * 60, lines: ["Вот вы где", "О, снова всех слышу"]),
         ReactionSpec("display.added", on: [.displayAdded], tier: .body, cooldown: 5 * 60,
                      behaviorFor: { signal, _ in (signal.value ?? 1) < 0 ? .lookLeft : .lookRight }, lines: ["О, второй"]),
         ReactionSpec("display.removed", on: [.displayRemoved], tier: .body, cooldown: 5 * 60,
@@ -182,11 +182,11 @@ public enum ReactionCatalog {
         ReactionSpec("unlock.long", on: [.screenUnlocked], tier: .body, cooldown: 60,
                      when: { signal, _ in (signal.value ?? 0) > 3600 }, lines: ["С возвратом"]),
         ReactionSpec("uptime.long", on: [.uptimeLong], tier: .body, cooldown: 24 * 3600, dailyLimit: 1,
-                     behavior: .yawn, lines: ["Хочу спать"]),
-        ReactionSpec("headphones", on: [.headphonesOn], tier: .body, behavior: .contentSquint, lines: ["Музыка?"]),
+                     behavior: .yawn, lines: ["Хочу спать", "Мне бы поспать"]),
+        ReactionSpec("headphones", on: [.headphonesOn], tier: .body, behavior: .contentSquint, lines: ["Музыка?", "Что слушаем?"]),
         ReactionSpec("volume.max", on: [.volumeMax], tier: .body, behavior: .squint, lines: ["Тише…"]),
-        ReactionSpec("capsLock", on: [.capsLockOn], tier: .body, cooldown: 10 * 60, behavior: .wideEyes, lines: ["Кричишь?"]),
-        ReactionSpec("theme.dark", on: [.darkMode], tier: .body, lines: ["Уютно"]),
+        ReactionSpec("capsLock", on: [.capsLockOn], tier: .body, cooldown: 10 * 60, behavior: .wideEyes, lines: ["Кричишь?", "Ты чего кричишь?"]),
+        ReactionSpec("theme.dark", on: [.darkMode], tier: .body, lines: ["Уютно", "Мне так уютно"]),
         // Замер посреди работы — с любопытством осматривается, молча.
         ReactionSpec("user.paused", on: [.userPaused], tier: .body, cooldown: 10 * 60, behavior: .lookAround),
     ]
@@ -228,9 +228,9 @@ public enum ReactionCatalog {
         ReactionSpec("late.midnight", group: "late", on: [.minute], tier: .rhythm,
                      when: { _, c in c.userPresent && c.idleSeconds < 120 && (0..<3).contains(c.hour) },
                      behavior: .yawn, lines: ["Спать пора"]),
-        ReactionSpec("longWork", on: [.longWork], tier: .rhythm, dailyLimit: 2, behavior: .stretch, lines: ["Пройдёмся?"]),
+        ReactionSpec("longWork", on: [.longWork], tier: .rhythm, dailyLimit: 2, behavior: .stretch, lines: ["Пройдёмся?", "Давай разомнёмся?"]),
         ReactionSpec("backAfterBreak", on: [.userBack], tier: .rhythm, cooldown: 20 * 60, dailyLimit: 3,
-                     when: { signal, _ in (signal.value ?? 0) > 20 * 60 }, behavior: .notice, lines: ["О, ты"]),
+                     when: { signal, _ in (signal.value ?? 0) > 20 * 60 }, behavior: .notice, lines: ["О, ты", "О, ты тут"]),
         ReactionSpec("fridayEvening", on: [.minute], tier: .rhythm,
                      when: { _, c in c.userPresent && c.idleSeconds < 120 && c.weekday == 6 && c.hour >= 18 },
                      behavior: .contentSquint, lines: ["Неделя ок"]),
@@ -249,13 +249,13 @@ public enum ReactionCatalog {
                      when: { _, c in c.pokeStreak == 3 }, behavior: .flinch, lines: ["Ну хватит"]),
         ReactionSpec("poke", group: "poke", on: [.poke], tier: .interaction, cooldown: 0,
                      when: { _, c in c.pokeStreak < 3 }, behavior: .flinch, lines: ["Ай"], bubble: 1.2),
-        ReactionSpec("stroke", on: [.stroke], tier: .interaction, cooldown: 8, behavior: .purr, lines: ["Хорошо…"]),
+        ReactionSpec("stroke", on: [.stroke], tier: .interaction, cooldown: 8, behavior: .purr, lines: ["Хорошо…", "Мне приятно…"]),
         // Курсор пролетел сквозь — вздрогнул, только глазами.
         ReactionSpec("flyby", on: [.cursorFlyby], tier: .interaction, cooldown: 30, behavior: .startle),
         ReactionSpec("drag.fast", on: [.dragged], tier: .interaction, cooldown: 10,
                      when: { signal, _ in (signal.value ?? 0) > 900 }, lines: ["Уиии"], bubble: 1.2),
         ReactionSpec("thrown", on: [.thrown], tier: .interaction, cooldown: 2, behavior: .dizzy, lines: ["Укачало"]),
-        ReactionSpec("dropped", on: [.dropped], tier: .interaction, cooldown: 5, behavior: .lookAround, lines: ["Так лучше"]),
+        ReactionSpec("dropped", on: [.dropped], tier: .interaction, cooldown: 5, behavior: .lookAround, lines: ["Так лучше", "Мне тут нравится"]),
         ReactionSpec("spaces.dizzy", on: [.spaceChanged], tier: .interaction, cooldown: 60,
                      when: { _, c in c.spaceChangesRecent > 5 }, behavior: .dizzy, lines: ["Укачало"]),
     ]

@@ -68,7 +68,7 @@ import Testing
         scheduler.react(.notice, now: at(0))
         scheduler.react(.step, now: at(0.2))
         #expect(scheduler.current?.trigger == .notice)
-        scheduler.tick(now: at(1.5))
+        scheduler.tick(now: at(2.1))
         #expect(scheduler.current?.trigger == .step)
     }
 

@@ -86,7 +86,7 @@ import Testing
             title: "Как мы готовили редизайн продукта с помощью исследований",
             description: "<p>Привет, Хабр! Меня зовут Илона, я продуктовый дизайнер. В Naumen я работаю больше года.</p>"
         )
-        #expect(gist == "Как мы готовили редизайн продукта с помощью исследований")
+        #expect(gist == "Тут рассказывают, как готовили редизайн продукта с помощью исследований")
     }
 
     @Test func takesShortFactualSentence() {
@@ -94,12 +94,12 @@ import Testing
             title: "Дизайн детских площадок: почему они стали серыми",
             description: "Цвет площадки почти никогда не выбирает дизайнер и тем более ребенок. Его решают безопасность, материалы и деньги."
         )
-        #expect(gist == "Цвет площадки почти никогда не выбирает дизайнер и тем более ребенок.")
+        #expect(gist == "Цвет площадки почти никогда не выбирает дизайнер и тем более ребенок")
     }
 
     @Test func dropsFillersAndReadMore() {
         let gist = NewsGist.make(title: "T", description: "Кажется, в финтехе формируется новый тренд на главные экраны. Читать далее")
-        #expect(gist == "В финтехе формируется новый тренд на главные экраны.")
+        #expect(gist == "В финтехе формируется новый тренд на главные экраны")
     }
 
     @Test func neverLongerThanLimit() {
@@ -115,5 +115,37 @@ import Testing
         var desk = NewsDesk()
         desk.update([logo, logo])
         #expect(desk.items.count == 1)
+    }
+
+    @Test func speaksPlainlyAndFitsBubble() {
+        #expect(NewsGist.humanize("Сервис в настоящее время показывает тренды.") == "Сервис сейчас показывает тренды")
+        #expect(NewsGist.retell(title: "Почему кнопки стали круглыми?") == "Тут объясняют, почему кнопки стали круглыми")
+        let long = "Очень длинное предложение о дизайне интерфейсов, где каждое слово растягивается до невероятной длины"
+        #expect(NewsGist.make(title: "Коротко о кнопках в интерфейсе", description: long).count <= NewsGist.maxChars)
+    }
+
+    @Test func dropsPromoAndUnclearItems() {
+        let course = NewsItem(title: "Курсы UX-дизайна со скидкой", link: "https://c", source: "S", date: nil, gist: "Скидка на курсы до пятницы")
+        let clipped = NewsItem(title: "T", link: "https://d", source: "S", date: nil, gist: "Очень длинная суть обрезана…")
+        let good = NewsItem(title: "T", link: "https://e", source: "S", date: nil, gist: "Цвет площадки выбирает не дизайнер")
+        #expect(!course.isTellable)
+        #expect(!clipped.isTellable)
+        #expect(good.isTellable)
+    }
+
+    @Test func voiceIsFirstPersonWithoutGender() {
+        // «нашёл», «сделал», «понял» — род; маскот говорит без него.
+        let gendered = ["нашёл", "нашел", "нашла", "сделал", "понял", "поняла", "устал", "устала"]
+        let all = NewsVoice.leadIns + BubbleTrigger.allCases.flatMap { Phrases.pool(for: $0) }
+        for line in all {
+            #expect(!gendered.contains { line.lowercased().contains($0) }, "\(line)")
+        }
+    }
+
+    @Test func bubbleStaysLongEnoughToRead() {
+        #expect(BubbleTuning.readingTime("Готово") < 2)
+        let gist = String(repeating: "а", count: 90)
+        #expect(BubbleTuning.readingTime(gist) >= 6)
+        #expect(BubbleTuning.readingTime(String(repeating: "а", count: 1000)) <= 12)
     }
 }
