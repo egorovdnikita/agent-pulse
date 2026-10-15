@@ -73,8 +73,6 @@ final class MascotLayerView: NSView {
         dropShadow.type = .radial
         glow.type = .radial
         body.type = .radial
-        body.colors = [NSColor.white.cgColor, NSColor.white.cgColor, NSColor(white: 0.9, alpha: 1).cgColor]
-        body.locations = [0, 0.45, 1]
         body.mask = bodyMask
         for layer in [dropShadow, glow, body] as [CALayer] { canvas.addSublayer(layer) }
         for index in 0..<2 {
@@ -226,7 +224,7 @@ final class MascotLayerView: NSView {
 
     // MARK: - Поза → слои
 
-    private func apply(_ pose: MascotPose) {
+    func apply(_ pose: MascotPose) {
         guard bounds.width > 0 else { return }
         CATransaction.begin()
         CATransaction.setDisableActions(true)
@@ -240,38 +238,44 @@ final class MascotLayerView: NSView {
         let scaleX = 1 / scaleY.squareRoot()
         let center = CGPoint(x: base.x, y: base.y + radius * (1 - scaleY))
 
-        // Тень держит силуэт на светлом фоне; чуть ниже тела — свет сверху.
-        let shadowRadius = radius + 8 * unit
-        dropShadow.frame = Self.circle(CGPoint(x: base.x, y: base.y + 1.5 * unit), shadowRadius)
-        dropShadow.colors = [NSColor.black.withAlphaComponent(0.25).cgColor, NSColor.black.withAlphaComponent(0.25).cgColor, NSColor.clear.cgColor]
-        dropShadow.locations = [0, NSNumber(value: (radius - 4 * unit) / shadowRadius), 1]
-        dropShadow.startPoint = CGPoint(x: 0.5, y: 0.5)
-        dropShadow.endPoint = CGPoint(x: 1, y: 1)
+        // Тень держит силуэт на светлом фоне: мягкая, чуть ниже тела — свет сверху. Спад гауссов, без «кольца».
+        let shadowInner = radius - 3 * unit
+        let shadowRadius = radius + 9 * unit
+        dropShadow.frame = Self.circle(CGPoint(x: base.x, y: base.y + 2 * unit), shadowRadius)
+        Self.falloff(dropShadow, color: NSColor.black, peak: 0.22, inner: shadowInner / shadowRadius)
 
-        // Свечение; ночью теплеет.
-        let glowRadius = radius + pose.glowRadius * unit
-        let tint = NSColor(red: 1, green: 1 - 0.07 * pose.glowWarmth, blue: 1 - 0.2 * pose.glowWarmth, alpha: 1)
+        // Свечение: плотное у края тела, тает плавно; ночью теплеет.
+        let glowRadius = radius + pose.glowRadius * 1.3 * unit
+        let tint = NSColor(red: 1, green: 1 - 0.05 * pose.glowWarmth, blue: 1 - 0.16 * pose.glowWarmth, alpha: 1)
         glow.frame = Self.circle(center, glowRadius)
-        glow.colors = [tint.withAlphaComponent(pose.glowOpacity).cgColor, tint.withAlphaComponent(pose.glowOpacity).cgColor, tint.withAlphaComponent(0).cgColor]
-        glow.locations = [0, NSNumber(value: radius * 0.8 / glowRadius), 1]
-        glow.startPoint = CGPoint(x: 0.5, y: 0.5)
-        glow.endPoint = CGPoint(x: 1, y: 1)
+        Self.falloff(glow, color: tint, peak: pose.glowOpacity, inner: radius * 0.9 / glowRadius)
         if !calm { glow.opacity = 1 }
 
-        // Белое тело со светотенью: свет сверху слева.
+        // Тело светится само: центр чисто белый, к краю — лёгкая прохладная тень объёма; ночью тёплый белый.
         let bodyRect = CGRect(x: center.x - radius * scaleX, y: center.y - radius * scaleY, width: 2 * radius * scaleX, height: 2 * radius * scaleY)
         body.frame = bodyRect
         bodyMask.frame = body.bounds
         bodyMask.path = CGPath(ellipseIn: body.bounds, transform: nil)
-        body.startPoint = CGPoint(x: 0.35, y: 0.32)
-        body.endPoint = CGPoint(x: 0.35 + 0.675, y: 0.32 + 0.675)
+        let warm = pose.glowWarmth
+        func shade(_ white: Double, cool: Double) -> CGColor {
+            NSColor(
+                red: white - cool * 0.4 * (1 - warm),
+                green: white - cool * 0.2 - 0.012 * warm,
+                blue: white - 0.035 * warm,
+                alpha: 1
+            ).cgColor
+        }
+        body.colors = [shade(1, cool: 0), shade(0.995, cool: 0.005), shade(0.955, cool: 0.02), shade(0.9, cool: 0.04)]
+        body.locations = [0, 0.4, 0.78, 1]
+        body.startPoint = CGPoint(x: 0.4, y: 0.34)
+        body.endPoint = CGPoint(x: 0.4 + 0.66, y: 0.34 + 0.66)
 
-        let eyeWidth = 7 * unit * pose.bodyScale * scaleX
-        let eyeHeight = 10 * unit * pose.bodyScale * scaleY
+        let eyeWidth = 7.5 * unit * pose.bodyScale * scaleX
+        let eyeHeight = 10.5 * unit * pose.bodyScale * scaleY
         let (tiltSin, tiltCos) = (sin(pose.tilt), cos(pose.tilt))
         let closed = min(max((0.35 - pose.eyeScale) / 0.25, 0), 1) * (1 - pose.happy)
         for (index, side) in [-1.0, 1.0].enumerated() {
-            let spot = side * (8 + pose.eyeSpread) * (1 - 2 * pose.eyeSwap)
+            let spot = side * (7.5 + pose.eyeSpread) * (1 - 2 * pose.eyeSwap)
             let local = SIMD2((spot + pose.gaze.x * 6) * unit * scaleX, (-2 + pose.gaze.y * 4) * unit * scaleY)
             let rotated = SIMD2(local.x * tiltCos - local.y * tiltSin, local.x * tiltSin + local.y * tiltCos)
             // При взгляде вбок дальний глаз сужается — объём шара.
@@ -290,15 +294,15 @@ final class MascotLayerView: NSView {
             lid.move(to: CGPoint(x: eye.x - eyeWidth * 0.65, y: eye.y))
             lid.addQuadCurve(to: CGPoint(x: eye.x + eyeWidth * 0.65, y: eye.y), control: CGPoint(x: eye.x, y: eye.y + eyeHeight * 0.4))
             lids[index].path = lid
-            lids[index].lineWidth = 1.8 * unit
+            lids[index].lineWidth = 2 * unit
             lids[index].opacity = Float(closed)
 
             // Радость — дуга «^».
             let arc = CGMutablePath()
-            arc.move(to: CGPoint(x: eye.x - eyeWidth * 0.6, y: eye.y + eyeHeight * 0.15))
-            arc.addQuadCurve(to: CGPoint(x: eye.x + eyeWidth * 0.6, y: eye.y + eyeHeight * 0.15), control: CGPoint(x: eye.x, y: eye.y - eyeHeight * 0.55))
+            arc.move(to: CGPoint(x: eye.x - eyeWidth * 0.68, y: eye.y + eyeHeight * 0.15))
+            arc.addQuadCurve(to: CGPoint(x: eye.x + eyeWidth * 0.68, y: eye.y + eyeHeight * 0.15), control: CGPoint(x: eye.x, y: eye.y - eyeHeight * 0.6))
             arcs[index].path = arc
-            arcs[index].lineWidth = 2.2 * unit
+            arcs[index].lineWidth = 2.4 * unit
             arcs[index].opacity = Float(pose.happy)
         }
 
@@ -324,6 +328,16 @@ final class MascotLayerView: NSView {
             zee.opacity = Float(pose.zzz * sin(.pi * phase))
             zee.transform = CATransform3DIdentity
         }
+    }
+
+    /// Радиальный спад, близкий к гауссову: ровно до `inner`, дальше мягко тает — без видимого края.
+    private static func falloff(_ layer: CAGradientLayer, color: NSColor, peak: Double, inner: Double) {
+        let steps = [0.0, 0.12, 0.28, 0.48, 0.7, 0.88, 1.0]
+        let fade = steps.map { exp(-3.2 * $0 * $0) - exp(-3.2) * $0 }
+        layer.colors = [color.withAlphaComponent(peak).cgColor] + fade.map { color.withAlphaComponent(peak * max(0, $0)).cgColor }
+        layer.locations = [0] + steps.map { NSNumber(value: inner + (1 - inner) * $0) }
+        layer.startPoint = CGPoint(x: 0.5, y: 0.5)
+        layer.endPoint = CGPoint(x: 1, y: 1)
     }
 
     private static func circle(_ center: CGPoint, _ radius: Double) -> CGRect {
