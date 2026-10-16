@@ -6,7 +6,7 @@ import Foundation
 @MainActor
 final class NewsSense: Sense {
     let id = SenseID.news
-    static let interval: TimeInterval = 3 * 3600
+    static let interval: TimeInterval = 2 * 3600
     static let firstFetchDelay: TimeInterval = 20
 
     private let deliver: @MainActor ([NewsItem]) -> Void

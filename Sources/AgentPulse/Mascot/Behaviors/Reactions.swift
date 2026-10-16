@@ -199,6 +199,27 @@ enum ReactionPlayer {
                 blinkOnce(0, at: 0.72, .double)
             }
             frame.blinkInterval = nil
+        case .dreamSmile:
+            // Снится хорошее: «^ ^» во сне и лёгкое покачивание.
+            frame.happy = e
+            frame.tilt = 0.05 * sin(2 * .pi * p)
+            frame.motionless = true
+        case .sleepPeek:
+            // Приоткрыл глаза, огляделся — и снова уснул.
+            frame.eyeScale = 0.08 + 0.5 * envelope(p, attack: 0.25, release: 0.35)
+            frame.gaze = SIMD2(0.4 * sin(2 * .pi * p) * e, 0.1)
+            frame.blinkInterval = nil
+        case .sleepRoll:
+            // Ворочается: наклон и сдвиг в сторону, затем обратно.
+            frame.tilt = 0.12 * sin(.pi * p) * side
+            frame.bodyOffset.x = 1.5 * sin(.pi * p) * side
+            frame.bodyScale = 1 - 0.03 * sin(2 * .pi * p)
+            frame.motionless = true
+        case .curious:
+            // Присматривается: наклон, взгляд в сторону, глаза чуть шире.
+            frame.tilt = 0.1 * e * side
+            frame.gaze = SIMD2(0.5 * side * e, -0.2 * e)
+            frame.eyeScale = 1 + 0.12 * e
         case .stare:
             // Засмотрелся в одну точку — и вздрогнул, будто вспомнил что-то.
             if p < 0.85 {

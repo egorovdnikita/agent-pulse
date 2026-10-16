@@ -40,7 +40,7 @@ extension PulseModel {
         lastLine = decision.line
         if let behavior = decision.behavior { animator.enqueue(behavior) }
         if decision.special == .news {
-            tellNews(at: signal.ts, duration: decision.bubbleDuration)
+            tellNews(at: signal.ts, duration: decision.bubbleDuration, leadIn: decision.line)
         } else if let special = decision.special {
             onSpecial?(special, decision.line)
         } else if let line = decision.line {
@@ -151,14 +151,14 @@ extension PulseModel {
     }
 
     /// Director решил: пора рассказать новость. (Отладка: `--news-now` — сразу.)
-    func tellNews(at now: Date, duration: TimeInterval, ignoringQuiet: Bool = false) {
+    func tellNews(at now: Date, duration: TimeInterval, leadIn: String? = nil, ignoringQuiet: Bool = false) {
         guard ignoringQuiet || !quiet, let item = newsDesk.take(now: now, lastSource: currentNews?.source) else { return }
         currentNews = item
         currentNewsAt = now
         lastReaction = "news.design"
         lastLine = item.teaser
         // Как человек: сначала «Смотри, что нашлось», потом суть своими словами.
-        scheduler.say(NewsVoice.leadIns.randomElement() ?? "", duration: 1.6, category: .news, now: now)
+        scheduler.say(leadIn ?? NewsVoice.leadIns.randomElement() ?? "", duration: 1.6, category: .news, now: now)
         scheduler.say(item.teaser, duration: duration, category: .news, now: now)
         try? newsDesk.save()
         simulate(.newsFresh, value: Double(newsDesk.available(now: now).count))

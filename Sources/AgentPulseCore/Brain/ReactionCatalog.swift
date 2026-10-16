@@ -128,7 +128,7 @@ public struct ReactionSpec: Sendable {
         case .body: 30 * 60
         case .rhythm: 60
         case .interaction: 1
-        case .fun: 40 * 60
+        case .fun: 25 * 60
         }
     }
 }
@@ -154,6 +154,12 @@ public enum ReactionCatalog {
                      behavior: .turnAway, lines: ["Эй…"], bubble: 3),
         ReactionSpec("agent.errorStreak", on: [.agentErrorStreak], tier: .agent, cooldown: 10 * 60,
                      behavior: .lookDown, lines: ["Бывает"], bubble: 3),
+        // Вехи дня: 10-я, 25-я, 50-я задача — порадоваться вместе.
+        ReactionSpec("agent.milestone", on: [.agentDone], tier: .rhythm, cooldown: 0, dailyLimit: 3,
+                     when: { _, c in c.userPresent && [10, 25, 50].contains(c.today.agentTasks) },
+                     behavior: .done,
+                     linesFor: { _, c in ["Уже \(c.today.agentTasks) задач за сегодня", "Сегодня \(c.today.agentTasks) задач, красота"] },
+                     bubble: 3),
         ReactionSpec("agent.longTask", on: [.agentStep], tier: .agent, cooldown: 3 * 60,
                      when: { signal, _ in (signal.value ?? 0) > 10 * 60 }, behavior: .yawn),
     ]
@@ -229,6 +235,25 @@ public enum ReactionCatalog {
                      when: { _, c in c.userPresent && c.idleSeconds < 120 && (0..<3).contains(c.hour) },
                      behavior: .yawn, lines: ["Спать пора"]),
         ReactionSpec("longWork", on: [.longWork], tier: .rhythm, dailyLimit: 2, behavior: .stretch, lines: ["Пройдёмся?", "Давай разомнёмся?"]),
+        // Вернулся с перерыва, а пока тебя не было, нашлось свежее — самое время рассказать.
+        ReactionSpec("news.welcome", group: "news.design", on: [.userBack], tier: .rhythm, cooldown: 90 * 60, dailyLimit: 4,
+                     when: { signal, c in (signal.value ?? 0) > 20 * 60 && c.newsWaiting > 0 && !c.quiet && !c.agentBusy && (9..<22).contains(c.hour) },
+                     behavior: .notice, linesFor: { _, _ in ["О, ты тут. Смотри, что нашлось", "Пока тебя не было, нашлось интересное"] },
+                     bubble: 8, special: .news),
+        // Обед: с утра без единого перерыва — мягко напомнить.
+        ReactionSpec("lunch", on: [.minute], tier: .rhythm, dailyLimit: 1,
+                     when: { _, c in
+                         c.userPresent && c.idleSeconds < 120 && (13..<15).contains(c.hour) && c.today.breaks == 0
+                             && (c.today.firstPresence ?? 24 * 60) <= 11 * 60
+                     },
+                     behavior: .lookAround, lines: ["Может, обед?", "Пора бы поесть"]),
+        // Долгий день: за ноутбуком с утра, уже вечер.
+        ReactionSpec("longDay", on: [.minute], tier: .rhythm, dailyLimit: 1,
+                     when: { _, c in
+                         guard let first = c.today.firstPresence, c.userPresent, c.idleSeconds < 120, c.hour >= 19 else { return false }
+                         return c.hour * 60 + c.calendar.component(.minute, from: c.now) - first >= 10 * 60
+                     },
+                     behavior: .stretch, lines: ["Длинный день. Закругляемся?", "Может, на сегодня всё?"]),
         ReactionSpec("backAfterBreak", on: [.userBack], tier: .rhythm, cooldown: 20 * 60, dailyLimit: 3,
                      when: { signal, _ in (signal.value ?? 0) > 20 * 60 }, behavior: .notice, lines: ["О, ты", "О, ты тут"]),
         ReactionSpec("fridayEvening", on: [.minute], tier: .rhythm,
@@ -263,18 +288,26 @@ public enum ReactionCatalog {
     // MARK: - Новости дизайна [решение]
 
     /// Время от времени, когда ты рядом и ничего не мешает: не чаще раза в 2 часа, до 3 в день.
+    /// Новость можно рассказать: ты рядом и не занят, не тишина, не работает агент, день.
+    static func canTellNews(_ c: DirectorContext) -> Bool {
+        c.newsWaiting > 0 && c.userPresent && c.idleSeconds < 120 && !c.quiet && !c.agentBusy && (9..<22).contains(c.hour)
+    }
+
+    /// Новости делят кулдаун и дневной лимит: до 4 в день, не чаще раза в 90 минут.
     static let news: [ReactionSpec] = [
-        ReactionSpec("news.design", on: [.minute], tier: .rhythm, cooldown: 2 * 3600, dailyLimit: 3,
-                     when: { _, c in
-                         c.newsWaiting > 0 && c.userPresent && c.idleSeconds < 120 && !c.quiet && !c.agentBusy
-                             && (9..<22).contains(c.hour)
-                     },
+        // Утром — охотнее: свежее за ночь, как утренняя газета.
+        ReactionSpec("news.morning", group: "news.design", on: [.minute], tier: .rhythm, cooldown: 90 * 60, dailyLimit: 4,
+                     when: { _, c in canTellNews(c) && c.hour < 11 },
+                     behavior: .wideEyes, linesFor: { _, _ in ["Утренние новости", "Свежее за ночь"] },
+                     bubble: 8, chance: 1.0 / 4, special: .news),
+        ReactionSpec("news.design", on: [.minute], tier: .rhythm, cooldown: 90 * 60, dailyLimit: 4,
+                     when: { _, c in canTellNews(c) },
                      behavior: .wideEyes, bubble: 8, chance: 1.0 / 10, special: .news),
     ]
 
     // MARK: - Приколы (в бюджете)
 
-    static let funChance = 1.0 / 20
+    static let funChance = 1.0 / 12
 
     static let fun: [ReactionSpec] = [
         ReactionSpec("fun.sneeze", on: [.minute], tier: .fun, behavior: .sneeze, lines: ["Апчхи"], bubble: 1.5, chance: funChance),

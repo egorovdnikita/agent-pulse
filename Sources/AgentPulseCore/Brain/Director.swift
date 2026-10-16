@@ -48,18 +48,18 @@ public struct DirectorSettings: Sendable, Equatable {
 
     public init() {}
 
-    public var funDailyLimit: Int { Int((mischief * 5).rounded()) }
+    public var funDailyLimit: Int { Int((mischief * 8).rounded()) }
 
     /// Чем лучше знакомы, тем смелее: незнакомому — половина бюджета приколов.
     public func funLimit(familiarity: Double) -> Int {
-        Int((mischief * 5 * (0.5 + 0.5 * familiarity)).rounded())
+        Int((mischief * 8 * (0.5 + 0.5 * familiarity)).rounded())
     }
 }
 
 /// Единственное место, где решается «реагировать ли сейчас»: приоритет, бюджет, кулдауны, тишина, настроение.
 /// Чистая структура на переданном времени — тестируется на виртуальных часах.
 public struct Director: Sendable {
-    public static let funMinGap: TimeInterval = 40 * 60
+    public static let funMinGap: TimeInterval = 25 * 60
     public static let pokeWindow: TimeInterval = 4
     public static let spaceWindow: TimeInterval = 10
     /// «Не шутить в стрессе»: нейтраль — 0.5, стресс — заметно выше неё.
@@ -189,7 +189,7 @@ public struct Director: Sendable {
         if let limit = spec.dailyLimit, dailyCount[spec.group, default: 0] >= limit { return false }
         if let gate = spec.moodGate, !gate(mood) { return false }
         guard spec.tier == .fun else { return true }
-        // Приколы: тишина и агенты выключают их полностью; бюджет на день; не чаще раза в 40 мин; не в стрессе.
+        // Приколы: тишина и агенты выключают их полностью; бюджет на день; не чаще раза в 25 мин; не в стрессе.
         return !quiet && !agentBusy
             && funToday < settings.funLimit(familiarity: context.familiarity)
             && now.timeIntervalSince(lastFunAt) >= Self.funMinGap

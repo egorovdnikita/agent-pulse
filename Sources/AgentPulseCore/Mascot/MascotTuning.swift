@@ -97,7 +97,12 @@ public struct MascotTuning: Codable, Sendable, Equatable {
         "wobble": 2.4, "yawn": 2.4, "purr": 1.8, "flinch": 0.45, "turnAway": 2, "turnAwayLong": 10,
         "dizzy": 2.4, "lookDown": 2, "sideEye": 2.2, "eyeSwap": 1.4,
         "sneeze": 1.4, "hiccup": 4.6, "fly": 5, "nap": 4.5, "stare": 5, "doze": 3.2, "hop": 0.55,
+        "dreamSmile": 2.4, "sleepPeek": 1.6, "sleepRoll": 1.8, "curious": 2.2,
     ]
+
+    // Мелкие живые движения без облачка: в покое и во сне маскот не застывает.
+    public var idleActInterval: ClosedRange<Double> = 10...25
+    public var sleepActInterval: ClosedRange<Double> = 30...80
 
     // Анти-дребезг: состояние держится минимум столько.
     public var minStateHold: Double = 0.4

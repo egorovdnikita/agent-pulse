@@ -164,7 +164,10 @@ final class MascotLayerView: NSView {
         installSleepAnimations()
         calmTimer = Timer.scheduledTimer(withTimeInterval: 0.25, repeats: true) { [weak self] _ in
             MainActor.assumeIsolated {
-                guard let self, !self.animator.isCalm(at: Date.timeIntervalSinceReferenceDate) else { return }
+                guard let self else { return }
+                let t = Date.timeIntervalSinceReferenceDate
+                self.animator.ambientAct(at: t)
+                guard !self.animator.isCalm(at: t) else { return }
                 self.exitCalm()
             }
         }
