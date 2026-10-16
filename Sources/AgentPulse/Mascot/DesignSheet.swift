@@ -14,7 +14,7 @@ enum DesignSheet {
         var wait = MascotPose(); wait.eyeScale = 1.15; wait.glowRadius = 14; wait.glowOpacity = 0.75
         var happy = MascotPose(); happy.happy = 1; happy.glowOpacity = 0.8; happy.squash = 0.05
         var squint = MascotPose(); squint.eyeScale = 0.55
-        var sleep = MascotPose(); sleep.eyeScale = 0.08; sleep.glowOpacity = 0.45; sleep.zzz = 1; sleep.time = 0.5
+        var sleep = MascotPose(); sleep.eyeScale = 0.08; sleep.glowOpacity = 0.45; sleep.zzz = 1; sleep.time = 0.9
         var night = MascotPose(); night.glowWarmth = 1; night.eyeScale = 0.9
         idle.time = 0
         return [("idle", idle), ("look", look), ("think", think), ("wait", wait), ("happy", happy), ("squint", squint), ("sleep", sleep), ("night", night)]
