@@ -30,6 +30,20 @@ public struct DayMemory: Sendable, Codable, Equatable {
         return String(format: "%04d-%02d-%02d", parts.year ?? 0, parts.month ?? 0, parts.day ?? 0)
     }
 
+    /// Сумма счётчиков за последние 7 дней, включая сегодня.
+    public func week(_ now: Date, calendar: Calendar = .current) -> Day {
+        let keys = Set((0..<7).compactMap { calendar.date(byAdding: .day, value: -$0, to: now).map { Self.key($0, calendar: calendar) } })
+        var total = Day(date: "week")
+        for day in days where keys.contains(day.date) {
+            total.agentTasks += day.agentTasks
+            total.agentErrors += day.agentErrors
+            total.breaks += day.breaks
+            total.strokes += day.strokes
+            total.pokes += day.pokes
+        }
+        return total
+    }
+
     public func today(_ now: Date, calendar: Calendar = .current) -> Day {
         let key = Self.key(now, calendar: calendar)
         return days.last(where: { $0.date == key }) ?? Day(date: key)

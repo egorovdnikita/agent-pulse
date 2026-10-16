@@ -31,6 +31,7 @@ extension PulseModel {
             awayNewsAt = signal.ts
         }
         if today != outcome.today { today = outcome.today }
+        if week != outcome.week { week = outcome.week }
         handleIdleHide(signal)
         await saveMemoryIfNeeded(signal.ts)
 

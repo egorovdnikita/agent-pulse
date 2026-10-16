@@ -62,6 +62,8 @@ final class PulseModel {
     var currentNewsAt: Date?
     /// Счётчики дня — вечерний итог при наведении.
     var today: DayMemory.Day?
+    /// Сумма за 7 дней — итог недели при наведении.
+    var week: DayMemory.Day?
     /// Оценки за сегодня: «мило» и «бесит».
     var feedbackToday: [String: Int] = [:]
 
@@ -388,32 +390,32 @@ final class PulseModel {
         }
     }
 
-    /// Что показать при наведении: последнее сообщение с тем, когда оно было. Пока тебя не было
-    /// и агенты что-то сделали — итог отсутствия; если сказать нечего — итог дня или «Я тут».
+    /// Что показать при наведении. По порядку: что делаю сейчас; что было без тебя; последнее сообщение;
+    /// вечером, если сообщение давнее, — итог дня (в пятницу и выходные — недели); иначе «Я тут».
     private func restingMessage(now: Date) -> BubbleMessage {
+        if let top = dominant, state != .sleep, state != .idle {
+            return HoverStory.working(source: top.source, phase: top.phase, since: promptAt[top.id] ?? top.phaseSince, steps: top.timeline.count, now: now)
+        }
         if let news = awayNews, let at = awayNewsAt, now.timeIntervalSince(at) < 10 * 60 {
             return BubbleMessage(category: .claude, title: "Claude", text: news.summary, when: HumanTime.ago(now.timeIntervalSince(at)))
         }
-        if let last = lastMessage, now.timeIntervalSince(last.shownAt) < 12 * 3600 {
-            return BubbleMessage(category: last.category, title: last.title, text: last.text, when: HumanTime.ago(now.timeIntervalSince(last.shownAt)))
+        let calendar = Calendar.current
+        let hour = calendar.component(.hour, from: now)
+        let age = lastMessage.map { now.timeIntervalSince($0.shownAt) } ?? .infinity
+        let summary = today.flatMap { day in
+            HoverStory.summary(today: day, week: week ?? day, weekday: calendar.component(.weekday, from: now), hour: hour)
         }
-        if let today, today.agentTasks > 0 || today.strokes > 0 {
-            return BubbleMessage(category: .day, title: "Наш день", text: Self.daySummary(today))
+        if let summary, hour >= 18 || calendar.isDateInWeekend(now), age > 30 * 60 {
+            return summary
         }
-        return BubbleMessage(category: .rest, title: BubbleCategory.rest.title, text: scheduler.phrase(for: .hoverSleep))
-    }
-
-    /// «Сегодня сделано 12 задач, меня погладили 3 раза» — без рода с обеих сторон.
-    static func daySummary(_ day: DayMemory.Day) -> String {
-        var parts: [String] = []
-        if day.agentTasks > 0 {
-            parts.append("Сегодня сделано \(day.agentTasks) \(HumanTime.plural(day.agentTasks, "задача", "задачи", "задач"))")
+        if let last = lastMessage, age < 12 * 3600 {
+            var when = HumanTime.ago(age)
+            // Под новостью — сколько ещё свежего ждёт своей очереди.
+            let more = last.category == .news ? newsDesk.available(now: now).count : 0
+            if more > 0 { when += " · ещё \(more)" }
+            return BubbleMessage(category: last.category, title: last.title, text: last.text, when: when)
         }
-        if day.strokes > 0 {
-            let times = "\(day.strokes) \(HumanTime.plural(day.strokes, "раз", "раза", "раз"))"
-            parts.append(parts.isEmpty ? "Сегодня меня погладили \(times)" : "меня погладили \(times)")
-        }
-        return parts.joined(separator: ", ")
+        return summary ?? BubbleMessage(category: .rest, title: BubbleCategory.rest.title, text: scheduler.phrase(for: .hoverSleep))
     }
 
     /// Курсор быстро прошёл сквозь маскота: отрезок между двумя замерами задевает тело.

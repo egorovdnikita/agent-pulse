@@ -255,6 +255,8 @@ public struct DirectorOutcome: Sendable {
     public let deliveredNews: AwayNews?
     /// Счётчики сегодняшнего дня — для итога при наведении.
     public let today: DayMemory.Day
+    /// Сумма за последние 7 дней — итог недели при наведении.
+    public let week: DayMemory.Day
 }
 
 /// Актор-обёртка: решения принимаются последовательно, вне главного потока.
@@ -272,7 +274,8 @@ public actor DirectorActor {
             decision: decision, mood: director.mood,
             quiet: director.isQuiet || director.isQuietHours(signal.ts),
             newsPending: !director.news.isEmpty, deliveredNews: director.deliveredNews,
-            today: director.memory.today(signal.ts)
+            today: director.memory.today(signal.ts),
+            week: director.memory.week(signal.ts)
         )
     }
 
