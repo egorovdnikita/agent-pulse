@@ -228,7 +228,8 @@ struct ZeroRNG: RandomNumberGenerator {
         #expect(back?.behavior == .done)
         #expect(d.deliveredNews == AwayNews(done: 2))
         #expect(d.news.isEmpty)
-        #expect(AwayNews(done: 3, waiting: 1).summary == "Пока тебя не было: 3 готово, 1 ждёт")
+        #expect(AwayNews(done: 3, waiting: 1).summary == "Пока тебя не было, у меня готовы 3 задачи, одна ждёт тебя")
+        #expect(AwayNews(done: 5, failed: 1).summary == "Пока тебя не было, у меня готово 5 задач, 1 задача не вышла")
         // При тебе — не новости.
         _ = d.handle(Signal(.agents, .agentDone), now: t.addingTimeInterval(1600), rng: &rng)
         #expect(d.news.isEmpty)

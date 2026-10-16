@@ -39,6 +39,10 @@ public struct BubbleTuning: Codable, Sendable, Equatable {
 public struct Bubble: Sendable, Equatable {
     public let id: Int
     public let trigger: BubbleTrigger
+    /// К чему относится: иконка и цвет заголовка.
+    public let category: BubbleCategory
+    /// Заголовок: название категории или приложения агента («Claude Code»).
+    public let title: String
     public let text: String
     public let shownAt: Date
     public var duration: TimeInterval?
@@ -52,6 +56,8 @@ public struct BubbleScheduler: Sendable {
         var trigger: BubbleTrigger
         var text: String?
         var duration: TimeInterval?
+        var category: BubbleCategory
+        var title: String
         /// Агентные реплики встают впереди реплик тела и ритма.
         var agent: Bool
     }
@@ -73,18 +79,24 @@ public struct BubbleScheduler: Sendable {
         self.tuning = tuning
     }
 
-    public mutating func react(_ trigger: BubbleTrigger, now: Date) {
+    /// Реплика агентного конвейера. `title` — приложение агента («Claude Code»).
+    public mutating func react(_ trigger: BubbleTrigger, category: BubbleCategory = .claude, title: String? = nil, now: Date) {
+        let category = trigger == .fallAsleep || trigger == .hoverSleep ? .rest : category
+        let title = category == .rest ? category.title : title ?? category.title
         if trigger.isWait {
             queue.removeAll()
-            show(Item(trigger: trigger, text: nil, duration: nil, agent: true), now: now)
+            show(Item(trigger: trigger, text: nil, duration: nil, category: category, title: title, agent: true), now: now)
             return
         }
-        enqueue(Item(trigger: trigger, text: nil, duration: tuning.duration(for: trigger), agent: true), now: now)
+        enqueue(Item(trigger: trigger, text: nil, duration: tuning.duration(for: trigger), category: category, title: title, agent: true), now: now)
     }
 
     /// Реплика каталога реакций (тело, ритм, взаимодействие, приколы, агентные сверх конвейера).
-    public mutating func say(_ text: String, duration: TimeInterval, agent: Bool = false, now: Date) {
-        enqueue(Item(trigger: .line, text: text, duration: duration, agent: agent), now: now)
+    public mutating func say(
+        _ text: String, duration: TimeInterval, category: BubbleCategory = .mood, title: String? = nil,
+        agent: Bool = false, now: Date
+    ) {
+        enqueue(Item(trigger: .line, text: text, duration: duration, category: category, title: title ?? category.title, agent: agent), now: now)
     }
 
     private mutating func enqueue(_ item: Item, now: Date) {
@@ -101,7 +113,9 @@ public struct BubbleScheduler: Sendable {
         tick(now: now)
     }
 
-    public mutating func ambient(_ trigger: BubbleTrigger?, heldSince: Date, now: Date) {
+    public mutating func ambient(
+        _ trigger: BubbleTrigger?, category: BubbleCategory = .claude, title: String? = nil, heldSince: Date, now: Date
+    ) {
         guard
             let trigger,
             !quiet,
@@ -111,7 +125,7 @@ public struct BubbleScheduler: Sendable {
             now.timeIntervalSince(lastAmbientAt) >= tuning.ambientInterval
         else { return }
         lastAmbientAt = now
-        show(Item(trigger: trigger, text: nil, duration: tuning.duration(for: trigger), agent: true), now: now)
+        show(Item(trigger: trigger, text: nil, duration: tuning.duration(for: trigger), category: category, title: title ?? category.title, agent: true), now: now)
     }
 
     /// Пользователь отреагировал: облачко ожидания уходит, но не раньше минимального времени показа.
@@ -147,7 +161,9 @@ public struct BubbleScheduler: Sendable {
         nextId += 1
         // Длинное успевает прочитаться: облачко держится не меньше времени чтения.
         let duration = item.duration.map { max($0, BubbleTuning.readingTime(text)) }
-        current = Bubble(id: nextId, trigger: item.trigger, text: text, shownAt: now, duration: duration)
+        current = Bubble(
+            id: nextId, trigger: item.trigger, category: item.category, title: item.title, text: text, shownAt: now, duration: duration
+        )
         lastText = text
     }
 }

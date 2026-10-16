@@ -1,5 +1,7 @@
+import AgentPulseCore
 import AppKit
 import QuartzCore
+import SwiftUI
 
 /// Отладка: `AgentPulse --design-sheet out.png` — ключевые позы на светлом, сером и тёмном фоне одной картинкой.
 /// Рисует настоящий `MascotLayerView`, чтобы дизайн проверялся глазами, а не по коду.
@@ -46,5 +48,44 @@ enum DesignSheet {
         guard let image = context.makeImage() else { return }
         let rep = NSBitmapImageRep(cgImage: image)
         try? rep.representation(using: .png, properties: [:])?.write(to: url)
+    }
+}
+
+/// Отладка: `AgentPulse --bubble-sheet out.png` — облачко каждой категории на светлом и тёмном фоне.
+@MainActor
+enum BubbleSheet {
+    static let samples: [BubbleMessage] = [
+        BubbleMessage(category: .claude, title: "Claude Code", text: "Готово, проверь"),
+        BubbleMessage(category: .figma, title: "Figma", text: "Двигаю слои…"),
+        BubbleMessage(category: .news, title: "Новости дизайна", text: "Айдентику редко используют ровно в тех форматах, которые предусматривались при разработке"),
+        BubbleMessage(category: .battery, title: "Батарея", text: "Мне бы поесть"),
+        BubbleMessage(category: .wellbeing, title: "Самочувствие", text: "Мне жарко…"),
+        BubbleMessage(category: .network, title: "Сеть", text: "Я никого не слышу"),
+        BubbleMessage(category: .devices, title: "Вокруг меня", text: "Что слушаем?"),
+        BubbleMessage(category: .day, title: "Наш день", text: "Привет", when: "5 мин назад"),
+        BubbleMessage(category: .news, title: "Новости дизайна", text: "Тут разбирают, как редизайнить B2B-продукт и не сломать привычные сценарии", when: "2 ч назад"),
+        BubbleMessage(category: .holiday, title: "Праздник", text: "С днюхой!"),
+        BubbleMessage(category: .together, title: "Мы с тобой", text: "Мне приятно…"),
+        BubbleMessage(category: .mood, title: "Настроение", text: "Апчхи"),
+        BubbleMessage(category: .rest, title: "Отдых", text: "Я подремлю"),
+    ]
+
+    static func render(to url: URL) {
+        let content = HStack(spacing: 0) {
+            ForEach([Color(white: 0.96), Color(white: 0.12)], id: \.self) { background in
+                VStack(alignment: .trailing, spacing: 10) {
+                    ForEach(Array(samples.enumerated()), id: \.offset) { _, message in
+                        BubbleView(message: message, tailOnRight: true)
+                    }
+                }
+                .padding(16)
+                .frame(width: BubbleView.maxWidth + 32)
+                .background(background)
+            }
+        }
+        let renderer = ImageRenderer(content: content)
+        renderer.scale = 2
+        guard let image = renderer.cgImage else { return }
+        try? NSBitmapImageRep(cgImage: image).representation(using: .png, properties: [:])?.write(to: url)
     }
 }

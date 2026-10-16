@@ -25,6 +25,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             DesignSheet.render(to: URL(filePath: CommandLine.arguments[index + 1]))
             exit(0)
         }
+        if let index = CommandLine.arguments.firstIndex(of: "--bubble-sheet"), index + 1 < CommandLine.arguments.count {
+            BubbleSheet.render(to: URL(filePath: CommandLine.arguments[index + 1]))
+            exit(0)
+        }
         notifier.requestAuthorization()
         model.notifier = notifier
         model.hooksInstalled = HookInstaller.isInstalled()

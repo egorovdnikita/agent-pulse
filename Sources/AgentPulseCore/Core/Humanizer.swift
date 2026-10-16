@@ -20,8 +20,8 @@ public enum Humanizer {
 
     /// Инструменты, которыми агент спрашивает пользователя: это ожидание, а не работа.
     public static let questionTools: [String: String] = [
-        "AskUserQuestion": "Агент задаёт вопрос",
-        "ExitPlanMode": "Агент ждёт одобрения плана",
+        "AskUserQuestion": "Задаёт тебе вопрос",
+        "ExitPlanMode": "Ждёт, когда одобришь план",
     ]
 
     /// Инструменты MCP-серверов окружения (Cowork, браузер), узнаваемые по имени при любом сервере.

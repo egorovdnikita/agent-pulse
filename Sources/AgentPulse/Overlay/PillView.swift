@@ -98,11 +98,10 @@ struct PillView: View {
             ? .opacity
             : .scale(scale: 0.6, anchor: tailOnRight ? .trailing : .leading).combined(with: .opacity)
         return ZStack(alignment: tailOnRight ? .trailing : .leading) {
-            if let text = model.visibleBubbleText {
-                BubbleView(text: text, tailOnRight: tailOnRight)
+            if let message = model.visibleMessage {
+                BubbleView(message: message, tailOnRight: tailOnRight)
                     .id(model.bubbleKey)
                     .transition(.asymmetric(insertion: insertion, removal: .opacity.animation(.easeOut(duration: 0.2))))
-                    .help(model.statusLine)
                     .onTapGesture { model.tapBubble() }
             }
         }

@@ -43,7 +43,12 @@ extension PulseModel {
         } else if let special = decision.special {
             onSpecial?(special, decision.line)
         } else if let line = decision.line {
-            scheduler.say(line, duration: decision.bubbleDuration, agent: decision.tier == .agent, now: signal.ts)
+            let category = BubbleCategory.forReaction(decision.reaction)
+            let title = category == .claude ? BubbleCategory.agentTitle(lastTask?.source) : nil
+            scheduler.say(
+                line, duration: decision.bubbleDuration, category: category, title: title,
+                agent: decision.tier == .agent, now: signal.ts
+            )
         }
     }
 
@@ -152,8 +157,8 @@ extension PulseModel {
         lastReaction = "news.design"
         lastLine = item.teaser
         // Как человек: сначала «Смотри, что нашлось», потом суть своими словами.
-        scheduler.say(NewsVoice.leadIns.randomElement() ?? "", duration: 1.6, now: now)
-        scheduler.say(item.teaser, duration: duration, now: now)
+        scheduler.say(NewsVoice.leadIns.randomElement() ?? "", duration: 1.6, category: .news, now: now)
+        scheduler.say(item.teaser, duration: duration, category: .news, now: now)
         try? newsDesk.save()
         simulate(.newsFresh, value: Double(newsDesk.available(now: now).count))
     }

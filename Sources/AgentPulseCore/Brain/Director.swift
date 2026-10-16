@@ -14,13 +14,14 @@ public struct AwayNews: Sendable, Equatable {
 
     public var isEmpty: Bool { done == 0 && failed == 0 && waiting == 0 }
 
-    /// «Пока тебя не было: 3 готово, 1 ждёт».
+    /// «Пока тебя не было, у меня готовы 3 задачи, одна ждёт тебя».
     public var summary: String {
+        func tasks(_ n: Int) -> String { "\(n) \(HumanTime.plural(n, "задача", "задачи", "задач"))" }
         var parts: [String] = []
-        if done > 0 { parts.append("\(done) готово") }
-        if failed > 0 { parts.append("\(failed) не вышло") }
-        if waiting > 0 { parts.append("\(waiting) ждёт") }
-        return "Пока тебя не было: " + parts.joined(separator: ", ")
+        if done > 0 { parts.append("у меня \(HumanTime.plural(done, "готова", "готовы", "готово")) \(tasks(done))") }
+        if failed > 0 { parts.append("\(tasks(failed)) не \(failed == 1 ? "вышла" : "вышли")") }
+        if waiting > 0 { parts.append(waiting == 1 ? "одна ждёт тебя" : "\(tasks(waiting)) ждут тебя") }
+        return "Пока тебя не было, " + parts.joined(separator: ", ")
     }
 }
 

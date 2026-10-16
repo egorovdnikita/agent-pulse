@@ -24,7 +24,10 @@ final class PulseModel {
     private(set) var sessions: [SessionInfo] = []
     private(set) var state: MascotState = .sleep
     private(set) var bubble: Bubble?
-    private(set) var hoverText: String?
+    /// При наведении — последнее сообщение (или итог дня), с тем, когда оно было.
+    private(set) var hoverMessage: BubbleMessage?
+    /// Последнее показанное облачко — его маскот повторяет при наведении.
+    private(set) var lastMessage: Bubble?
     private(set) var lastTask: LastTask?
     var overlayVisible = true
     var hooksInstalled = false
@@ -151,7 +154,7 @@ final class PulseModel {
     }
 
     var statusLine: String {
-        guard let top = dominant else { return "Нет активных сессий" }
+        guard let top = dominant else { return "Сейчас никто не работает" }
         let project = top.context.map { "\($0): " } ?? ""
         return project + top.phase.text
     }
@@ -164,14 +167,17 @@ final class PulseModel {
         }
     }
 
-    /// При наведении — рассказ о последнем запросе, он важнее фоновой реплики.
-    var visibleBubbleText: String? {
-        hoverText ?? bubble?.text
+    /// Что сейчас в облачке: текущая реплика или, при наведении, последнее сообщение.
+    var visibleMessage: BubbleMessage? {
+        if let bubble { return BubbleMessage(bubble) }
+        return hoverMessage
     }
+
+    var visibleBubbleText: String? { visibleMessage?.text }
 
     /// Ключ для анимации появления: новое облачко — новая вставка.
     var bubbleKey: Int {
-        hoverText != nil ? -1 : bubble?.id ?? 0
+        bubble?.id ?? (hoverMessage != nil ? -1 : 0)
     }
 
     // MARK: - События
@@ -184,17 +190,18 @@ final class PulseModel {
         feedAgentSignals(event)
 
         if let reaction = MascotStateMapper.reaction(for: event), MascotStateMapper.dominant(sessions)?.id == event.sessionId {
-            playReaction(reaction, now: now)
+            playReaction(reaction, source: event.source, now: now)
         }
         notify(event)
         update(now: now)
     }
 
-    func playReaction(_ reaction: MascotReaction, now: Date = Date()) {
+    func playReaction(_ reaction: MascotReaction, source: AgentEvent.Source? = nil, now: Date = Date()) {
         animator.enqueue(reaction)
         lastReaction = "agent.\(reaction.rawValue)"
         if let trigger = reaction.bubbleTrigger {
-            scheduler.react(trigger, now: now)
+            let source = source ?? dominant?.source
+            scheduler.react(trigger, category: .agent(source), title: BubbleCategory.agentTitle(source), now: now)
         }
     }
 
@@ -204,7 +211,7 @@ final class PulseModel {
         let title = [event.source.displayName, event.context].compactMap(\.self).joined(separator: " · ")
         switch event.kind {
         case .awaitingUser where config.events.awaitingUser.notification:
-            let fallback = event.awaitReason == .permission ? "Нужно твоё разрешение" : "Агент ждёт тебя"
+            let fallback = event.awaitReason == .permission ? "Мне нужно твоё разрешение" : "Я жду тебя"
             notifier.post(
                 id: awaitId, title: title, body: event.summary ?? fallback,
                 sound: config.events.awaitingUser.sound != "none", host: event.hostBundleId
@@ -215,7 +222,7 @@ final class PulseModel {
             let hostIsFront = event.hostBundleId != nil && NSWorkspace.shared.frontmostApplication?.bundleIdentifier == event.hostBundleId
             if config.events.done.notification && !hostIsFront {
                 notifier.post(
-                    id: "done-\(event.sessionId)", title: title, body: "Готово",
+                    id: "done-\(event.sessionId)", title: title, body: "Готово, проверь",
                     sound: config.events.done.sound != "none", host: event.hostBundleId
                 )
             }
@@ -240,7 +247,10 @@ final class PulseModel {
         }
 
         let activityTarget: WorkTarget? = if case .working(let activity) = dominant?.phase { activity.target } else { nil }
-        scheduler.ambient(MascotStateMapper.ambientTrigger(for: state, target: activityTarget), heldSince: stateSince, now: now)
+        scheduler.ambient(
+            MascotStateMapper.ambientTrigger(for: state, target: activityTarget),
+            category: .agent(dominant?.source), title: BubbleCategory.agentTitle(dominant?.source), heldSince: stateSince, now: now
+        )
         scheduler.tick(now: now)
         updateHover()
         updateMirror(now: now)
@@ -249,6 +259,7 @@ final class PulseModel {
         if scheduler.current != bubble {
             let isNew = scheduler.current != nil && scheduler.current?.id != bubble?.id
             bubble = scheduler.current
+            if let bubble { lastMessage = bubble }
             if isNew {
                 // Маскот на мгновение смотрит на облачко — связывает реплику с персонажем.
                 animator.glance(towardX: config.display.anchor.isRight ? -1 : 1, at: now.timeIntervalSinceReferenceDate)
@@ -262,7 +273,10 @@ final class PulseModel {
             scheduler.endWait(now: now)
         }
         if case .waitYou(let reason) = target, previous != target {
-            scheduler.react(MascotStateMapper.waitTrigger(reason), now: now)
+            scheduler.react(
+                MascotStateMapper.waitTrigger(reason), category: .agent(dominant?.source),
+                title: BubbleCategory.agentTitle(dominant?.source), now: now
+            )
         }
         if target == .sleep && previous != .sleep {
             scheduler.react(.fallAsleep, now: now)
@@ -288,7 +302,7 @@ final class PulseModel {
         let bubbleMinX = config.display.anchor.isRight ? center.x - near - BubbleView.maxWidth : center.x + near
         let overBubble = visibleBubbleText != nil
             && mouse.x >= bubbleMinX && mouse.x <= bubbleMinX + BubbleView.maxWidth
-            && abs(mouse.y - center.y) <= 26
+            && abs(mouse.y - center.y) <= 46
         let nowInteractive = inside || overBubble
         if nowInteractive != interactive {
             interactive = nowInteractive
@@ -301,18 +315,7 @@ final class PulseModel {
         guard inside != isHovering else { return }
         isHovering = inside
         animator.hovered = inside
-        if inside, let news = recentNews {
-            hoverText = "\(news.source)\n\(news.title)"
-        } else if inside {
-            switch state {
-            case .sleep, .idle:
-                hoverText = restingSummary(now: Date())
-            default:
-                hoverText = scheduler.lastText ?? dominant?.phase.text
-            }
-        } else {
-            hoverText = nil
-        }
+        hoverMessage = inside ? restingMessage(now: Date()) : nil
     }
 
     // MARK: - Зеркало Figma
@@ -331,10 +334,11 @@ final class PulseModel {
         if visible != showMirror { showMirror = visible }
     }
 
-    /// Только что рассказанная новость — клик открывает статью, наведение показывает заголовок целиком.
+    /// Только что рассказанная новость — клик открывает статью. При наведении на неё — ещё 12 часов.
     var recentNews: NewsItem? {
-        guard let item = currentNews, let at = currentNewsAt, Date().timeIntervalSince(at) < 90 else { return nil }
-        return item
+        guard let item = currentNews, let at = currentNewsAt else { return nil }
+        let showingIt = visibleMessage?.category == .news && lastMessage?.category == .news
+        return Date().timeIntervalSince(at) < (showingIt ? 12 * 3600 : 90) ? item : nil
     }
 
     /// Клик по облачку: новость — открыть статью, иначе как клик по маскоту.
@@ -384,20 +388,32 @@ final class PulseModel {
         }
     }
 
-    /// Что рассказать при наведении в покое: новости без тебя, последний запрос, вечером — итог дня.
-    private func restingSummary(now: Date) -> String {
-        var lines: [String] = []
+    /// Что показать при наведении: последнее сообщение с тем, когда оно было. Пока тебя не было
+    /// и агенты что-то сделали — итог отсутствия; если сказать нечего — итог дня или «Я тут».
+    private func restingMessage(now: Date) -> BubbleMessage {
         if let news = awayNews, let at = awayNewsAt, now.timeIntervalSince(at) < 10 * 60 {
-            lines.append(news.summary)
-        } else if let task = lastTask {
-            lines.append(task.summary(now: now))
+            return BubbleMessage(category: .claude, title: "Claude", text: news.summary, when: HumanTime.ago(now.timeIntervalSince(at)))
         }
-        if Calendar.current.component(.hour, from: now) >= 18, let today, today.agentTasks > 0 || today.strokes > 0 {
-            var day = "Сегодня: \(today.agentTasks) задач"
-            if today.strokes > 0 { day += ", гладили \(today.strokes)" }
-            lines.append(day)
+        if let last = lastMessage, now.timeIntervalSince(last.shownAt) < 12 * 3600 {
+            return BubbleMessage(category: last.category, title: last.title, text: last.text, when: HumanTime.ago(now.timeIntervalSince(last.shownAt)))
         }
-        return lines.isEmpty ? scheduler.phrase(for: .hoverSleep) : lines.joined(separator: "\n")
+        if let today, today.agentTasks > 0 || today.strokes > 0 {
+            return BubbleMessage(category: .day, title: "Наш день", text: Self.daySummary(today))
+        }
+        return BubbleMessage(category: .rest, title: BubbleCategory.rest.title, text: scheduler.phrase(for: .hoverSleep))
+    }
+
+    /// «Сегодня сделано 12 задач, меня погладили 3 раза» — без рода с обеих сторон.
+    static func daySummary(_ day: DayMemory.Day) -> String {
+        var parts: [String] = []
+        if day.agentTasks > 0 {
+            parts.append("Сегодня сделано \(day.agentTasks) \(HumanTime.plural(day.agentTasks, "задача", "задачи", "задач"))")
+        }
+        if day.strokes > 0 {
+            let times = "\(day.strokes) \(HumanTime.plural(day.strokes, "раз", "раза", "раз"))"
+            parts.append(parts.isEmpty ? "Сегодня меня погладили \(times)" : "меня погладили \(times)")
+        }
+        return parts.joined(separator: ", ")
     }
 
     /// Курсор быстро прошёл сквозь маскота: отрезок между двумя замерами задевает тело.
@@ -420,7 +436,7 @@ final class PulseModel {
 
     /// Реплика от имени тела (прятки: «Ку-ку»).
     func say(_ text: String, duration: TimeInterval) {
-        scheduler.say(text, duration: duration, now: Date())
+        scheduler.say(text, duration: duration, category: .mood, now: Date())
     }
 
     /// Переход к источнику: активируем приложение, в котором живёт агент.
