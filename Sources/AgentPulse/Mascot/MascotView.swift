@@ -183,7 +183,7 @@ final class MascotLayerView: NSView {
         let tuning = animator.tuning
         // Свечение дышит: темнее и меньше — светлее и больше.
         let breath = CABasicAnimation(keyPath: "opacity")
-        breath.fromValue = tuning.sleepGlow.lowerBound / max(0.01, tuning.sleepGlow.upperBound)
+        breath.fromValue = 0.85
         breath.toValue = 1
         let swell = CABasicAnimation(keyPath: "transform.scale")
         swell.fromValue = Self.glowPulseScale.lowerBound
@@ -255,7 +255,7 @@ final class MascotLayerView: NSView {
         let glowRadius = (radius + pose.glowRadius * 2.1 * unit) * swell
         let tint = NSColor(red: 1, green: 1 - 0.05 * pose.glowWarmth, blue: 1 - 0.16 * pose.glowWarmth, alpha: 1)
         glow.frame = Self.circle(center, glowRadius)
-        Self.falloff(glow, color: tint, peak: pose.glowOpacity * (0.65 + 0.35 * pulse), inner: radius * 0.7 / glowRadius, softness: 2.3)
+        Self.falloff(glow, color: tint, peak: pose.glowOpacity * (0.85 + 0.15 * pulse), inner: radius * 0.7 / glowRadius, softness: 2.3)
         if !calm {
             glow.opacity = 1
             glow.transform = CATransform3DIdentity
@@ -342,14 +342,16 @@ final class MascotLayerView: NSView {
     static let glowPulseScale: ClosedRange<Double> = 0.88...1.08
     /// «Zzz»: период одного «z» и размер шрифта от начала до конца пути, pt при диаметре 48.
     static let zeePeriod = 3.9
-    static let zeeSize: ClosedRange<Double> = 8...15
+    static let zeeSize: ClosedRange<Double> = 13...26
 
-    /// Путь «z»: стартует сбоку от шара (снаружи, а не на нём), поднимается вверх и в сторону
-    /// с лёгким покачиванием, растёт, появляется быстро и тает к концу.
+    /// Путь «z»: стартует на расстоянии от шара, поднимается строго по диагонали 45° вверх и от края экрана;
+    /// чем дальше, тем крупнее; появляется быстро и тает к концу.
     static func zee(phase: Double, center: CGPoint, radius: Double, unit: Double, side: Double)
         -> (position: CGPoint, size: Double, opacity: Double) {
-        let x = center.x + side * (radius + 1 * unit + 20 * unit * phase) + 0.8 * unit * sin(2 * .pi * phase)
-        let y = center.y - radius * 0.1 - 34 * unit * phase
+        let travel = 38 * unit * phase
+        // Старт — на уровне глаз в стороне от шара: так весь путь помещается в область маскота.
+        let x = center.x + side * (radius + 15 * unit + travel)
+        let y = center.y - radius * 0.1 - travel
         let size = (zeeSize.lowerBound + (zeeSize.upperBound - zeeSize.lowerBound) * phase) * unit
         let opacity = max(0, min(1, phase / 0.12, (1 - phase) / 0.3))
         return (CGPoint(x: x, y: y), size, opacity)
