@@ -181,42 +181,47 @@ final class MascotLayerView: NSView {
 
     private func installSleepAnimations() {
         let tuning = animator.tuning
+        // Свечение дышит: темнее и меньше — светлее и больше.
         let breath = CABasicAnimation(keyPath: "opacity")
         breath.fromValue = tuning.sleepGlow.lowerBound / max(0.01, tuning.sleepGlow.upperBound)
         breath.toValue = 1
-        breath.duration = tuning.sleepGlowPeriod / 2
-        breath.autoreverses = true
-        breath.repeatCount = .infinity
-        breath.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
-        glow.add(breath, forKey: "breath")
+        let swell = CABasicAnimation(keyPath: "transform.scale")
+        swell.fromValue = Self.glowPulseScale.lowerBound
+        swell.toValue = Self.glowPulseScale.upperBound
+        let pulse = CAAnimationGroup()
+        pulse.animations = [breath, swell]
+        pulse.duration = tuning.sleepGlowPeriod / 2
+        pulse.autoreverses = true
+        pulse.repeatCount = .infinity
+        pulse.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
+        glow.add(pulse, forKey: "breath")
 
         guard !animator.reduceMotion else { return }
         let unit = diameter / 48
         let radius = diameter / 2
         let center = CGPoint(x: bounds.midX, y: bounds.midY)
         let side = animator.zzzSide
-        let period = 2.6
         let now = CACurrentMediaTime()
+        // Те же точки пути, что и в кадрах: CA проигрывает их без CPU.
+        let phases = (0...16).map { Double($0) / 16 }
+        let samples = phases.map { Self.zee(phase: $0, center: center, radius: radius, unit: unit, side: side) }
         for (index, zee) in zees.enumerated() {
-            let start = CGPoint(x: center.x + side * (radius * 0.55 + 4 * unit), y: center.y - radius * 0.7)
-            let end = CGPoint(x: start.x + side * 18 * unit, y: start.y - 24 * unit)
-            let move = CABasicAnimation(keyPath: "position")
-            move.fromValue = NSValue(point: start)
-            move.toValue = NSValue(point: end)
-            let grow = CABasicAnimation(keyPath: "transform.scale")
-            grow.fromValue = 1
-            grow.toValue = 22.0 / 13.0
+            let move = CAKeyframeAnimation(keyPath: "position")
+            move.values = samples.map { NSValue(point: $0.position) }
+            let grow = CAKeyframeAnimation(keyPath: "transform.scale")
+            grow.values = samples.map { $0.size / (Self.zeeSize.lowerBound * unit) }
             let fade = CAKeyframeAnimation(keyPath: "opacity")
-            fade.values = [0, 0.7, 1, 0.7, 0]
-            fade.keyTimes = [0, 0.15, 0.5, 0.85, 1]
+            fade.values = samples.map { $0.opacity }
+            for animation in [move, grow, fade] { animation.keyTimes = phases.map { NSNumber(value: $0) } }
             let group = CAAnimationGroup()
             group.animations = [move, grow, fade]
-            group.duration = period
+            group.duration = Self.zeePeriod
             group.repeatCount = .infinity
-            group.timeOffset = period * Double(index) / 3
+            group.timeOffset = Self.zeePeriod * Double(index) / Double(zees.count)
             group.beginTime = now
-            zee.fontSize = 13 * unit
-            zee.bounds = CGRect(x: 0, y: 0, width: 20 * unit, height: 20 * unit)
+            zee.fontSize = Self.zeeSize.lowerBound * unit
+            zee.bounds = CGRect(x: 0, y: 0, width: 24 * unit, height: 24 * unit)
+            zee.transform = CATransform3DIdentity
             zee.shadowRadius = 2 * unit
             zee.add(group, forKey: "zzz")
         }
@@ -244,12 +249,17 @@ final class MascotLayerView: NSView {
         dropShadow.frame = Self.circle(CGPoint(x: base.x, y: base.y + 2 * unit), shadowRadius)
         Self.falloff(dropShadow, color: NSColor.black, peak: 0.22, inner: shadowInner / shadowRadius)
 
-        // Свечение: плотное у края тела, тает плавно; ночью теплеет.
-        let glowRadius = radius + pose.glowRadius * 1.3 * unit
+        // Свечение: широкое и размытое, пульсирует — темнее и меньше, светлее и больше; ночью теплеет.
+        let pulse = 0.5 + 0.5 * sin(2 * .pi * pose.time / Self.glowPulsePeriod)
+        let swell = Self.glowPulseScale.lowerBound + (Self.glowPulseScale.upperBound - Self.glowPulseScale.lowerBound) * pulse
+        let glowRadius = (radius + pose.glowRadius * 2.1 * unit) * swell
         let tint = NSColor(red: 1, green: 1 - 0.05 * pose.glowWarmth, blue: 1 - 0.16 * pose.glowWarmth, alpha: 1)
         glow.frame = Self.circle(center, glowRadius)
-        Self.falloff(glow, color: tint, peak: pose.glowOpacity, inner: radius * 0.9 / glowRadius)
-        if !calm { glow.opacity = 1 }
+        Self.falloff(glow, color: tint, peak: pose.glowOpacity * (0.65 + 0.35 * pulse), inner: radius * 0.7 / glowRadius, softness: 2.3)
+        if !calm {
+            glow.opacity = 1
+            glow.transform = CATransform3DIdentity
+        }
 
         // Тело светится само: центр чисто белый, к краю — лёгкая прохладная тень объёма; ночью тёплый белый.
         let bodyRect = CGRect(x: center.x - radius * scaleX, y: center.y - radius * scaleY, width: 2 * radius * scaleX, height: 2 * radius * scaleY)
@@ -309,31 +319,46 @@ final class MascotLayerView: NSView {
         if !calm { applyZees(pose, center: center, radius: radius, unit: unit) }
     }
 
-    /// Три «z» всплывают от макушки внутрь экрана, растут и тают по очереди.
+    /// Три «z» всплывают в стороне от шара, по очереди, с промежутком в треть пути — не налезают друг на друга.
     private func applyZees(_ pose: MascotPose, center: CGPoint, radius: Double, unit: Double) {
-        let period = 2.6
         for (index, zee) in zees.enumerated() {
             guard pose.zzz > 0.01 else {
                 zee.opacity = 0
                 continue
             }
-            let phase = (pose.time / period + Double(index) / 3).truncatingRemainder(dividingBy: 1)
-            zee.fontSize = (13 + 9 * phase) * unit
-            zee.bounds = CGRect(x: 0, y: 0, width: 30 * unit, height: 30 * unit)
+            let phase = (pose.time / Self.zeePeriod + Double(index) / Double(zees.count)).truncatingRemainder(dividingBy: 1)
+            let point = Self.zee(phase: phase, center: center, radius: radius, unit: unit, side: pose.zzzSide)
+            zee.fontSize = point.size
+            zee.bounds = CGRect(x: 0, y: 0, width: 24 * unit, height: 24 * unit)
             zee.shadowRadius = 2 * unit
-            zee.position = CGPoint(
-                x: center.x + pose.zzzSide * (radius * 0.55 + 4 * unit + 18 * unit * phase),
-                y: center.y - radius * 0.7 - 24 * unit * phase
-            )
-            zee.opacity = Float(pose.zzz * sin(.pi * phase))
+            zee.position = point.position
+            zee.opacity = Float(pose.zzz * point.opacity)
             zee.transform = CATransform3DIdentity
         }
     }
 
+    /// Свечение пульсирует: период и размах размера.
+    static let glowPulsePeriod = 3.4
+    static let glowPulseScale: ClosedRange<Double> = 0.88...1.08
+    /// «Zzz»: период одного «z» и размер шрифта от начала до конца пути, pt при диаметре 48.
+    static let zeePeriod = 3.9
+    static let zeeSize: ClosedRange<Double> = 8...15
+
+    /// Путь «z»: стартует сбоку от шара (снаружи, а не на нём), поднимается вверх и в сторону
+    /// с лёгким покачиванием, растёт, появляется быстро и тает к концу.
+    static func zee(phase: Double, center: CGPoint, radius: Double, unit: Double, side: Double)
+        -> (position: CGPoint, size: Double, opacity: Double) {
+        let x = center.x + side * (radius + 1 * unit + 20 * unit * phase) + 0.8 * unit * sin(2 * .pi * phase)
+        let y = center.y - radius * 0.1 - 34 * unit * phase
+        let size = (zeeSize.lowerBound + (zeeSize.upperBound - zeeSize.lowerBound) * phase) * unit
+        let opacity = max(0, min(1, phase / 0.12, (1 - phase) / 0.3))
+        return (CGPoint(x: x, y: y), size, opacity)
+    }
+
     /// Радиальный спад, близкий к гауссову: ровно до `inner`, дальше мягко тает — без видимого края.
-    private static func falloff(_ layer: CAGradientLayer, color: NSColor, peak: Double, inner: Double) {
-        let steps = [0.0, 0.12, 0.28, 0.48, 0.7, 0.88, 1.0]
-        let fade = steps.map { exp(-3.2 * $0 * $0) - exp(-3.2) * $0 }
+    private static func falloff(_ layer: CAGradientLayer, color: NSColor, peak: Double, inner: Double, softness: Double = 3.2) {
+        let steps = [0.0, 0.1, 0.22, 0.36, 0.52, 0.7, 0.86, 1.0]
+        let fade = steps.map { exp(-softness * $0 * $0) - exp(-softness) * $0 }
         layer.colors = [color.withAlphaComponent(peak).cgColor] + fade.map { color.withAlphaComponent(peak * max(0, $0)).cgColor }
         layer.locations = [0] + steps.map { NSNumber(value: inner + (1 - inner) * $0) }
         layer.startPoint = CGPoint(x: 0.5, y: 0.5)
