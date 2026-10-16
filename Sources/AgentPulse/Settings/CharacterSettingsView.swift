@@ -20,7 +20,7 @@ struct CharacterSettingsView: View {
                         if !editing { model.applyCharacter() }
                     }
                 }
-                Text("Озорство — до \(Int((model.config.character.mischief * 5).rounded())) приколов в день")
+                Text("Озорство — до \(Int((model.config.character.mischief * 10).rounded())) приколов в день")
                     .font(.caption).foregroundStyle(.secondary)
             }
             Section("Тишина") {

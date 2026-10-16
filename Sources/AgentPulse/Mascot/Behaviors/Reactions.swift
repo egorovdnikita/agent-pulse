@@ -50,14 +50,16 @@ enum ReactionPlayer {
             frame.bodyScale = 1 - 0.03 * sin(.pi * p)
             blinkOnce(0, at: 0.3, .single)
         case .done:
-            // Дуги «^ ^», два подпрыгивания, вспышка свечения.
+            // Звёзды в глазах — и дуги «^ ^», два подпрыгивания.
             frame.happy = 1
+            if p < 0.35 { frame.glyph = .star }
             frame.bodyOffset.y = -tuning.hopHeight * abs(sin(2 * .pi * p))
             frame.glowOpacity = min(1, frame.glowOpacity + 0.4 * (1 - p))
             frame.glowRadiusScale = 1 + 0.5 * (1 - p)
         case .error:
             // Глаза сжимаются, тело трясётся по X три цикла, свечение гаснет до 40%.
             frame.eyeScale = tuning.errorEyeScale
+            if p < 0.7 { frame.glyph = .flat }
             frame.bodyOffset.x = 2 * sin(2 * .pi * 3 * p) * (1 - p)
             frame.glowOpacity *= 0.4
 
@@ -119,23 +121,28 @@ enum ReactionPlayer {
             }
             frame.blinkInterval = nil
         case .purr:
+            // Сердечки в глазах, пока гладят.
             frame.happy = e
+            if p > 0.12 && p < 0.88 { frame.glyph = .heart }
             frame.glowOpacity = min(1, frame.glowOpacity + 0.3 * e)
             frame.bodyScale = 1 + 0.02 * e
             frame.tilt = 0.06 * sin(2 * .pi * p)
         case .flinch:
             frame.bodyScale = 1 - 0.08 * sin(.pi * p)
             frame.eyeScale = p < 0.5 ? 0.35 : 1.1
+            if p < 0.55 { frame.glyph = .squeeze }
             frame.bodyOffset.x = -side * 1.5 * sin(.pi * p)
         case .turnAway, .turnAwayLong:
             frame.gaze = SIMD2(-side * 0.95 * e, -0.05)
             frame.restGaze = frame.gaze
             frame.eyeScale = 0.9
+            if e > 0.5 { frame.glyph = .flat }
             frame.tilt = -side * 0.08 * e
         case .dizzy:
             let decay = 1 - p * 0.6
             frame.gaze = SIMD2(cos(2 * .pi * 3 * p) * 0.75 * decay, sin(2 * .pi * 3 * p) * 0.55 * decay)
             frame.tilt = 0.1 * sin(2 * .pi * 2 * p) * decay
+            if p < 0.8 { frame.glyph = .spiral }
             frame.blinkInterval = nil
         case .lookDown:
             frame.gaze = SIMD2(0, 0.85 * e)
@@ -148,6 +155,7 @@ enum ReactionPlayer {
             frame.blinkInterval = nil
 
         case .sneeze:
+            if p < 0.58 { frame.glyph = .squeeze }
             if p < 0.45 {
                 frame.eyeScale = 0.08
                 frame.bodyScale = 1 - 0.06 * p / 0.45
@@ -199,6 +207,34 @@ enum ReactionPlayer {
                 blinkOnce(0, at: 0.72, .double)
             }
             frame.blinkInterval = nil
+        case .stars:
+            // Звёзды в глазах и подскок.
+            frame.glyph = p < 0.85 ? .star : .none
+            frame.gaze = .zero
+            frame.bodyOffset.y = p < 0.15
+                ? tuning.anticipation * sin(.pi * p / 0.15)
+                : -tuning.hopHeight * abs(sin(.pi * (p - 0.15) / 0.35)) * (1 - p)
+        case .dreamSmile:
+            // Снится хорошее: «^ ^» во сне и лёгкое покачивание.
+            frame.happy = e
+            frame.tilt = 0.05 * sin(2 * .pi * p)
+            frame.motionless = true
+        case .sleepPeek:
+            // Приоткрыл глаза, огляделся — и снова уснул.
+            frame.eyeScale = 0.08 + 0.5 * envelope(p, attack: 0.25, release: 0.35)
+            frame.gaze = SIMD2(0.4 * sin(2 * .pi * p) * e, 0.1)
+            frame.blinkInterval = nil
+        case .sleepRoll:
+            // Ворочается: тело наклоняется и смещается в сторону, затем обратно.
+            frame.tilt = 0.12 * sin(.pi * p) * side
+            frame.bodyOffset.x = 1.5 * sin(.pi * p) * side
+            frame.bodyScale = 1 - 0.03 * sin(2 * .pi * p)
+            frame.motionless = true
+        case .curious:
+            // Присматривается: наклон, взгляд в сторону, глаза чуть шире.
+            frame.tilt = 0.1 * e * side
+            frame.gaze = SIMD2(0.5 * side * e, -0.2 * e)
+            frame.eyeScale = 1 + 0.12 * e
         case .stare:
             // Засмотрелся в одну точку — и вздрогнул, будто вспомнил что-то.
             if p < 0.85 {

@@ -2,7 +2,7 @@ import AppKit
 import QuartzCore
 import SwiftUI
 
-/// Процедурный маскот: круглое тело с белым свечением и два чёрных овала-глаза. Больше ничего.
+/// Процедурный маскот: круглое белое тело и два пиксельных глаза, как на точечном экране. Больше ничего.
 /// Рисуется слоями Core Animation: в активных состояниях поза применяется по display link (30 fps),
 /// в глубоком сне кадры останавливаются, а дыхание и «Zzz» крутят повторяющиеся CA-анимации — ~0% CPU.
 struct MascotView: NSViewRepresentable {
@@ -32,7 +32,7 @@ struct MascotView: NSViewRepresentable {
     }
 }
 
-/// Слои: тень, свечение, тело (градиент под маской), по три слоя на глаз (овал, веко, дуга), три «z».
+/// Слои: тень, тело (градиент под маской), по слою на пиксельный глаз, три «z».
 @MainActor
 final class MascotLayerView: NSView {
     static let frameRate: Float = 30
@@ -49,12 +49,14 @@ final class MascotLayerView: NSView {
 
     private let canvas = CALayer()
     private let dropShadow = CAGradientLayer()
-    private let glow = CAGradientLayer()
     private let body = CAGradientLayer()
     private let bodyMask = CAShapeLayer()
-    private let ovals = [CAShapeLayer(), CAShapeLayer()]
-    private let lids = [CAShapeLayer(), CAShapeLayer()]
-    private let arcs = [CAShapeLayer(), CAShapeLayer()]
+    private let eyes = [CAShapeLayer(), CAShapeLayer()]
+    /// Смена выражения проявляется построчно сверху вниз — как перерисовка точечного экрана.
+    private var eyeShape: PixelEyes.Shape?
+    private var shapeChangedAt = -Double.infinity
+    /// Лист поз: выражение рисуется сразу, без построчного проявления.
+    var instantShapes = false
     private let zees = [CATextLayer(), CATextLayer(), CATextLayer()]
 
     private var link: CADisplayLink?
@@ -71,19 +73,12 @@ final class MascotLayerView: NSView {
         layer?.addSublayer(canvas)
 
         dropShadow.type = .radial
-        glow.type = .radial
         body.type = .radial
         body.mask = bodyMask
-        for layer in [dropShadow, glow, body] as [CALayer] { canvas.addSublayer(layer) }
-        for index in 0..<2 {
-            ovals[index].fillColor = NSColor.black.cgColor
-            for stroke in [lids[index], arcs[index]] {
-                stroke.fillColor = nil
-                stroke.strokeColor = NSColor.black.cgColor
-                stroke.lineCap = .round
-                stroke.lineJoin = .round
-            }
-            for layer in [ovals[index], lids[index], arcs[index]] { canvas.addSublayer(layer) }
+        for layer in [dropShadow, body] as [CALayer] { canvas.addSublayer(layer) }
+        for eye in eyes {
+            eye.fillColor = NSColor(white: 0.06, alpha: 1).cgColor
+            canvas.addSublayer(eye)
         }
         for zee in zees {
             zee.string = "z"
@@ -164,7 +159,10 @@ final class MascotLayerView: NSView {
         installSleepAnimations()
         calmTimer = Timer.scheduledTimer(withTimeInterval: 0.25, repeats: true) { [weak self] _ in
             MainActor.assumeIsolated {
-                guard let self, !self.animator.isCalm(at: Date.timeIntervalSinceReferenceDate) else { return }
+                guard let self else { return }
+                let t = Date.timeIntervalSinceReferenceDate
+                self.animator.ambientAct(at: t)
+                guard !self.animator.isCalm(at: t) else { return }
                 self.exitCalm()
             }
         }
@@ -174,23 +172,24 @@ final class MascotLayerView: NSView {
         calm = false
         calmTimer?.invalidate()
         calmTimer = nil
-        for layer in [glow, body] as [CALayer] + ovals + lids + zees { layer.removeAllAnimations() }
+        for layer in [body] as [CALayer] + eyes + zees { layer.removeAllAnimations() }
         canvas.removeAllAnimations()
         updateDriver()
     }
 
     private func installSleepAnimations() {
         let tuning = animator.tuning
-        let breath = CABasicAnimation(keyPath: "opacity")
-        breath.fromValue = tuning.sleepGlow.lowerBound / max(0.01, tuning.sleepGlow.upperBound)
-        breath.toValue = 1
+        guard !animator.reduceMotion else { return }
+        // Дыхание во сне: тело чуть поднимается и опускается, без кадров на CPU.
+        let breath = CABasicAnimation(keyPath: "transform.translation.y")
+        breath.fromValue = 0
+        breath.toValue = -0.8 * diameter / 48
         breath.duration = tuning.sleepGlowPeriod / 2
         breath.autoreverses = true
         breath.repeatCount = .infinity
         breath.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
-        glow.add(breath, forKey: "breath")
+        for layer in [body] as [CALayer] + eyes { layer.add(breath, forKey: "breath") }
 
-        guard !animator.reduceMotion else { return }
         let unit = diameter / 48
         let radius = diameter / 2
         let center = CGPoint(x: bounds.midX, y: bounds.midY)
@@ -238,20 +237,13 @@ final class MascotLayerView: NSView {
         let scaleX = 1 / scaleY.squareRoot()
         let center = CGPoint(x: base.x, y: base.y + radius * (1 - scaleY))
 
-        // Тень держит силуэт на светлом фоне: мягкая, чуть ниже тела — свет сверху. Спад гауссов, без «кольца».
-        let shadowInner = radius - 3 * unit
-        let shadowRadius = radius + 9 * unit
-        dropShadow.frame = Self.circle(CGPoint(x: base.x, y: base.y + 2 * unit), shadowRadius)
-        Self.falloff(dropShadow, color: NSColor.black, peak: 0.22, inner: shadowInner / shadowRadius)
+        // Тень держит силуэт на светлом фоне: узкая и мягкая, чуть ниже тела. Свечения нет.
+        let shadowInner = radius - 2 * unit
+        let shadowRadius = radius + 5 * unit
+        dropShadow.frame = Self.circle(CGPoint(x: base.x, y: base.y + 1.5 * unit), shadowRadius)
+        Self.falloff(dropShadow, color: NSColor.black, peak: 0.2, inner: shadowInner / shadowRadius)
 
-        // Свечение: плотное у края тела, тает плавно; ночью теплеет.
-        let glowRadius = radius + pose.glowRadius * 1.3 * unit
-        let tint = NSColor(red: 1, green: 1 - 0.05 * pose.glowWarmth, blue: 1 - 0.16 * pose.glowWarmth, alpha: 1)
-        glow.frame = Self.circle(center, glowRadius)
-        Self.falloff(glow, color: tint, peak: pose.glowOpacity, inner: radius * 0.9 / glowRadius)
-        if !calm { glow.opacity = 1 }
-
-        // Тело светится само: центр чисто белый, к краю — лёгкая прохладная тень объёма; ночью тёплый белый.
+        // Белое тело: центр чисто белый, к краю — лёгкая прохладная тень объёма; ночью тёплый белый.
         let bodyRect = CGRect(x: center.x - radius * scaleX, y: center.y - radius * scaleY, width: 2 * radius * scaleX, height: 2 * radius * scaleY)
         body.frame = bodyRect
         bodyMask.frame = body.bounds
@@ -270,43 +262,79 @@ final class MascotLayerView: NSView {
         body.startPoint = CGPoint(x: 0.4, y: 0.34)
         body.endPoint = CGPoint(x: 0.4 + 0.66, y: 0.34 + 0.66)
 
-        let eyeWidth = 7.5 * unit * pose.bodyScale * scaleX
-        let eyeHeight = 10.5 * unit * pose.bodyScale * scaleY
-        let (tiltSin, tiltCos) = (sin(pose.tilt), cos(pose.tilt))
-        let closed = min(max((0.35 - pose.eyeScale) / 0.25, 0), 1) * (1 - pose.happy)
-        for (index, side) in [-1.0, 1.0].enumerated() {
-            let spot = side * (7.5 + pose.eyeSpread) * (1 - 2 * pose.eyeSwap)
-            let local = SIMD2((spot + pose.gaze.x * 6) * unit * scaleX, (-2 + pose.gaze.y * 4) * unit * scaleY)
-            let rotated = SIMD2(local.x * tiltCos - local.y * tiltSin, local.x * tiltSin + local.y * tiltCos)
-            // При взгляде вбок дальний глаз сужается — объём шара.
-            let isFar = (side < 0 && pose.gaze.x > 0) || (side > 0 && pose.gaze.x < 0)
-            let width = eyeWidth * (isFar ? 1 - 0.15 * min(1, abs(pose.gaze.x)) : 1)
-            let height = eyeHeight * pose.eyeScale
-            // Веко опускается сверху: прикрытый глаз оседает вниз.
-            let eye = CGPoint(x: center.x + rotated.x, y: center.y + rotated.y + (eyeHeight - height) * 0.3)
-
-            let ovalOpacity = (1 - pose.happy) * (1 - closed)
-            ovals[index].opacity = Float(height > 0.3 ? ovalOpacity : 0)
-            ovals[index].path = CGPath(ellipseIn: CGRect(x: eye.x - width / 2, y: eye.y - height / 2, width: width, height: max(height, 0.01)), transform: nil)
-
-            // Закрытые глаза — веко «‿».
-            let lid = CGMutablePath()
-            lid.move(to: CGPoint(x: eye.x - eyeWidth * 0.65, y: eye.y))
-            lid.addQuadCurve(to: CGPoint(x: eye.x + eyeWidth * 0.65, y: eye.y), control: CGPoint(x: eye.x, y: eye.y + eyeHeight * 0.4))
-            lids[index].path = lid
-            lids[index].lineWidth = 2 * unit
-            lids[index].opacity = Float(closed)
-
-            // Радость — дуга «^».
-            let arc = CGMutablePath()
-            arc.move(to: CGPoint(x: eye.x - eyeWidth * 0.68, y: eye.y + eyeHeight * 0.15))
-            arc.addQuadCurve(to: CGPoint(x: eye.x + eyeWidth * 0.68, y: eye.y + eyeHeight * 0.15), control: CGPoint(x: eye.x, y: eye.y - eyeHeight * 0.6))
-            arcs[index].path = arc
-            arcs[index].lineWidth = 2.4 * unit
-            arcs[index].opacity = Float(pose.happy)
-        }
+        applyEyes(pose, center: center, unit: unit, scaleX: scaleX, scaleY: scaleY)
 
         if !calm { applyZees(pose, center: center, radius: radius, unit: unit) }
+    }
+
+    /// Пиксельные глаза. Сетка привязана к центру тела, поэтому взгляд и веки движутся шагами в пиксель.
+    private func applyEyes(_ pose: MascotPose, center: CGPoint, unit: Double, scaleX: Double, scaleY: Double) {
+        let eye = Eye.self
+        let pixel = eye.pixel * unit * pose.bodyScale
+        let width = eye.width * unit * pose.bodyScale * scaleX
+        let height = eye.height * unit * pose.bodyScale * scaleY
+        let closed = min(max((0.35 - pose.eyeScale) / 0.25, 0), 1) * (1 - pose.happy)
+
+        let shape: PixelEyes.Shape = if pose.glyph != .none {
+            .glyph(pose.glyph)
+        } else if pose.happy > 0.5 {
+            .arc(width: width * 1.15)
+        } else if closed > 0.5 {
+            .lid(width: width * 1.15)
+        } else {
+            .oval(width: width, height: height * pose.eyeScale)
+        }
+        // Новое выражение (не моргание) — проявляется построчно за 0.12 s.
+        let now = CACurrentMediaTime()
+        if eyeShape != nil, !Self.sameKind(shape, eyeShape) { shapeChangedAt = now }
+        eyeShape = shape
+        let reveal = animator.reduceMotion || instantShapes ? 1 : min(1, (now - shapeChangedAt) / 0.12)
+
+        let (tiltSin, tiltCos) = (sin(pose.tilt), cos(pose.tilt))
+        for (index, side) in [-1.0, 1.0].enumerated() {
+            let spot = side * (eye.spacing + pose.eyeSpread) * (1 - 2 * pose.eyeSwap)
+            var local = SIMD2((spot + pose.gaze.x * eye.shift.x) * unit * scaleX, (eye.lift + pose.gaze.y * eye.shift.y) * unit * scaleY)
+            local = SIMD2(local.x * tiltCos - local.y * tiltSin, local.x * tiltSin + local.y * tiltCos)
+            // Прикрытый глаз оседает вниз — веко опускается сверху.
+            if case .oval = shape { local.y += (height - height * pose.eyeScale) * 0.3 }
+            // Положение глаза — в целых пикселях от центра тела.
+            let origin = CGPoint(x: center.x + (local.x / pixel).rounded() * pixel, y: center.y + (local.y / pixel).rounded() * pixel)
+
+            var cells = PixelEyes.cells(shape, mirrored: side < 0, pixel: pixel)
+            // При взгляде вбок дальний глаз сужается на столбец — объём шара.
+            let isFar = (side < 0 && pose.gaze.x > 0.5) || (side > 0 && pose.gaze.x < -0.5)
+            if isFar, case .oval = shape, let edge = cells.map(\.0).max(by: { abs($0) < abs($1) }) {
+                cells.removeAll { $0.0 == edge }
+            }
+            let rows = cells.map(\.1)
+            let maxRow = rows.max().map { top in
+                let bottom = rows.min() ?? top
+                return bottom + Int((Double(top - bottom + 1) * reveal).rounded(.up)) - 1
+            }
+            eyes[index].path = PixelEyes.path(cells, origin: origin, pixel: pixel, gap: pixel * eye.gap, maxRow: maxRow)
+        }
+    }
+
+    private static func sameKind(_ a: PixelEyes.Shape, _ b: PixelEyes.Shape?) -> Bool {
+        switch (a, b) {
+        case (.oval, .oval?), (.arc, .arc?), (.lid, .lid?): true
+        case (.glyph(let x), .glyph(let y)?): x == y
+        default: false
+        }
+    }
+
+    /// Геометрия глаз при диаметре 48 pt.
+    enum Eye {
+        /// Размер пикселя.
+        static let pixel = 1.65
+        /// Зазор между пикселями, доля пикселя.
+        static let gap = 0.14
+        static let width = 10.2
+        static let height = 13.6
+        static let spacing = 9.0
+        static let lift = -2.5
+        /// Сдвиг глаз при взгляде.
+        static let shift = SIMD2(5, 3.4)
     }
 
     /// Три «z» всплывают от макушки внутрь экрана, растут и тают по очереди.

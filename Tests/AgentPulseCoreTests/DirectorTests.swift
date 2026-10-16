@@ -100,13 +100,13 @@ struct ZeroRNG: RandomNumberGenerator {
 
     @Test func funBudgetGapAndGates() {
         var rng = ZeroRNG()
-        var d = director(mischief: 0.8) // незнакомым — половина: 2 в день
+        var d = director(mischief: 0.4) // незнакомым — половина: 2 в день
         let start = date(2026, 10, 14, 11)
         _ = d.handle(Signal(.presence, .userBack), now: start, rng: &rng)
         #expect(d.handle(Signal(.clock, .minute), now: start.addingTimeInterval(60), rng: &rng)?.tier == .fun)
-        // Не чаще раза в 40 минут.
-        #expect(d.handle(Signal(.clock, .minute), now: start.addingTimeInterval(20 * 60), rng: &rng)?.tier != .fun)
-        #expect(d.handle(Signal(.clock, .minute), now: start.addingTimeInterval(45 * 60), rng: &rng)?.tier == .fun)
+        // Не чаще раза в 20 минут.
+        #expect(d.handle(Signal(.clock, .minute), now: start.addingTimeInterval(10 * 60), rng: &rng)?.tier != .fun)
+        #expect(d.handle(Signal(.clock, .minute), now: start.addingTimeInterval(25 * 60), rng: &rng)?.tier == .fun)
         // Бюджет исчерпан.
         #expect(d.handle(Signal(.clock, .minute), now: start.addingTimeInterval(2 * 3600), rng: &rng)?.tier != .fun)
 
@@ -290,7 +290,7 @@ struct ZeroRNG: RandomNumberGenerator {
         var settings = DirectorSettings()
         settings.mischief = 1
         #expect(settings.funLimit(familiarity: 0) < settings.funLimit(familiarity: 1))
-        #expect(settings.funLimit(familiarity: 1) == 5)
+        #expect(settings.funLimit(familiarity: 1) == 10)
     }
 
     @Test func nodsOffOnlyLateAndWhenStill() {

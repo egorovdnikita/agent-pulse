@@ -128,7 +128,7 @@ public struct ReactionSpec: Sendable {
         case .body: 30 * 60
         case .rhythm: 60
         case .interaction: 1
-        case .fun: 40 * 60
+        case .fun: 20 * 60
         }
     }
 }
@@ -269,12 +269,12 @@ public enum ReactionCatalog {
                          c.newsWaiting > 0 && c.userPresent && c.idleSeconds < 120 && !c.quiet && !c.agentBusy
                              && (9..<22).contains(c.hour)
                      },
-                     behavior: .wideEyes, bubble: 8, chance: 1.0 / 10, special: .news),
+                     behavior: .stars, bubble: 8, chance: 1.0 / 10, special: .news),
     ]
 
     // MARK: - Приколы (в бюджете)
 
-    static let funChance = 1.0 / 20
+    static let funChance = 1.0 / 10
 
     static let fun: [ReactionSpec] = [
         ReactionSpec("fun.sneeze", on: [.minute], tier: .fun, behavior: .sneeze, lines: ["Апчхи"], bubble: 1.5, chance: funChance),
