@@ -48,12 +48,6 @@ public enum MascotReaction: String, Sendable, CaseIterable, Codable {
     // Ритм суток
     case doze           // клюёт носом: глаза слипаются — вздрагивает
     case hop            // довольный подскок на месте
-    // Пиксельные выражения и мелкие живые движения
-    case stars          // звёзды в глазах: новость, праздник
-    case dreamSmile     // во сне улыбается: «^ ^» на пару секунд
-    case sleepPeek      // во сне приоткрывает глаза и снова засыпает
-    case sleepRoll      // во сне ворочается
-    case curious        // в покое: присматривается, наклоняет голову
 
     /// Реплика агентного конвейера; у остальных реакций реплики задаёт каталог.
     public var bubbleTrigger: BubbleTrigger? {

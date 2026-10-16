@@ -22,8 +22,6 @@ final class MascotAnimator {
     private var cursorMovedAt = 0.0
     // Довольный изредка подпрыгивает на месте.
     private var nextBounce: Double?
-    // Мелкие живые движения в покое и во сне.
-    private var nextAct: Double?
     var reduceMotion = false
     /// Центр маскота в экранных координатах — для слежения за курсором.
     var screenCenter: CGPoint?
@@ -76,7 +74,6 @@ final class MascotAnimator {
     func setState(_ newState: MascotState, at t: Double) {
         state = newState
         stateStart = t
-        nextAct = nil
         behavior = BehaviorFactory.make(newState, at: t, gaze: gaze.value, tuning: tuning)
         if newState.isWaiting {
             // wait_you прерывает всё.
@@ -104,33 +101,6 @@ final class MascotAnimator {
             && abs(eyeScale.value - tuning.sleepLid) < 0.02 && abs(eyeScale.velocity) < 0.05
     }
 
-    /// Маскот не застывает: в покое раз в 8–22 s присматривается, косится, подпрыгивает;
-    /// во сне раз в 25–70 s улыбается во сне, приоткрывает глаза или ворочается. Без облачка и без бюджета.
-    /// Вызывается и из кадра, и из таймера глубокого сна — тогда кадры на время движения возвращаются.
-    func ambientAct(at t: Double) {
-        guard !reduceMotion, active == nil, queue.isEmpty, !hovered, dragLook == nil else { return }
-        let interval: ClosedRange<Double>
-        let pool: [MascotReaction]
-        switch state {
-        case .idle:
-            interval = tuning.idleActInterval
-            pool = [.lookAround, .curious, .curious, .hop, .squint, .sideEye, .wideEyes, .fastBlink]
-        case .sleep where t - stateStart > tuning.fallAsleepDuration + 3:
-            interval = tuning.sleepActInterval
-            pool = contented ? [.sleepRoll, .sleepPeek] : [.dreamSmile, .sleepPeek, .sleepRoll, .sleepRoll]
-        default:
-            nextAct = nil
-            return
-        }
-        guard let due = nextAct else {
-            nextAct = t + Double.random(in: interval, using: &rng)
-            return
-        }
-        guard t >= due, let act = pool.randomElement(using: &rng) else { return }
-        nextAct = t + Double.random(in: interval, using: &rng)
-        queue.append(act)
-    }
-
     func glance(towardX x: Double, at t: Double) {
         glanceX = x
         glanceUntil = t + tuning.bubbleGlance
@@ -140,7 +110,6 @@ final class MascotAnimator {
         let dt = lastT.map { min(max(t - $0, 0), 0.1) } ?? 0
         lastT = t
 
-        ambientAct(at: t)
         var context = BehaviorContext(t: t, tuning: effectiveTuning, rng: rng)
         var frame = behavior.step(&context)
 
@@ -332,8 +301,7 @@ final class MascotAnimator {
             time: reduceMotion ? 0 : t,
             eyeSwap: swap.value,
             eyeSpread: baseline.eyeSpread,
-            glowWarmth: baseline.glowWarmth,
-            glyph: frame.glyph
+            glowWarmth: baseline.glowWarmth
         )
     }
 

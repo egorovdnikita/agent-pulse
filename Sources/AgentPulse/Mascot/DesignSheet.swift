@@ -17,14 +17,7 @@ enum DesignSheet {
         var sleep = MascotPose(); sleep.eyeScale = 0.08; sleep.glowOpacity = 0.45; sleep.zzz = 1; sleep.time = 0.9
         var night = MascotPose(); night.glowWarmth = 1; night.eyeScale = 0.9
         idle.time = 0
-        var glyphs: [(String, MascotPose)] = []
-        for glyph in [EyeGlyph.heart, .star, .squeeze, .flat, .spiral] {
-            var pose = MascotPose()
-            pose.glyph = glyph
-            glyphs.append(("\(glyph)", pose))
-        }
-        var half = MascotPose(); half.eyeScale = 0.5
-        return [("idle", idle), ("look", look), ("think", think), ("wait", wait), ("happy", happy), ("squint", squint), ("half", half), ("sleep", sleep), ("night", night)] + glyphs
+        return [("idle", idle), ("look", look), ("think", think), ("wait", wait), ("happy", happy), ("squint", squint), ("sleep", sleep), ("night", night)]
     }()
 
     static func render(to url: URL, diameter: Double = 48, scale: Double = 3) {
@@ -44,7 +37,6 @@ enum DesignSheet {
                 context.fill(CGRect(origin: origin, size: CGSize(width: cell, height: cell)))
                 let view = MascotLayerView(animator: MascotAnimator(), diameter: diameter)
                 view.frame = CGRect(x: 0, y: 0, width: cell, height: cell)
-                view.instantShapes = true
                 view.layoutSubtreeIfNeeded()
                 view.apply(pose)
                 context.saveGState()
