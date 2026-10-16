@@ -214,6 +214,21 @@ public enum ReactionCatalog {
                      lines: ["Давно не виделись", "Наконец-то"]),
         ReactionSpec("greeting.early", group: "greeting", on: present, tier: .rhythm,
                      when: { _, c in c.firstPresenceToday && (c.earlyBy ?? 0) >= 2 }, behavior: .notice, lines: ["Рано ты"]),
+        // Первый день сезона — вместо обычного приветствия.
+        ReactionSpec("greeting.season", group: "greeting", on: present, tier: .rhythm,
+                     when: { _, c in c.firstPresenceToday && c.day == 1 && [3, 6, 9, 12].contains(c.month) },
+                     behaviorFor: { _, c in [3, 6].contains(c.month) ? .done : .contentSquint },
+                     linesFor: { _, c in
+                         switch c.month {
+                         case 3: ["Весна пришла", "Пахнет весной"]
+                         case 6: ["Лето пришло", "Ура, лето"]
+                         case 9: ["Осень. Уютно", "Осень пришла"]
+                         default: ["Зима пришла", "Зима. Укутаемся?"]
+                         }
+                     }),
+        ReactionSpec("greeting.weekend", group: "greeting", on: present, tier: .rhythm,
+                     when: { _, c in c.firstPresenceToday && (c.weekday == 1 || c.weekday == 7) }, behavior: .notice,
+                     lines: ["Выходной? Я тоже тут", "О, и в выходной"]),
         ReactionSpec("greeting.friday", group: "greeting", on: present, tier: .rhythm,
                      when: { _, c in c.firstPresenceToday && c.weekday == 6 }, behavior: .notice, lines: ["Пятница!"]),
         ReactionSpec("greeting.monday", group: "greeting", on: present, tier: .rhythm,

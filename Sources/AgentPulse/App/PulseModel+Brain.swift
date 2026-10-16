@@ -189,5 +189,17 @@ extension PulseModel {
             try? data.write(to: url)
         }
         feedbackToday[verdict, default: 0] += 1
+        let muted = Self.loadMuted()
+        if muted != mutedReactions {
+            mutedReactions = muted
+            let director = director
+            Task { await director.update { $0.mutedReactions = muted } }
+        }
+    }
+
+    /// Что глушить по логу «мило / бесит» за последнюю неделю.
+    static func loadMuted(now: Date = Date()) -> Set<String> {
+        guard let data = try? Data(contentsOf: feedbackURL) else { return [] }
+        return FeedbackLog.muted(FeedbackLog.parse(data), now: now)
     }
 }

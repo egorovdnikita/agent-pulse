@@ -66,6 +66,8 @@ final class PulseModel {
     var week: DayMemory.Day?
     /// Оценки за сегодня: «мило» и «бесит».
     var feedbackToday: [String: Int] = [:]
+    /// Реакции, которые бесят (два «бесит» за неделю), — только глазами.
+    var mutedReactions: Set<String> = []
 
     /// MascotLab: ручное состояние поверх живого.
     var labOverride: MascotState? {
@@ -119,6 +121,8 @@ final class PulseModel {
     func start() {
         var initial = Director(settings: config.character.directorSettings)
         initial.memory = DayMemory.load()
+        initial.mutedReactions = Self.loadMuted()
+        mutedReactions = initial.mutedReactions
         director = DirectorActor(initial)
         body.darkTheme = AppearanceSense.isDark
         let stream = stream

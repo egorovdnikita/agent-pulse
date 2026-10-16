@@ -74,6 +74,8 @@ public struct Director: Sendable {
     public private(set) var userPresent = true
     /// Агент работает или ждёт — приколы молчат, важное не тонет в милом.
     public var agentBusy = false
+    /// Реакции с двумя «бесит» за неделю: только глазами, без облачка (`FeedbackLog`).
+    public var mutedReactions: Set<String> = []
 
     private var lastFired: [String: Date] = [:]
     private var dailyCount: [String: Int] = [:]
@@ -179,6 +181,8 @@ public struct Director: Sendable {
         for spec in catalog where spec.kinds.contains(signal.kind) {
             guard spec.condition(signal, context), allowed(spec, now: now, quiet: quiet, context: context) else { continue }
             if spec.chance < 1, Double.random(in: 0..<1, using: &rng) >= spec.chance { continue }
+            // Новость, которая бесит, не рассказывается вовсе: у неё нет «только глазами».
+            if spec.special == .news, mutedReactions.contains(spec.group) || mutedReactions.contains(spec.id) { continue }
             return fire(spec, signal: signal, context: context, now: now, quiet: quiet, rng: &rng)
         }
         return nil
@@ -212,6 +216,7 @@ public struct Director: Sendable {
         // Облачко вне агентов — по болтливости; в тишине — только глаза.
         let talk = spec.tier == .agent ? 1 : min(1, settings.talkativeness * 2)
         if quiet && spec.tier != .agent { line = nil }
+        if mutedReactions.contains(spec.id) { line = nil }
         if line != nil, talk < 1, Double.random(in: 0..<1, using: &rng) >= talk { line = nil }
         // Восклицательный знак — не чаще раза в день.
         if let text = line, text.contains("!") {

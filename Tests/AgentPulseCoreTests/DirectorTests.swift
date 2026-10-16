@@ -195,11 +195,13 @@ struct ZeroRNG: RandomNumberGenerator {
     /// Все реплики каталога: ≤ 10 слов, без техники, без эмодзи.
     @Test func catalogLinesFollowVoiceRules() {
         let technical = ["cpu", "ram", "wi-fi", "bash", "агент"]
+        // Прошедшее время и прилагательные с родом: у существа нет пола.
+        let gendered = ["устал", "понял", "нашёл", "нашел", "нашла", "сделал", "рад ", "рада", "готов ", "готова", "голоден", "голодна", "сыт ", "сыта"]
         var lines: Set<String> = []
         for spec in ReactionCatalog.all {
-            for hour in [3, 9, 15, 21] {
+            for (month, hour) in [(10, 3), (10, 9), (3, 15), (6, 21), (9, 10), (12, 12)] {
                 let context = DirectorContext(
-                    now: date(2026, 10, 14, hour), calendar: calendar, mood: Mood(), today: DayMemory.Day(date: ""),
+                    now: date(2026, month, 14, hour), calendar: calendar, mood: Mood(), today: DayMemory.Day(date: ""),
                     firstPresenceToday: true, earlyBy: nil, idleSeconds: 0, userPresent: true, birthday: nil,
                     pokeStreak: 1, spaceChangesRecent: 0
                 )
@@ -210,6 +212,7 @@ struct ZeroRNG: RandomNumberGenerator {
         for line in lines {
             #expect(Phrases.wordCount(line) <= Phrases.maxWords, "\(line)")
             #expect(!technical.contains { line.lowercased().contains($0) }, "\(line)")
+            #expect(!gendered.contains { (line.lowercased() + " ").contains($0) }, "\(line)")
             #expect(!line.unicodeScalars.contains { $0.properties.isEmojiPresentation }, "\(line)")
         }
     }

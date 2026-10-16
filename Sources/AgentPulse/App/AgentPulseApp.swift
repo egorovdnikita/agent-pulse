@@ -110,6 +110,9 @@ struct MenuContent: View {
             Section("Последняя реакция: \(model.lastLine ?? reaction)") {
                 Button("Мило") { model.feedback("мило") }
                 Button("Бесит") { model.feedback("бесит") }
+                if !model.mutedReactions.isEmpty {
+                    Text("Молчат после двух «бесит» за неделю: \(model.mutedReactions.count)")
+                }
             }
         }
         Button("Характер…") { app.showSettings() }
