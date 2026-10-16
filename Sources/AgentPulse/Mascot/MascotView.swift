@@ -52,11 +52,7 @@ final class MascotLayerView: NSView {
     private let glow = CAGradientLayer()
     private let body = CAGradientLayer()
     private let bodyMask = CAShapeLayer()
-    // Глаз: чёрный овал и белый зрачок внутри него — больше ничего.
-    private let eyeOvals = [CAShapeLayer(), CAShapeLayer()]
-    private let pupilClips = [CALayer(), CALayer()]
-    private let pupilMasks = [CAShapeLayer(), CAShapeLayer()]
-    private let pupils = [CAShapeLayer(), CAShapeLayer()]
+    private let ovals = [CAShapeLayer(), CAShapeLayer()]
     private let lids = [CAShapeLayer(), CAShapeLayer()]
     private let arcs = [CAShapeLayer(), CAShapeLayer()]
     private let zees = [CATextLayer(), CATextLayer(), CATextLayer()]
@@ -80,17 +76,14 @@ final class MascotLayerView: NSView {
         body.mask = bodyMask
         for layer in [dropShadow, glow, body] as [CALayer] { canvas.addSublayer(layer) }
         for index in 0..<2 {
-            eyeOvals[index].fillColor = NSColor.black.cgColor
-            pupils[index].fillColor = NSColor.white.cgColor
-            pupilClips[index].mask = pupilMasks[index]
-            pupilClips[index].addSublayer(pupils[index])
+            ovals[index].fillColor = NSColor.black.cgColor
             for stroke in [lids[index], arcs[index]] {
                 stroke.fillColor = nil
                 stroke.strokeColor = NSColor.black.cgColor
                 stroke.lineCap = .round
                 stroke.lineJoin = .round
             }
-            for layer in [eyeOvals[index], pupilClips[index], lids[index], arcs[index]] { canvas.addSublayer(layer) }
+            for layer in [ovals[index], lids[index], arcs[index]] { canvas.addSublayer(layer) }
         }
         for zee in zees {
             zee.string = "z"
@@ -132,7 +125,6 @@ final class MascotLayerView: NSView {
         layer.actions = none
         for sublayer in layer.sublayers ?? [] { disableImplicitAnimations(in: sublayer) }
         bodyMask.actions = none
-        for mask in pupilMasks { mask.actions = none }
     }
 
     // MARK: - Кадры
@@ -182,7 +174,7 @@ final class MascotLayerView: NSView {
         calm = false
         calmTimer?.invalidate()
         calmTimer = nil
-        for layer in [glow, body] as [CALayer] + eyeOvals + pupilClips + lids + zees { layer.removeAllAnimations() }
+        for layer in [glow, body] as [CALayer] + ovals + lids + zees { layer.removeAllAnimations() }
         canvas.removeAllAnimations()
         updateDriver()
     }
@@ -278,57 +270,37 @@ final class MascotLayerView: NSView {
         body.startPoint = CGPoint(x: 0.4, y: 0.34)
         body.endPoint = CGPoint(x: 0.4 + 0.66, y: 0.34 + 0.66)
 
-        let eye = Eye.self
-        let eyeWidth = eye.width * unit * pose.bodyScale * scaleX
-        let eyeHeight = eye.height * unit * pose.bodyScale * scaleY
+        let eyeWidth = 7.5 * unit * pose.bodyScale * scaleX
+        let eyeHeight = 10.5 * unit * pose.bodyScale * scaleY
         let (tiltSin, tiltCos) = (sin(pose.tilt), cos(pose.tilt))
         let closed = min(max((0.35 - pose.eyeScale) / 0.25, 0), 1) * (1 - pose.happy)
         for (index, side) in [-1.0, 1.0].enumerated() {
-            let spot = side * (eye.spacing + pose.eyeSpread) * (1 - 2 * pose.eyeSwap)
-            // Взгляд: глаз чуть сдвигается по телу, зрачок — внутри белка; вместе — как прежний сдвиг.
-            let local = SIMD2((spot + pose.gaze.x * eye.shift.x) * unit * scaleX, (eye.lift + pose.gaze.y * eye.shift.y) * unit * scaleY)
+            let spot = side * (7.5 + pose.eyeSpread) * (1 - 2 * pose.eyeSwap)
+            let local = SIMD2((spot + pose.gaze.x * 6) * unit * scaleX, (-2 + pose.gaze.y * 4) * unit * scaleY)
             let rotated = SIMD2(local.x * tiltCos - local.y * tiltSin, local.x * tiltSin + local.y * tiltCos)
             // При взгляде вбок дальний глаз сужается — объём шара.
             let isFar = (side < 0 && pose.gaze.x > 0) || (side > 0 && pose.gaze.x < 0)
             let width = eyeWidth * (isFar ? 1 - 0.15 * min(1, abs(pose.gaze.x)) : 1)
             let height = eyeHeight * pose.eyeScale
             // Веко опускается сверху: прикрытый глаз оседает вниз.
-            let at = CGPoint(x: center.x + rotated.x, y: center.y + rotated.y + (eyeHeight - height) * 0.3)
-            let oval = CGRect(x: at.x - width / 2, y: at.y - height / 2, width: width, height: max(height, 0.01))
-            let ovalPath = CGPath(ellipseIn: oval, transform: nil)
+            let eye = CGPoint(x: center.x + rotated.x, y: center.y + rotated.y + (eyeHeight - height) * 0.3)
 
-            let open = Float(height > 0.3 ? (1 - pose.happy) * (1 - closed) : 0)
-            eyeOvals[index].path = ovalPath
-            eyeOvals[index].opacity = open
+            let ovalOpacity = (1 - pose.happy) * (1 - closed)
+            ovals[index].opacity = Float(height > 0.3 ? ovalOpacity : 0)
+            ovals[index].path = CGPath(ellipseIn: CGRect(x: eye.x - width / 2, y: eye.y - height / 2, width: width, height: max(height, 0.01)), transform: nil)
 
-            // Белый зрачок ходит внутри чёрного глаза и не выходит за него: маска — тот же овал.
-            pupilClips[index].frame = canvas.bounds
-            pupilClips[index].opacity = open
-            pupilMasks[index].frame = canvas.bounds
-            pupilMasks[index].path = ovalPath
-            let pupilSize = CGSize(width: eye.pupil.width * unit * pose.bodyScale * scaleX, height: eye.pupil.height * unit * pose.bodyScale * scaleY)
-            let pupilCenter = CGPoint(
-                x: at.x + pose.gaze.x * eye.pupilTravel.x * unit * scaleX * (width / eyeWidth),
-                y: at.y + pose.gaze.y * eye.pupilTravel.y * unit * scaleY + (eyeHeight - height) * 0.15
-            )
-            pupils[index].path = CGPath(
-                ellipseIn: CGRect(x: pupilCenter.x - pupilSize.width / 2, y: pupilCenter.y - pupilSize.height / 2, width: pupilSize.width, height: pupilSize.height),
-                transform: nil
-            )
-
-            let mark = SIMD2(eye.markWidth * unit * pose.bodyScale * scaleX, eye.markHeight * unit * pose.bodyScale * scaleY)
             // Закрытые глаза — веко «‿».
             let lid = CGMutablePath()
-            lid.move(to: CGPoint(x: at.x - mark.x * 0.65, y: at.y))
-            lid.addQuadCurve(to: CGPoint(x: at.x + mark.x * 0.65, y: at.y), control: CGPoint(x: at.x, y: at.y + mark.y * 0.4))
+            lid.move(to: CGPoint(x: eye.x - eyeWidth * 0.65, y: eye.y))
+            lid.addQuadCurve(to: CGPoint(x: eye.x + eyeWidth * 0.65, y: eye.y), control: CGPoint(x: eye.x, y: eye.y + eyeHeight * 0.4))
             lids[index].path = lid
             lids[index].lineWidth = 2 * unit
             lids[index].opacity = Float(closed)
 
             // Радость — дуга «^».
             let arc = CGMutablePath()
-            arc.move(to: CGPoint(x: at.x - mark.x * 0.68, y: at.y + mark.y * 0.15))
-            arc.addQuadCurve(to: CGPoint(x: at.x + mark.x * 0.68, y: at.y + mark.y * 0.15), control: CGPoint(x: at.x, y: at.y - mark.y * 0.6))
+            arc.move(to: CGPoint(x: eye.x - eyeWidth * 0.68, y: eye.y + eyeHeight * 0.15))
+            arc.addQuadCurve(to: CGPoint(x: eye.x + eyeWidth * 0.68, y: eye.y + eyeHeight * 0.15), control: CGPoint(x: eye.x, y: eye.y - eyeHeight * 0.6))
             arcs[index].path = arc
             arcs[index].lineWidth = 2.4 * unit
             arcs[index].opacity = Float(pose.happy)
@@ -366,23 +338,6 @@ final class MascotLayerView: NSView {
         layer.locations = [0] + steps.map { NSNumber(value: inner + (1 - inner) * $0) }
         layer.startPoint = CGPoint(x: 0.5, y: 0.5)
         layer.endPoint = CGPoint(x: 1, y: 1)
-    }
-
-    /// Геометрия глаза при диаметре 48 pt: чёрный овал и белый зрачок.
-    enum Eye {
-        static let width = 13.0
-        static let height = 16.5
-        /// Центры глаз — ±spacing по X, lift по Y.
-        static let spacing = 9.0
-        static let lift = -2.5
-        /// Сдвиг всего глаза по телу при взгляде.
-        static let shift = SIMD2(2.2, 1.5)
-        static let pupil = CGSize(width: 5.6, height: 6.6)
-        /// Ход зрачка внутри глаза.
-        static let pupilTravel = SIMD2(2.8, 3.4)
-        /// Дуги «^» и веко «‿».
-        static let markWidth = 10.0
-        static let markHeight = 12.0
     }
 
     private static func circle(_ center: CGPoint, _ radius: Double) -> CGRect {
