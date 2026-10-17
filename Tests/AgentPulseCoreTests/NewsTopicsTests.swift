@@ -45,7 +45,7 @@ import Testing
         for index in 0..<40 {
             for topic in NewsTopic.allCases {
                 pool.append(NewsItem(title: "t", link: "https://\(topic)/\(index)", source: "\(topic)-\(index % 3)",
-                                     date: now.addingTimeInterval(-Double(index) * 60), gist: "суть новости из ленты", topic: topic))
+                                     date: now.addingTimeInterval(-Double(index) * 60), gist: "\(index)\(topic.rawValue) z\(index)\(topic.rawValue)", topic: topic))
             }
         }
         desk.update(pool)
@@ -58,12 +58,45 @@ import Testing
             last = item
         }
         #expect(counts[.design, default: 0] == 26)
-        // Остальные темы — по очереди, не две подряд одну.
-        #expect([NewsTopic.it, .economy, .science].allSatisfy { counts[$0, default: 0] >= 4 })
+        // Остальные темы — по очереди: каждая хотя бы раз, ни одна не перетягивает.
+        let others = NewsTopic.allCases.filter { $0 != .design }
+        #expect(others.allSatisfy { (1...4).contains(counts[$0, default: 0]) })
     }
 
     @Test func oldNewsJSONDecodesAsDesign() throws {
         let json = Data(#"{"title":"T","link":"https://x","source":"S","gist":"Суть"}"#.utf8)
         #expect(try JSONDecoder().decode(NewsItem.self, from: json).topic == .design)
+    }
+}
+
+@Suite struct NewsDedupeTests {
+    func item(_ gist: String, _ link: String, _ source: String = "Ведомости · Экономика") -> NewsItem {
+        NewsItem(title: gist, link: link, source: source, date: nil, gist: gist, topic: .economy)
+    }
+
+    @Test func sameStoryFromTwoOutletsIsToldOnce() {
+        var desk = NewsDesk()
+        desk.update([
+            item("МРОТ в России составит 28 935 рублей в 2027 году", "https://a"),
+            item("Минимальный размер оплаты труда в России вырастет до 28 935 рублей в 2027 году", "https://b", "Коммерсантъ"),
+            item("Страховые пенсии проиндексируют темпами выше инфляции", "https://c"),
+        ])
+        #expect(desk.items.count == 2)
+        #expect(desk.items.first?.shortSource == "Ведомости")
+    }
+
+    @Test func everyTopicHasSourcesAndDesignLeads() {
+        for topic in NewsTopic.allCases {
+            #expect(NewsFeeds.all.contains { $0.topic == topic }, "\(topic)")
+            #expect(!topic.leadIns.isEmpty)
+        }
+        let design = NewsFeeds.all.filter { $0.topic == .design }.count
+        #expect(design > NewsFeeds.all.count / 3)
+    }
+
+    @Test func leadInsFollowVoiceRules() {
+        for line in NewsVoice.allLeadIns {
+            #expect(Phrases.wordCount(line) <= Phrases.maxWords, "\(line)")
+        }
     }
 }

@@ -43,6 +43,8 @@ public struct Bubble: Sendable, Equatable {
     public let category: BubbleCategory
     /// Заголовок: название категории или приложения агента («Claude Code»).
     public let title: String
+    /// Светлая пометка рядом с заголовком: источник новости.
+    public var note: String? = nil
     public let text: String
     public let shownAt: Date
     public var duration: TimeInterval?
@@ -58,6 +60,7 @@ public struct BubbleScheduler: Sendable {
         var duration: TimeInterval?
         var category: BubbleCategory
         var title: String
+        var note: String? = nil
         /// Агентные реплики встают впереди реплик тела и ритма.
         var agent: Bool
     }
@@ -93,10 +96,10 @@ public struct BubbleScheduler: Sendable {
 
     /// Реплика каталога реакций (тело, ритм, взаимодействие, приколы, агентные сверх конвейера).
     public mutating func say(
-        _ text: String, duration: TimeInterval, category: BubbleCategory = .mood, title: String? = nil,
+        _ text: String, duration: TimeInterval, category: BubbleCategory = .mood, title: String? = nil, note: String? = nil,
         agent: Bool = false, now: Date
     ) {
-        enqueue(Item(trigger: .line, text: text, duration: duration, category: category, title: title ?? category.title, agent: agent), now: now)
+        enqueue(Item(trigger: .line, text: text, duration: duration, category: category, title: title ?? category.title, note: note, agent: agent), now: now)
     }
 
     private mutating func enqueue(_ item: Item, now: Date) {
@@ -162,7 +165,8 @@ public struct BubbleScheduler: Sendable {
         // Длинное успевает прочитаться: облачко держится не меньше времени чтения.
         let duration = item.duration.map { max($0, BubbleTuning.readingTime(text)) }
         current = Bubble(
-            id: nextId, trigger: item.trigger, category: item.category, title: item.title, text: text, shownAt: now, duration: duration
+            id: nextId, trigger: item.trigger, category: item.category, title: item.title, note: item.note, text: text,
+            shownAt: now, duration: duration
         )
         lastText = text
     }

@@ -3,7 +3,7 @@ import Foundation
 /// К чему относится реплика: заголовок облачка, иконка и её цвет. Работа Claude и Figma — иконкой самого приложения,
 /// остальное — иконками Solar (стиль Bold, как в box-ui), у каждой категории свой цвет.
 public enum BubbleCategory: String, Sendable, CaseIterable, Codable {
-    case claude, figma, news, newsIT, newsEconomy, newsScience, battery, wellbeing, network, devices, day, holiday, together, mood, rest
+    case claude, figma, news, newsIT, newsEconomy, newsScience, newsArt, newsGames, newsSpace, battery, wellbeing, network, devices, day, holiday, together, mood, rest
 
     public var title: String {
         switch self {
@@ -13,6 +13,9 @@ public enum BubbleCategory: String, Sendable, CaseIterable, Codable {
         case .newsIT: NewsTopic.it.title
         case .newsEconomy: NewsTopic.economy.title
         case .newsScience: NewsTopic.science.title
+        case .newsArt: NewsTopic.art.title
+        case .newsGames: NewsTopic.games.title
+        case .newsSpace: NewsTopic.space.title
         case .battery: "Батарея"
         case .wellbeing: "Самочувствие"
         case .network: "Сеть"
@@ -33,6 +36,9 @@ public enum BubbleCategory: String, Sendable, CaseIterable, Codable {
         case .newsIT: "code-square"
         case .newsEconomy: "graph-up"
         case .newsScience: "atom"
+        case .newsArt: "gallery"
+        case .newsGames: "gamepad"
+        case .newsSpace: "rocket"
         case .battery: "battery-charge"
         case .wellbeing: "heart-pulse"
         case .network: "wi-fi-router-round"
@@ -54,6 +60,9 @@ public enum BubbleCategory: String, Sendable, CaseIterable, Codable {
         case .newsIT: 0x3A3A3C
         case .newsEconomy: 0x00875A
         case .newsScience: 0x0B7285
+        case .newsArt: 0x8B5E3C
+        case .newsGames: 0xD9480F
+        case .newsSpace: 0x1B1F5E
         case .battery: 0x2DBE5C
         case .wellbeing: 0xFF3B30
         case .network: 0x00A8C8
@@ -95,7 +104,7 @@ public enum BubbleCategory: String, Sendable, CaseIterable, Codable {
     }
 
     public var isNews: Bool {
-        [.news, .newsIT, .newsEconomy, .newsScience].contains(self)
+        [.news, .newsIT, .newsEconomy, .newsScience, .newsArt, .newsGames, .newsSpace].contains(self)
     }
 
     /// Новость → категория облачка по теме.
@@ -105,6 +114,9 @@ public enum BubbleCategory: String, Sendable, CaseIterable, Codable {
         case .it: .newsIT
         case .economy: .newsEconomy
         case .science: .newsScience
+        case .art: .newsArt
+        case .games: .newsGames
+        case .space: .newsSpace
         }
     }
 
@@ -165,6 +177,6 @@ public struct BubbleMessage: Sendable, Equatable {
     }
 
     public init(_ bubble: Bubble) {
-        self.init(category: bubble.category, title: bubble.title, text: bubble.text)
+        self.init(category: bubble.category, title: bubble.title, text: bubble.text, when: bubble.note)
     }
 }

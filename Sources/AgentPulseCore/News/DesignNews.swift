@@ -2,7 +2,7 @@ import Foundation
 
 /// Тема новости. Дизайн — главная: большая часть рассказанного **[решение]**; остальное — для разнообразия.
 public enum NewsTopic: String, Sendable, Codable, CaseIterable {
-    case design, it, economy, science
+    case design, it, economy, science, art, games, space
 
     public var title: String {
         switch self {
@@ -10,6 +10,9 @@ public enum NewsTopic: String, Sendable, Codable, CaseIterable {
         case .it: "Новости ИТ"
         case .economy: "Экономика"
         case .science: "Наука"
+        case .art: "Искусство"
+        case .games: "Игры"
+        case .space: "Космос"
         }
     }
 
@@ -20,6 +23,9 @@ public enum NewsTopic: String, Sendable, Codable, CaseIterable {
         case .it: ["Что нового в технологиях", "Из мира ИТ", "Технологии не стоят на месте"]
         case .economy: ["Про деньги и рынки", "Новости экономики", "Из мира экономики"]
         case .science: ["Новость из науки", "Учёные снова удивляют", "Наука, смотри"]
+        case .art: ["Из мира искусства", "Про архитектуру и искусство", "Красивое попалось"]
+        case .games: ["Из мира игр", "Игровые новости"]
+        case .space: ["Новости космоса", "Смотри, что в космосе"]
         }
     }
 }
@@ -60,6 +66,11 @@ public struct NewsItem: Sendable, Equatable, Codable {
     public var teaser: String { gist }
 
     /// Рассказывать стоит: есть внятная суть, это не реклама, курс или вакансия.
+    /// Короткое имя источника для облачка: «Хабр · Интерфейсы» → «Хабр».
+    public var shortSource: String {
+        source.components(separatedBy: " · ").first ?? source
+    }
+
     public var isTellable: Bool {
         !gist.hasSuffix("…") && NewsGist.words(gist).count >= NewsGist.minWords && !NewsGist.isWeak(gist) && !NewsFeeds.isPromo(self) && !NewsFeeds.isGrim(self)
     }
@@ -189,7 +200,7 @@ public enum NewsGist {
         // Ссылки на соседний текст: без него непонятно, о ком и о чём.
         "его ", "ее ", "её ", "их ", "им ", "это ", "этот ", "эта ", "эти ", "об этом", "такая ", "такой ", "такие ", "там ",
         "тогда ", "при этом", "однако", "но ", "и ", "а ", "также", "кроме того", "в той", "в таком", "в этом", "мера ",
-        "источник", "фото", "—", "–", "- ", "в посте", "даты ", "он ", "она ", "они ", "на это", "за это время", "ждём ", "ждем ", "как тебе",
+        "источник", "фото", "—", "–", "- ", "в посте", "даты ", "он ", "она ", "они ", "на это", "за это время", "ждём ", "ждем ", "как тебе", "из них", "или ", "завершим", "продолжаем",
     ]
     /// Рассказ автора о себе и обещания «расскажу» — тоже не суть.
     static let personalWords = ["расскажу", "покажу", "разберу", "давайте", "моих", "мой ", "моя ", "моё ", "мне ", "мою ", "моей ", "моём ", "моем "]
@@ -199,6 +210,8 @@ public enum NewsGist {
         let lowered = sentence.lowercased()
         if weakStarts.contains(where: { lowered.hasPrefix($0) }) { return true }
         if lowered.first?.isNumber == true { return true }
+        // Строчная буква в начале — кусок, вырванный из середины фразы.
+        if sentence.first?.isLowercase == true { return true }
         // Оборванная мысль: «Вновь копаем в самое интересное:», «Поговорим про цвета,».
         if let last = lowered.last, ":,;—".contains(last) { return true }
         if personalWords.contains(where: { lowered.contains($0) }) { return true }
@@ -233,7 +246,8 @@ public enum NewsGist {
             value = value.replacingOccurrences(of: tail, with: "")
         }
         value = value.replacingOccurrences(of: "TL;DR.", with: "")
-        value = value.replacingOccurrences(of: "\u{FE0F}", with: "")
+        value = value.replacingOccurrences(of: "[\u{FE0F}\u{200D}\u{200B}]", with: "", options: .regularExpression)
+        value = value.replacingOccurrences(of: "« ", with: "«").replacingOccurrences(of: " »", with: "»")
         return value.replacingOccurrences(of: "\\s+", with: " ", options: .regularExpression).trimmingCharacters(in: .whitespaces)
     }
 
@@ -324,6 +338,19 @@ public enum NewsFeeds {
         .rss("N + 1", "https://nplus1.ru/rss", .science, headlines: true),
         .rss("Naked Science", "https://naked-science.ru/feed", .science, headlines: true),
         .rss("Популярная механика", "https://www.popmech.ru/out/public-all.xml", .science, headlines: true),
+        // Искусство и архитектура — ближе всего к дизайну.
+        .rss("The Art Newspaper", "https://www.theartnewspaper.ru/rss/", .art, headlines: true),
+        .telegram("Archi.ru", "archi_ru", .art),
+        .telegram("Эрмитаж", "hermitage_museum", .art),
+        .telegram("Музей «Гараж»", "garagemca", .art),
+        // Игры.
+        .rss("StopGame", "https://stopgame.ru/rss/rss_news.xml", .games, headlines: true),
+        .rss("Игромания", "https://www.igromania.ru/rss/news.rss", .games, headlines: true),
+        .telegram("DTF", "dtfru", .games),
+        // Космос.
+        .rss("Хабр · Астрономия", "https://habr.com/ru/rss/hubs/astronomy/articles/", .space),
+        .telegram("Роскосмос", "roscosmos_gk", .space),
+        .telegram("astronomy.ru", "astronomy_ru", .space),
     ]
 
     static let topicWords = [
@@ -356,6 +383,8 @@ public enum NewsFeeds {
         "погиб", "убит", "убий", "смерт", "умер", "теракт", "взрыв", "атак", "обстрел", "ракет", "беспилотник", "дрон",
         "войн", "сво ", "всу", "мобилиз", "катастроф", "крушени", "пострадав", "жертв", "заложник", "насили", "задержан",
         "арест", "приговор", "санкци", "удар", "путин", "кремл", "допрос", "уголовн", "обыск", "силовик",
+        // 18+ — не для облачка поверх рабочего стола.
+        "секс", "эрот", "порн",
     ]
 
     public static func isGrim(_ item: NewsItem) -> Bool {
@@ -515,10 +544,25 @@ public struct NewsDesk: Sendable, Codable {
 
     public init() {}
 
-    /// Одна статья из двух лент — одна новость.
+    /// Одна статья из двух лент — одна новость; одна история из двух изданий («МРОТ вырастет…») — тоже.
     public mutating func update(_ fresh: [NewsItem]) {
         var links: Set<String> = []
-        items = fresh.filter { links.insert($0.link).inserted }
+        var kept: [NewsItem] = []
+        for item in fresh where links.insert(item.link).inserted {
+            if !kept.contains(where: { Self.sameStory($0, item) }) { kept.append(item) }
+        }
+        items = kept
+    }
+
+    /// Похожие сути: больше половины значимых слов (по основе, без окончаний) совпадает.
+    public static func sameStory(_ a: NewsItem, _ b: NewsItem) -> Bool {
+        func stems(_ item: NewsItem) -> Set<Substring> {
+            Set(NewsGist.words(item.gist.lowercased()).map { $0.filter { $0.isLetter || $0.isNumber } }
+                .filter { $0.count > 3 }.map { $0.prefix(5) })
+        }
+        let x = stems(a), y = stems(b)
+        guard !x.isEmpty, !y.isEmpty else { return false }
+        return Double(x.intersection(y).count) / Double(min(x.count, y.count)) > 0.5
     }
 
     /// Свежие (до трёх дней) и ещё не показанные; новые сначала.

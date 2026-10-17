@@ -162,7 +162,7 @@ extension PulseModel {
         let category = BubbleCategory.news(item.topic)
         let opener = item.topic == .design ? leadIn ?? item.topic.leadIns.randomElement() : item.topic.leadIns.randomElement()
         scheduler.say(opener ?? "", duration: 1.6, category: category, now: now)
-        scheduler.say(item.teaser, duration: duration, category: category, now: now)
+        scheduler.say(item.teaser, duration: duration, category: category, note: item.shortSource, now: now)
         try? newsDesk.save()
         simulate(.newsFresh, value: Double(newsDesk.available(now: now).count))
     }

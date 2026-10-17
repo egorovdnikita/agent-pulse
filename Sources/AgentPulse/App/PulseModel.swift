@@ -413,7 +413,7 @@ final class PulseModel {
             return summary
         }
         if let last = lastMessage, age < 12 * 3600 {
-            var when = HumanTime.ago(age)
+            var when = [last.note, HumanTime.ago(age)].compactMap(\.self).joined(separator: " · ")
             // Под новостью — сколько ещё свежего ждёт своей очереди.
             let more = last.category.isNews ? newsDesk.available(now: now).count : 0
             if more > 0 { when += " · ещё \(more)" }
