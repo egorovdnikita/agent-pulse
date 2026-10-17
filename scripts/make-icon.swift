@@ -30,15 +30,31 @@ func render(_ size: Int) -> NSBitmapImageRep {
     shape.fill()
     NSGraphicsContext.restoreGraphicsState()
 
-    // Белый фон с едва заметным объёмом сверху вниз и тонкой кромкой.
-    NSGradient(colors: [NSColor.white, NSColor(white: 0.955, alpha: 1)])!.draw(in: shape, angle: -90)
-    NSColor(white: 0, alpha: 0.06).setStroke()
-    shape.lineWidth = max(1, 2 * scale)
-    shape.stroke()
+    // Чисто белая плашка, как у системных иконок в новом стиле: без градиента и кромки.
+    NSColor.white.setFill()
+    shape.fill()
 
-    // Значок: 60% плашки.
-    let side = 824 * scale * 0.6
-    glyph.draw(in: NSRect(x: (CGFloat(size) - side) / 2, y: (CGFloat(size) - side) / 2, width: side, height: side))
+    // Значок: 66% плашки, мягкое цветное свечение и лёгкий градиент — светлее сверху.
+    let side = 824 * scale * 0.66
+    let rect = NSRect(x: (CGFloat(size) - side) / 2, y: (CGFloat(size) - side) / 2 - 4 * scale, width: side, height: side)
+    let blue = NSColor(srgbRed: 0x3b / 255, green: 0x82 / 255, blue: 0xf6 / 255, alpha: 1)
+    let glow = NSShadow()
+    glow.shadowColor = blue.withAlphaComponent(0.45)
+    glow.shadowBlurRadius = 36 * scale
+    glow.shadowOffset = NSSize(width: 0, height: -10 * scale)
+    NSGraphicsContext.saveGraphicsState()
+    glow.set()
+    glyph.draw(in: rect)
+    NSGraphicsContext.restoreGraphicsState()
+    // Градиент по форме значка: сверху светлее (blue/400 #60a5fa), снизу — ровно blue/500 #3b82f6.
+    if let context = NSGraphicsContext.current?.cgContext,
+       let mask = glyph.cgImage(forProposedRect: nil, context: nil, hints: [.ctm: AffineTransform(scale: scale * 8)]) {
+        context.saveGState()
+        context.clip(to: rect, mask: mask)
+        let light = NSColor(srgbRed: 0x60 / 255, green: 0xa5 / 255, blue: 0xfa / 255, alpha: 1)
+        NSGradient(colors: [light, blue], atLocations: [0, 0.75], colorSpace: .sRGB)!.draw(in: rect, angle: -90)
+        context.restoreGState()
+    }
     NSGraphicsContext.restoreGraphicsState()
     return rep
 }

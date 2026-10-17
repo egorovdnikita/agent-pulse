@@ -407,7 +407,7 @@ struct ReactionSpec {
 - Сделано: тело на слоях Core Animation (глубокий сон без кадров на CPU; свечение и тень с мягким гауссовым спадом, тело светится само, ночью тёплый белый; `--design-sheet out.png` рисует ключевые позы на трёх фонах), органы чувств R1–R2, Director с бюджетами и тишиной, каталог реакций, настроение, память дня, Baseline, взаимодействие (тычки, поглаживание, перетаскивание, бросок), приколы, праздники, прятки и лунатизм, `talkativeness`/`mischief`, тихие часы, день рождения, hideWhenIdle, SignalSimulator, «мило/бесит», угол крышки за флагом.
 - Замер (MacBook, M2): глубокий сон 0.4% CPU, покой 2% (20 fps), работа ~7% (30 fps); RAM ~30 MB.
 - Не сделано: Sparkle (нужен Developer ID и хостинг обновлений), прятаться при показе экрана (нет публичного API, чтобы это узнать), режим фокуса, скины на Rive (R4).
-- Иконка приложения **[решение]**: `sleeping-circle` (Solar Bold из box-ui) цвета `--box-palette-blue-solid-500` (#3b82f6) на белой скруглённой плашке по шаблону macOS; исходник `Resources/Icon/sleeping-circle.svg`, сборка — `swift scripts/make-icon.swift` → `Resources/AppIcon.icns`.
+- Иконка приложения **[решение]**: `sleeping-circle` (Solar Bold из box-ui) цвета `--box-palette-blue-solid-500` (#3b82f6) на чисто белой скруглённой плашке по шаблону macOS: значок 66% плашки, мягкое синее свечение и градиент сверху от blue/400 (#60a5fa) к blue/500; исходник `Resources/Icon/sleeping-circle.svg`, сборка — `swift scripts/make-icon.swift` → `Resources/AppIcon.icns`.
 - Гравитация — переключатель в меню **[решение]**, по умолчанию выключена: отпущенный маскот остаётся, где поставили.
 
 ## Roadmap
