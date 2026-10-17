@@ -2,37 +2,49 @@ import AgentPulseCore
 import AppKit
 import SwiftUI
 
-/// Debug-окно: ручной запуск состояний и реакций, слайдеры `MascotTuning` вживую.
+/// Вкладка «Лаборатория» в настройках: ручной запуск состояний и реакций, SignalSimulator, слайдеры `MascotTuning` вживую.
 struct MascotLabView: View {
     @Bindable var model: PulseModel
     /// `@State` без Xcode недоступен (нет плагина макроса) — локальное состояние в наблюдаемом классе.
     @Bindable private var inputs = SimulatorInputs()
 
     private static let states: [(String, MascotState?)] = [
-        ("Живое (из событий)", nil),
-        ("sleep", .sleep),
-        ("idle", .idle),
-        ("think", .think),
-        ("work · read", .work(.read)),
-        ("work · edit", .work(.edit)),
-        ("work · run", .work(.run)),
-        ("work · search", .work(.search)),
-        ("work · общий", .work(.general)),
-        ("wait_you · разрешение", .waitYou(.permission)),
-        ("wait_you · вопрос", .waitYou(.input)),
+        ("Живое — по событиям", nil),
+        ("Спит", .sleep),
+        ("Покой", .idle),
+        ("Думает", .think),
+        ("Читает", .work(.read)),
+        ("Пишет", .work(.edit)),
+        ("Запускает", .work(.run)),
+        ("Ищет", .work(.search)),
+        ("Работает", .work(.general)),
+        ("Ждёт разрешения", .waitYou(.permission)),
+        ("Ждёт ответа", .waitYou(.input)),
     ]
 
     var body: some View {
-        HStack(alignment: .top, spacing: 0) {
-            VStack(spacing: 12) {
-                MascotView(animator: model.animator, diameter: 96)
-                    .background(Color(white: 0.92), in: RoundedRectangle(cornerRadius: 12))
+        VStack(spacing: 0) {
+            // Превью на светлом и тёмном фоне — маскот должен читаться на любых обоях.
+            HStack(spacing: 12) {
                 MascotView(animator: model.animator, diameter: 48)
-                    .background(Color(white: 0.15), in: RoundedRectangle(cornerRadius: 12))
-                Text(model.visibleBubbleText ?? " ")
-                    .font(.system(size: 12, weight: .medium, design: .rounded))
+                    .frame(width: 120, height: 104)
+                    .background(Color(white: 0.93), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+                MascotView(animator: model.animator, diameter: 48)
+                    .frame(width: 120, height: 104)
+                    .background(Color(white: 0.12), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+                Group {
+                    if let message = model.visibleMessage {
+                        BubbleView(message: message, tailOnRight: false)
+                    } else {
+                        Text("Облачко появится здесь").font(.caption).foregroundStyle(.secondary)
+                    }
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
             }
-            .padding()
+            .padding(.horizontal, 20)
+            .padding(.top, 16)
+            .frame(maxWidth: .infinity)
+            .background(Color(nsColor: .windowBackgroundColor))
 
             Form {
                 Section("Состояние") {
@@ -42,13 +54,6 @@ struct MascotLabView: View {
                         }
                     }
                     Toggle("Reduce Motion", isOn: $model.labReduceMotion)
-                }
-                Section("Реакции") {
-                    HStack {
-                        ForEach(MascotReaction.allCases, id: \.self) { reaction in
-                            Button(reaction.rawValue) { model.playReaction(reaction) }
-                        }
-                    }
                 }
                 Section("SignalSimulator") {
                     Picker("Сигнал", selection: $inputs.kind) {
@@ -65,10 +70,11 @@ struct MascotLabView: View {
                     Text("Батарея 5% — batteryCritical; пятница 23:00 — сдвиньте часы системы. Бюджеты и кулдауны действуют.")
                         .font(.caption).foregroundStyle(.secondary)
                 }
-                Section("Поведение вручную") {
-                    LazyVGrid(columns: [GridItem(.adaptive(minimum: 90))]) {
+                Section("Реакции вручную") {
+                    LazyVGrid(columns: [GridItem(.adaptive(minimum: 104), spacing: 8)], spacing: 8) {
                         ForEach(MascotReaction.allCases, id: \.self) { reaction in
-                            Button(reaction.rawValue) { model.animator.enqueue(reaction) }
+                            Button(reaction.rawValue) { model.playReaction(reaction) }
+                                .frame(maxWidth: .infinity)
                         }
                     }
                 }
@@ -112,9 +118,7 @@ struct MascotLabView: View {
                 }
             }
             .formStyle(.grouped)
-            .frame(width: 420)
         }
-        .frame(minHeight: 560)
     }
 
     private func slider(_ title: String, _ value: Binding<Double>, _ bounds: ClosedRange<Double>) -> some View {

@@ -15,7 +15,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var senses: [Sense] = []
     private var settingsWindow: NSWindow?
     private var trustTimer: Timer?
-    private var labWindow: NSWindow?
     private var screenTimer: Timer?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
@@ -99,6 +98,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 model.scheduler.quiet = false
                 model.tellNews(at: Date(), duration: 8, ignoringQuiet: true)
             }
+        }
+        if let index = arguments.firstIndex(of: "--settings-sheet"), index + 1 < arguments.count {
+            SettingsSheet.render(app: self, to: URL(filePath: arguments[index + 1]))
+            exit(0)
+        }
+        // Отладка: `--settings sources` — сразу открыть «Настройки» на вкладке.
+        if let index = arguments.firstIndex(of: "--settings") {
+            let tab = index + 1 < arguments.count ? SettingsNavigation.Tab(rawValue: arguments[index + 1]) : nil
+            DispatchQueue.main.asyncAfter(deadline: .now() + 1) { [weak self] in self?.showSettings(tab) }
         }
         // Отладка: `--behavior doze` — как «Поведение вручную» в MascotLab.
         let behaviors = arguments.indices.compactMap { index in
@@ -205,11 +213,18 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         panel?.gravityChanged()
     }
 
-    func showSettings() {
+    let settingsNavigation = SettingsNavigation()
+
+    /// Одно окно «Настройки» с вкладками; `tab` — сразу открыть нужную.
+    func showSettings(_ tab: SettingsNavigation.Tab? = nil) {
+        if let tab { settingsNavigation.tab = tab }
         if settingsWindow == nil {
-            let window = NSWindow(contentViewController: NSHostingController(rootView: CharacterSettingsView(app: self)))
-            window.title = "Характер"
+            let controller = NSHostingController(rootView: SettingsView(app: self, navigation: settingsNavigation))
+            let window = NSWindow(contentViewController: controller)
+            window.title = "Настройки"
+            window.styleMask = [.titled, .closable, .miniaturizable]
             window.isReleasedWhenClosed = false
+            window.center()
             settingsWindow = window
         }
         NSApp.activate()
@@ -324,17 +339,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         model.config.display.screen = screen
         try? model.config.save()
         panel?.reposition()
-    }
-
-    func showLab() {
-        if labWindow == nil {
-            let window = NSWindow(contentViewController: NSHostingController(rootView: MascotLabView(model: model)))
-            window.title = "Mascot Lab"
-            window.isReleasedWhenClosed = false
-            labWindow = window
-        }
-        NSApp.activate()
-        labWindow?.makeKeyAndOrderFront(nil)
     }
 
     // MARK: - Хуки

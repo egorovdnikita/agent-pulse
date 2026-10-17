@@ -92,3 +92,26 @@ enum BubbleSheet {
         try? NSBitmapImageRep(cgImage: image).representation(using: .png, properties: [:])?.write(to: url)
     }
 }
+
+/// Отладка: `AgentPulse --settings-sheet папка` — каждая вкладка «Настроек» картинкой, без показа окна на экране.
+@MainActor
+enum SettingsSheet {
+    static func render(app: AppDelegate, to directory: URL) {
+        for tab in SettingsNavigation.Tab.allCases {
+            let navigation = SettingsNavigation()
+            navigation.tab = tab
+            let view = NSHostingView(rootView: SettingsView(app: app, navigation: navigation))
+            view.frame = NSRect(x: 0, y: 0, width: 560, height: 640)
+            let window = NSWindow(contentRect: view.frame, styleMask: [.titled], backing: .buffered, defer: false)
+            window.contentView = view
+            window.setFrameOrigin(NSPoint(x: -10_000, y: -10_000))
+            window.orderBack(nil)
+            view.layoutSubtreeIfNeeded()
+            RunLoop.main.run(until: Date().addingTimeInterval(0.4))
+            guard let rep = view.bitmapImageRepForCachingDisplay(in: view.bounds) else { continue }
+            view.cacheDisplay(in: view.bounds, to: rep)
+            try? rep.representation(using: .png, properties: [:])?.write(to: directory.appending(path: "settings-\(tab.rawValue).png"))
+            window.orderOut(nil)
+        }
+    }
+}
