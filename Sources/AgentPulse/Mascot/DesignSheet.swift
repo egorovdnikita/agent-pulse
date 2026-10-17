@@ -98,8 +98,10 @@ enum BubbleSheet {
 enum SettingsSheet {
     static func render(app: AppDelegate, to directory: URL) {
         for tab in SettingsNavigation.Tab.allCases {
-            let view = NSHostingView(rootView: SettingsWindow.content(tab, app: app))
-            view.frame = NSRect(origin: .zero, size: SettingsWindow.size)
+            let selection = SettingsSelection()
+            selection.tab = tab
+            let view = NSHostingView(rootView: SettingsRoot(app: app, selection: selection))
+            view.frame = NSRect(origin: .zero, size: view.fittingSize)
             let window = NSWindow(contentRect: view.frame, styleMask: [.titled], backing: .buffered, defer: false)
             window.contentView = view
             window.setFrameOrigin(NSPoint(x: -10_000, y: -10_000))

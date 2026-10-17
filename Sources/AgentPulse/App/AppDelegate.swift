@@ -213,24 +213,22 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         panel?.gravityChanged()
     }
 
-    private var settingsTabs: NSTabViewController?
+    private let settingsSelection = SettingsSelection()
 
     /// Одно окно «Настройки» с вкладками; `tab` — сразу открыть нужную. Пока окно открыто,
     /// у приложения есть иконка в Dock и меню — как у обычного окна настроек; закрыли — снова только маскот.
     func showSettings(_ tab: SettingsNavigation.Tab? = nil) {
+        if let tab { settingsSelection.tab = tab }
         if settingsWindow == nil {
-            let tabs = SettingsWindow.makeController(app: self)
-            let window = NSWindow(contentViewController: tabs)
+            let controller = NSHostingController(rootView: SettingsRoot(app: self, selection: settingsSelection))
+            controller.sizingOptions = [.preferredContentSize]
+            let window = NSWindow(contentViewController: controller)
+            window.title = "Настройки"
             window.styleMask = [.titled, .closable, .miniaturizable]
-            window.toolbarStyle = .preference
             window.isReleasedWhenClosed = false
             window.delegate = self
             window.center()
             settingsWindow = window
-            settingsTabs = tabs
-        }
-        if let tab, let index = SettingsNavigation.Tab.allCases.firstIndex(of: tab) {
-            settingsTabs?.selectedTabViewItemIndex = index
         }
         NSApp.setActivationPolicy(.regular)
         NSApp.activate()

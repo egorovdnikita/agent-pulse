@@ -16,21 +16,10 @@ enum SettingsNavigation {
             case .lab: "Лаборатория"
             }
         }
-
-        var symbol: String {
-            switch self {
-            case .general: "gearshape"
-            case .character: "face.smiling"
-            case .news: "newspaper"
-            case .sources: "point.3.connected.trianglepath.dotted"
-            case .lab: "flask"
-            }
-        }
     }
 }
 
 /// Одно окно вместо «Характера» и Mascot Lab: всё, что не нужно каждый день, живёт здесь, а не в меню.
-/// Вкладки — нативная панель как в Системных настройках: иконка над подписью, заголовок окна — имя вкладки.
 enum SettingsWindow {
     static let size = CGSize(width: 580, height: 660)
 
@@ -48,18 +37,35 @@ enum SettingsWindow {
         .frame(width: size.width, height: size.height)
     }
 
-    @MainActor
-    static func makeController(app: AppDelegate) -> NSTabViewController {
-        let controller = NSTabViewController()
-        controller.tabStyle = .toolbar
-        for tab in SettingsNavigation.Tab.allCases {
-            let item = NSTabViewItem(viewController: NSHostingController(rootView: content(tab, app: app)))
-            item.label = tab.title
-            item.image = NSImage(systemSymbolName: tab.symbol, accessibilityDescription: tab.title)
-            item.identifier = tab.rawValue
-            controller.addTabViewItem(item)
+}
+
+/// Выбранный раздел. В наблюдаемом классе: `@State` без Xcode недоступен.
+@Observable
+final class SettingsSelection {
+    var tab: SettingsNavigation.Tab = .general
+}
+
+/// Окно «Настройки»: сверху сегментированный переключатель разделов, ниже — раздел.
+struct SettingsRoot: View {
+    let app: AppDelegate
+    @Bindable var selection: SettingsSelection
+
+    var body: some View {
+        VStack(spacing: 0) {
+            Picker("Раздел", selection: $selection.tab) {
+                ForEach(SettingsNavigation.Tab.allCases, id: \.self) { tab in
+                    Text(tab.title).tag(tab)
+                }
+            }
+            .pickerStyle(.segmented)
+            .labelsHidden()
+            .fixedSize()
+            .padding(.vertical, 12)
+            Divider()
+            SettingsWindow.content(selection.tab, app: app)
         }
-        return controller
+        .frame(width: SettingsWindow.size.width)
+        .background(Color(nsColor: .windowBackgroundColor))
     }
 }
 
