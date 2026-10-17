@@ -4,15 +4,17 @@
 <dict>
 	<key>CFBundleDevelopmentRegion</key>
 	<string>ru</string>
+	<key>CFBundleDisplayName</key>
+	<string>Agent Pulse</string>
 	<key>CFBundleExecutable</key>
 	<string>AgentPulse</string>
+	<key>CFBundleIconFile</key>
+	<string>AppIcon</string>
 	<key>CFBundleIdentifier</key>
 	<string>io.github.egorovdnikita.agentpulse</string>
 	<key>CFBundleInfoDictionaryVersion</key>
 	<string>6.0</string>
 	<key>CFBundleName</key>
-	<string>Agent Pulse</string>
-	<key>CFBundleDisplayName</key>
 	<string>Agent Pulse</string>
 	<key>CFBundlePackageType</key>
 	<string>APPL</string>
