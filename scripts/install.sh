@@ -16,6 +16,10 @@ pkill -x AgentPulse 2>/dev/null || true
 sleep 0.5
 rm -rf "$APP"
 ditto "build/Agent Pulse.app" "$APP"
+# Сборку из build/ убираем: иначе Spotlight и Launchpad показывают её второй копией приложения.
+LSREGISTER=/System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister
+"$LSREGISTER" -u "build/Agent Pulse.app" 2>/dev/null || true
+rm -rf "build/Agent Pulse.app" build/AgentPulse.app
 
 ARGS=()
 [[ "${1:-}" == "--login" ]] && ARGS=(--args --register-login-item)
