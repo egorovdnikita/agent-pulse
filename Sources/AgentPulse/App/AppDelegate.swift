@@ -34,10 +34,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         model.hooksInstalled = HookInstaller.isInstalled()
         model.browserBridgeInstalled = BrowserBridgeInstaller.isInstalled()
         model.launchAtLogin = SMAppService.mainApp.status == .enabled
-        if CommandLine.arguments.contains("--register-login-item") && !model.launchAtLogin {
+        // `install.sh --login`: перерегистрировать, даже если включено, — после переезда бандла
+        // запись «Запускать при входе» указывает на старый путь.
+        if CommandLine.arguments.contains("--register-login-item") {
+            if model.launchAtLogin { try? SMAppService.mainApp.unregister() }
             setLaunchAtLogin(true)
         }
-        // Отладка: `open AgentPulse.app --args --state sleep|idle|think|wait` — как ручное состояние в MascotLab.
+        // Отладка: `open "Agent Pulse.app" --args --state sleep|idle|think|wait` — как ручное состояние в MascotLab.
         if let index = CommandLine.arguments.firstIndex(of: "--state"), index + 1 < CommandLine.arguments.count {
             model.labOverride = switch CommandLine.arguments[index + 1] {
             case "sleep": .sleep
@@ -79,7 +82,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         model.onUserBack = { [weak self] in
             self?.panel?.returnHomeIfWandering()
         }
-        // Отладка: `open AgentPulse.app --args --signal userAway --signal agentDone` — как SignalSimulator,
+        // Отладка: `open "Agent Pulse.app" --args --signal userAway --signal agentDone` — как SignalSimulator,
         // сигналы по очереди с интервалом в полсекунды.
         let arguments = CommandLine.arguments
         let kinds = arguments.indices.compactMap { index in

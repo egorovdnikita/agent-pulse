@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Собирает build/AgentPulse.app без Xcode: бинари SwiftPM + Info.plist + ad-hoc подпись.
+# Собирает «build/Agent Pulse.app» без Xcode: бинари SwiftPM + Info.plist + ad-hoc подпись.
 # Использование: scripts/bundle.sh [release|debug]
 set -euo pipefail
 cd "$(dirname "$0")/.."
@@ -9,7 +9,7 @@ CONFIG="${1:-release}"
 swift build "${SWIFT_FLAGS[@]}" -c "$CONFIG"
 BIN="$(swift build "${SWIFT_FLAGS[@]}" -c "$CONFIG" --show-bin-path)"
 
-APP=build/AgentPulse.app
+APP="build/Agent Pulse.app"
 rm -rf "$APP"
 mkdir -p "$APP/Contents/MacOS"
 cp "$BIN/AgentPulse" "$BIN/pulse-hook" "$APP/Contents/MacOS/"

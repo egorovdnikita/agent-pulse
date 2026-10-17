@@ -8,12 +8,14 @@ scripts/bundle.sh release >/dev/null
 
 TARGET=/Applications
 [[ -w "$TARGET" ]] || { TARGET="$HOME/Applications"; mkdir -p "$TARGET"; }
-APP="$TARGET/AgentPulse.app"
+APP="$TARGET/Agent Pulse.app"
+# Старое имя бандла без пробела — убрать, чтобы не было двух копий.
+rm -rf "$TARGET/AgentPulse.app"
 
 pkill -x AgentPulse 2>/dev/null || true
 sleep 0.5
 rm -rf "$APP"
-ditto build/AgentPulse.app "$APP"
+ditto "build/Agent Pulse.app" "$APP"
 
 ARGS=()
 [[ "${1:-}" == "--login" ]] && ARGS=(--args --register-login-item)

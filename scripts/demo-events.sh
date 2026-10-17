@@ -4,7 +4,7 @@
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
-HOOK="${1:-build/AgentPulse.app/Contents/MacOS/pulse-hook}"
+HOOK="${1:-build/Agent Pulse.app/Contents/MacOS/pulse-hook}"
 [[ -x "$HOOK" ]] || HOOK=.build/debug/pulse-hook
 [[ -x "$HOOK" ]] || { echo "pulse-hook не найден: соберите scripts/bundle.sh" >&2; exit 1; }
 
