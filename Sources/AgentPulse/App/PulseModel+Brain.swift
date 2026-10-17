@@ -152,14 +152,17 @@ extension PulseModel {
 
     /// Director решил: пора рассказать новость. (Отладка: `--news-now` — сразу.)
     func tellNews(at now: Date, duration: TimeInterval, leadIn: String? = nil, ignoringQuiet: Bool = false) {
-        guard ignoringQuiet || !quiet, let item = newsDesk.take(now: now, lastSource: currentNews?.source) else { return }
+        guard ignoringQuiet || !quiet, let item = newsDesk.take(now: now, lastSource: currentNews?.source, lastTopic: currentNews?.topic) else { return }
         currentNews = item
         currentNewsAt = now
         lastReaction = "news.design"
         lastLine = item.teaser
         // Как человек: сначала «Смотри, что нашлось», потом суть своими словами.
-        scheduler.say(leadIn ?? NewsVoice.leadIns.randomElement() ?? "", duration: 1.6, category: .news, now: now)
-        scheduler.say(item.teaser, duration: duration, category: .news, now: now)
+        // Заход утра или возвращения — только к дизайну; у остальных тем свой: «Из мира ИТ».
+        let category = BubbleCategory.news(item.topic)
+        let opener = item.topic == .design ? leadIn ?? item.topic.leadIns.randomElement() : item.topic.leadIns.randomElement()
+        scheduler.say(opener ?? "", duration: 1.6, category: category, now: now)
+        scheduler.say(item.teaser, duration: duration, category: category, now: now)
         try? newsDesk.save()
         simulate(.newsFresh, value: Double(newsDesk.available(now: now).count))
     }

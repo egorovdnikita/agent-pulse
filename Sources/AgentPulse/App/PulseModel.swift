@@ -343,7 +343,7 @@ final class PulseModel {
     /// Только что рассказанная новость — клик открывает статью. При наведении на неё — ещё 12 часов.
     var recentNews: NewsItem? {
         guard let item = currentNews, let at = currentNewsAt else { return nil }
-        let showingIt = visibleMessage?.category == .news && lastMessage?.category == .news
+        let showingIt = visibleMessage?.category.isNews == true && lastMessage?.category.isNews == true
         return Date().timeIntervalSince(at) < (showingIt ? 12 * 3600 : 90) ? item : nil
     }
 
@@ -415,7 +415,7 @@ final class PulseModel {
         if let last = lastMessage, age < 12 * 3600 {
             var when = HumanTime.ago(age)
             // Под новостью — сколько ещё свежего ждёт своей очереди.
-            let more = last.category == .news ? newsDesk.available(now: now).count : 0
+            let more = last.category.isNews ? newsDesk.available(now: now).count : 0
             if more > 0 { when += " · ещё \(more)" }
             return BubbleMessage(category: last.category, title: last.title, text: last.text, when: when)
         }

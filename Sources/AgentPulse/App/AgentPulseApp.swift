@@ -117,7 +117,17 @@ struct MenuContent: View {
         }
         Button("Характер…") { app.showSettings() }
         Button("Вернуть маскота в угол") { app.panel?.resetPosition() }
-        Toggle("Новости дизайна", isOn: Binding(get: { model.config.character.designNews }, set: { app.setDesignNews($0) }))
+        Menu("Новости") {
+            Toggle("Рассказывать новости", isOn: Binding(get: { model.config.character.designNews }, set: { app.setDesignNews($0) }))
+            Divider()
+            ForEach(NewsTopic.allCases, id: \.self) { topic in
+                Toggle(topic.title, isOn: Binding(
+                    get: { model.config.character.enabledNewsTopics.contains(topic) },
+                    set: { app.setNewsTopic(topic, on: $0) }
+                ))
+                .disabled(!model.config.character.designNews)
+            }
+        }
         Toggle("Гравитация", isOn: Binding(get: { model.config.display.gravity }, set: { app.setGravity($0) }))
         Toggle("Запускать при входе", isOn: Binding(get: { model.launchAtLogin }, set: { app.setLaunchAtLogin($0) }))
         Button("Mascot Lab") { app.showLab() }

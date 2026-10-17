@@ -110,8 +110,8 @@ import Testing
     @Test func topicFilterAndDedupe() {
         let heating = NewsItem(title: "Как я выбирал систему отопления", link: "https://a", source: "Хабр · Дизайн", date: nil, gist: "Котёл и трубы")
         let logo = NewsItem(title: "Логотип в малом размере", link: "https://b", source: "Хабр · Дизайн", date: nil)
-        #expect(!DesignFeeds.isOnTopic(heating))
-        #expect(DesignFeeds.isOnTopic(logo))
+        #expect(!NewsFeeds.isOnTopic(heating))
+        #expect(NewsFeeds.isOnTopic(logo))
         var desk = NewsDesk()
         desk.update([logo, logo])
         #expect(desk.items.count == 1)

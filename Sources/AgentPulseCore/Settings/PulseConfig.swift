@@ -33,8 +33,14 @@ public struct PulseConfig: Codable, Sendable, Equatable {
         /// «MM-dd».
         public var birthday: String?
         public var hideWhenIdle = true
-        /// Время от времени рассказывает новости UI/UX-дизайна **[решение]**.
+        /// Время от времени рассказывает новости **[решение]**: больше всего — дизайн.
         public var designNews = true
+        /// Какие темы новостей включены (`NewsTopic.rawValue`).
+        public var newsTopics: [String] = NewsTopic.allCases.map(\.rawValue)
+
+        public var enabledNewsTopics: Set<NewsTopic> {
+            Set(newsTopics.compactMap(NewsTopic.init(rawValue:)))
+        }
         public var hideAfterMinutes = 30
 
         static func minutes(_ text: String?) -> Int? {

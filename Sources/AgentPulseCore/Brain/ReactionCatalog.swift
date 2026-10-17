@@ -251,7 +251,7 @@ public enum ReactionCatalog {
                      behavior: .yawn, lines: ["Спать пора"]),
         ReactionSpec("longWork", on: [.longWork], tier: .rhythm, dailyLimit: 2, behavior: .stretch, lines: ["Пройдёмся?", "Давай разомнёмся?"]),
         // Вернулся с перерыва, а пока тебя не было, нашлось свежее — самое время рассказать.
-        ReactionSpec("news.welcome", group: "news.design", on: [.userBack], tier: .rhythm, cooldown: 90 * 60, dailyLimit: 4,
+        ReactionSpec("news.welcome", group: "news.design", on: [.userBack], tier: .rhythm, cooldown: 75 * 60, dailyLimit: 6,
                      when: { signal, c in (signal.value ?? 0) > 20 * 60 && c.newsWaiting > 0 && !c.quiet && !c.agentBusy && (9..<22).contains(c.hour) },
                      behavior: .notice, linesFor: { _, _ in ["О, ты тут. Смотри, что нашлось", "Пока тебя не было, нашлось интересное"] },
                      bubble: 8, special: .news),
@@ -308,14 +308,14 @@ public enum ReactionCatalog {
         c.newsWaiting > 0 && c.userPresent && c.idleSeconds < 120 && !c.quiet && !c.agentBusy && (9..<22).contains(c.hour)
     }
 
-    /// Новости делят кулдаун и дневной лимит: до 4 в день, не чаще раза в 90 минут.
+    /// Новости делят кулдаун и дневной лимит: до 6 в день, не чаще раза в 75 минут.
     static let news: [ReactionSpec] = [
         // Утром — охотнее: свежее за ночь, как утренняя газета.
-        ReactionSpec("news.morning", group: "news.design", on: [.minute], tier: .rhythm, cooldown: 90 * 60, dailyLimit: 4,
+        ReactionSpec("news.morning", group: "news.design", on: [.minute], tier: .rhythm, cooldown: 75 * 60, dailyLimit: 6,
                      when: { _, c in canTellNews(c) && c.hour < 11 },
                      behavior: .wideEyes, linesFor: { _, _ in ["Утренние новости", "Свежее за ночь"] },
                      bubble: 8, chance: 1.0 / 4, special: .news),
-        ReactionSpec("news.design", on: [.minute], tier: .rhythm, cooldown: 90 * 60, dailyLimit: 4,
+        ReactionSpec("news.design", on: [.minute], tier: .rhythm, cooldown: 75 * 60, dailyLimit: 6,
                      when: { _, c in canTellNews(c) },
                      behavior: .wideEyes, bubble: 8, chance: 1.0 / 10, special: .news),
     ]

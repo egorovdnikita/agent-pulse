@@ -3,13 +3,16 @@ import Foundation
 /// К чему относится реплика: заголовок облачка, иконка и её цвет. Работа Claude и Figma — иконкой самого приложения,
 /// остальное — иконками Solar (стиль Bold, как в box-ui), у каждой категории свой цвет.
 public enum BubbleCategory: String, Sendable, CaseIterable, Codable {
-    case claude, figma, news, battery, wellbeing, network, devices, day, holiday, together, mood, rest
+    case claude, figma, news, newsIT, newsEconomy, newsScience, battery, wellbeing, network, devices, day, holiday, together, mood, rest
 
     public var title: String {
         switch self {
         case .claude: "Claude"
         case .figma: "Figma"
-        case .news: "Новости дизайна"
+        case .news: NewsTopic.design.title
+        case .newsIT: NewsTopic.it.title
+        case .newsEconomy: NewsTopic.economy.title
+        case .newsScience: NewsTopic.science.title
         case .battery: "Батарея"
         case .wellbeing: "Самочувствие"
         case .network: "Сеть"
@@ -27,6 +30,9 @@ public enum BubbleCategory: String, Sendable, CaseIterable, Codable {
         switch self {
         case .claude, .figma: "stars"
         case .news: "palette"
+        case .newsIT: "code-square"
+        case .newsEconomy: "graph-up"
+        case .newsScience: "atom"
         case .battery: "battery-charge"
         case .wellbeing: "heart-pulse"
         case .network: "wi-fi-router-round"
@@ -45,6 +51,9 @@ public enum BubbleCategory: String, Sendable, CaseIterable, Codable {
         case .claude: 0xD97757
         case .figma: 0xA259FF
         case .news: 0x2F6BFF
+        case .newsIT: 0x3A3A3C
+        case .newsEconomy: 0x00875A
+        case .newsScience: 0x0B7285
         case .battery: 0x2DBE5C
         case .wellbeing: 0xFF3B30
         case .network: 0x00A8C8
@@ -82,6 +91,20 @@ public enum BubbleCategory: String, Sendable, CaseIterable, Codable {
         case .claudeChat, nil: "Claude"
         case .figmaAI: "Figma AI"
         case .figmaMCP, .figmaCompanion: "Figma"
+        }
+    }
+
+    public var isNews: Bool {
+        [.news, .newsIT, .newsEconomy, .newsScience].contains(self)
+    }
+
+    /// Новость → категория облачка по теме.
+    public static func news(_ topic: NewsTopic) -> BubbleCategory {
+        switch topic {
+        case .design: .news
+        case .it: .newsIT
+        case .economy: .newsEconomy
+        case .science: .newsScience
         }
     }
 

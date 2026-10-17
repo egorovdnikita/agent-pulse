@@ -1,7 +1,7 @@
 import AgentPulseCore
 import Foundation
 
-/// Новости UI/UX-дизайна **[решение]**: раз в 3 часа читает публичные ленты.
+/// Новости **[решение]**: раз в 2 часа читает публичные ленты и открытые Telegram-каналы включённых тем.
 /// Запросы — обычные GET без данных пользователя; что показано, хранится только локально.
 @MainActor
 final class NewsSense: Sense {
@@ -9,11 +9,13 @@ final class NewsSense: Sense {
     static let interval: TimeInterval = 2 * 3600
     static let firstFetchDelay: TimeInterval = 20
 
+    private let topics: Set<NewsTopic>
     private let deliver: @MainActor ([NewsItem]) -> Void
     private var timer: Timer?
     private var task: Task<Void, Never>?
 
-    init(deliver: @escaping @MainActor ([NewsItem]) -> Void) {
+    init(topics: Set<NewsTopic>, deliver: @escaping @MainActor ([NewsItem]) -> Void) {
+        self.topics = topics
         self.deliver = deliver
     }
 
@@ -33,22 +35,23 @@ final class NewsSense: Sense {
 
     private func fetch() {
         task?.cancel()
+        let topics = topics
         task = Task { [weak self] in
-            let items = await Self.load()
+            let items = await Self.load(topics: topics)
             guard !Task.isCancelled, !items.isEmpty else { return }
             self?.deliver(items)
         }
     }
 
-    nonisolated static func load() async -> [NewsItem] {
+    nonisolated static func load(topics: Set<NewsTopic> = Set(NewsTopic.allCases)) async -> [NewsItem] {
         await withTaskGroup(of: [NewsItem].self) { group in
-            for feed in DesignFeeds.all {
+            for feed in NewsFeeds.all where topics.contains(feed.topic) {
                 group.addTask {
                     var request = URLRequest(url: feed.url, timeoutInterval: 15)
-                    request.setValue("Pulse/1.0 (macOS; design news)", forHTTPHeaderField: "User-Agent")
+                    request.setValue("Mozilla/5.0 (Macintosh) Pulse/1.0", forHTTPHeaderField: "User-Agent")
                     guard let (data, response) = try? await URLSession.shared.data(for: request),
                           (response as? HTTPURLResponse)?.statusCode == 200 else { return [] }
-                    return DesignFeeds.filter(FeedParser.parse(data, source: feed.name), feed: feed)
+                    return NewsFeeds.filter(NewsFeeds.parse(data, feed: feed), feed: feed)
                 }
             }
             var all: [NewsItem] = []

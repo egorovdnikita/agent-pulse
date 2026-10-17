@@ -26,7 +26,7 @@ enum SenseRegistry {
         }
         senses.append(QuietSense())
         if config.character.designNews {
-            senses.append(NewsSense(deliver: news))
+            senses.append(NewsSense(topics: config.character.enabledNewsTopics, deliver: news))
         }
         if config.senses.experimental {
             senses.append(LidAngleSense())

@@ -181,6 +181,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
     }
 
+    func setNewsTopic(_ topic: NewsTopic, on: Bool) {
+        var topics = model.config.character.enabledNewsTopics
+        if on { topics.insert(topic) } else { topics.remove(topic) }
+        model.config.character.newsTopics = NewsTopic.allCases.filter(topics.contains).map(\.rawValue)
+        try? model.config.save()
+        startSenses()
+    }
+
     func setDesignNews(_ on: Bool) {
         model.config.character.designNews = on
         try? model.config.save()
