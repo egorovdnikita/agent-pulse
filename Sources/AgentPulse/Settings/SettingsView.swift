@@ -2,9 +2,8 @@ import AgentPulseCore
 import AppKit
 import SwiftUI
 
-/// Вкладки окна «Настройки». Выбор живёт в наблюдаемом классе: `@State` без Xcode недоступен.
-@Observable
-final class SettingsNavigation {
+/// Вкладки окна «Настройки».
+enum SettingsNavigation {
     enum Tab: String, CaseIterable {
         case general, character, news, sources, lab
 
@@ -28,34 +27,39 @@ final class SettingsNavigation {
             }
         }
     }
-
-    var tab: Tab = .general
 }
 
 /// Одно окно вместо «Характера» и Mascot Lab: всё, что не нужно каждый день, живёт здесь, а не в меню.
-struct SettingsView: View {
-    let app: AppDelegate
-    @Bindable var navigation: SettingsNavigation
+/// Вкладки — нативная панель как в Системных настройках: иконка над подписью, заголовок окна — имя вкладки.
+enum SettingsWindow {
+    static let size = CGSize(width: 580, height: 660)
 
-    var body: some View {
-        TabView(selection: $navigation.tab) {
-            GeneralSettings(app: app)
-                .tabItem { Label(SettingsNavigation.Tab.general.title, systemImage: SettingsNavigation.Tab.general.symbol) }
-                .tag(SettingsNavigation.Tab.general)
-            CharacterSettings(app: app)
-                .tabItem { Label(SettingsNavigation.Tab.character.title, systemImage: SettingsNavigation.Tab.character.symbol) }
-                .tag(SettingsNavigation.Tab.character)
-            NewsSettings(app: app)
-                .tabItem { Label(SettingsNavigation.Tab.news.title, systemImage: SettingsNavigation.Tab.news.symbol) }
-                .tag(SettingsNavigation.Tab.news)
-            SourcesSettings(app: app)
-                .tabItem { Label(SettingsNavigation.Tab.sources.title, systemImage: SettingsNavigation.Tab.sources.symbol) }
-                .tag(SettingsNavigation.Tab.sources)
-            MascotLabView(model: app.model)
-                .tabItem { Label(SettingsNavigation.Tab.lab.title, systemImage: SettingsNavigation.Tab.lab.symbol) }
-                .tag(SettingsNavigation.Tab.lab)
+    @ViewBuilder
+    static func content(_ tab: SettingsNavigation.Tab, app: AppDelegate) -> some View {
+        Group {
+            switch tab {
+            case .general: GeneralSettings(app: app)
+            case .character: CharacterSettings(app: app)
+            case .news: NewsSettings(app: app)
+            case .sources: SourcesSettings(app: app)
+            case .lab: MascotLabView(model: app.model)
+            }
         }
-        .frame(width: 560, height: 640)
+        .frame(width: size.width, height: size.height)
+    }
+
+    @MainActor
+    static func makeController(app: AppDelegate) -> NSTabViewController {
+        let controller = NSTabViewController()
+        controller.tabStyle = .toolbar
+        for tab in SettingsNavigation.Tab.allCases {
+            let item = NSTabViewItem(viewController: NSHostingController(rootView: content(tab, app: app)))
+            item.label = tab.title
+            item.image = NSImage(systemSymbolName: tab.symbol, accessibilityDescription: tab.title)
+            item.identifier = tab.rawValue
+            controller.addTabViewItem(item)
+        }
+        return controller
     }
 }
 
@@ -68,28 +72,23 @@ private struct GeneralSettings: View {
         let model = app.model
         Form {
             Section {
-                HStack(spacing: 16) {
+                HStack(alignment: .top, spacing: 16) {
                     MascotView(animator: model.animator, diameter: 48)
-                        .frame(width: 96, height: 96)
-                        .background(Color(white: 0.12), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text("Agent Pulse").font(.title3.weight(.semibold))
-                        Text(model.statusLine).foregroundStyle(.secondary)
-                        if let reaction = model.lastReaction {
-                            Text("Последняя реакция: \(model.lastLine ?? reaction)")
-                                .font(.caption).foregroundStyle(.secondary)
+                        .frame(width: 104, height: 104)
+                        .background(Color(white: 0.1), in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+                    VStack(alignment: .leading, spacing: 6) {
+                        Text(Self.now(model)).font(.headline)
+                        if let today = Self.today(model) {
+                            Text(today).font(.callout).foregroundStyle(.secondary)
                         }
+                        MoodBars(mood: model.mood).padding(.top, 2)
                     }
                 }
                 .padding(.vertical, 4)
             }
-            Section("Маскот") {
-                Toggle("Показывать маскота", isOn: Binding(get: { model.overlayVisible }, set: { app.setOverlayVisible($0) }))
-                Picker("Угол экрана", selection: Binding(get: { model.config.display.anchor }, set: { app.setAnchor($0) })) {
-                    Text("Справа снизу").tag(PulseConfig.Display.Anchor.bottomRight)
-                    Text("Слева снизу").tag(PulseConfig.Display.Anchor.bottomLeft)
-                    Text("Справа сверху").tag(PulseConfig.Display.Anchor.topRight)
-                    Text("Слева сверху").tag(PulseConfig.Display.Anchor.topLeft)
+            Section("Где живёт") {
+                LabeledContent("Угол экрана") {
+                    CornerPicker(anchor: Binding(get: { model.config.display.anchor }, set: { app.setAnchor($0) }))
                 }
                 Picker("Дисплей", selection: Binding(get: { model.config.display.screen }, set: { app.setScreen($0) })) {
                     Text("С Dock").tag("dock")
@@ -97,12 +96,22 @@ private struct GeneralSettings: View {
                     Text("С курсором").tag("active")
                     Text("Встроенный").tag("builtin")
                 }
-                Toggle("Гравитация", isOn: Binding(get: { model.config.display.gravity }, set: { app.setGravity($0) }))
-                Text("С гравитацией отпущенный маскот падает на «пол» с отскоками.")
-                    .font(.caption).foregroundStyle(.secondary)
+                LabeledContent("Размер") {
+                    HStack {
+                        Slider(value: Binding(get: { model.config.display.mascotSize }, set: { app.setMascotSize($0) }),
+                               in: 40...72, step: 4)
+                        Text("\(Int(model.config.display.mascotSize)) pt").monospacedDigit().foregroundStyle(.secondary)
+                            .frame(width: 44, alignment: .trailing)
+                    }
+                }
                 Button("Вернуть маскота в угол") { app.panel?.resetPosition() }
             }
-            Section("Система") {
+            Section("Поведение") {
+                Toggle("Показывать маскота", isOn: Binding(get: { model.overlayVisible }, set: { app.setOverlayVisible($0) }))
+                Toggle(isOn: Binding(get: { model.config.display.gravity }, set: { app.setGravity($0) })) {
+                    Text("Гравитация")
+                    Text("Отпущенный маскот падает на «пол» с отскоками").font(.caption).foregroundStyle(.secondary)
+                }
                 Toggle("Запускать при входе", isOn: Binding(get: { model.launchAtLogin }, set: { app.setLaunchAtLogin($0) }))
                 if let error = model.serverError {
                     Text("Сокет недоступен: \(error)").foregroundStyle(.red)
@@ -110,6 +119,89 @@ private struct GeneralSettings: View {
             }
         }
         .formStyle(.grouped)
+    }
+
+    /// Что делаю сейчас — тем же языком, что в облачке при наведении.
+    @MainActor static func now(_ model: PulseModel) -> String {
+        if let top = model.dominant, model.state != .sleep, model.state != .idle {
+            let story = HoverStory.working(
+                source: top.source, phase: top.phase, since: model.promptAt[top.id] ?? top.phaseSince,
+                steps: top.timeline.count, now: Date()
+            )
+            return "\(story.title): \(story.text.prefix(1).lowercased() + story.text.dropFirst())"
+        }
+        return model.state == .sleep ? "Дремлю, пока все отдыхают" : "Я тут, всё спокойно"
+    }
+
+    @MainActor static func today(_ model: PulseModel) -> String? {
+        guard let day = model.today else { return nil }
+        return HoverStory.summary(today: day, week: day, weekday: 3, hour: 12)?.text
+    }
+}
+
+/// Настроение маскота — четыре шкалы, как его видит Director.
+private struct MoodBars: View {
+    let mood: Mood
+
+    var body: some View {
+        Grid(alignment: .leading, horizontalSpacing: 8, verticalSpacing: 3) {
+            row("Бодрость", mood.energy, .orange)
+            row("Спокойствие", 1 - mood.stress, .teal)
+            row("Радость", mood.joy, .pink)
+            row("Общение", mood.social, .blue)
+        }
+        .font(.caption)
+    }
+
+    private func row(_ title: String, _ value: Double, _ color: Color) -> some View {
+        GridRow {
+            Text(title).foregroundStyle(.secondary)
+            // Своя шкала: системная в неактивном окне теряет цвет.
+            Capsule().fill(Color.secondary.opacity(0.2))
+                .frame(width: 140, height: 6)
+                .overlay(alignment: .leading) {
+                    Capsule().fill(color).frame(width: 140 * min(max(value, 0.03), 1), height: 6)
+                }
+        }
+    }
+}
+
+/// Угол экрана — схемой экрана: клик по углу.
+private struct CornerPicker: View {
+    @Binding var anchor: PulseConfig.Display.Anchor
+
+    var body: some View {
+        ZStack {
+            RoundedRectangle(cornerRadius: 6, style: .continuous)
+                .fill(Color.secondary.opacity(0.12))
+                .overlay(RoundedRectangle(cornerRadius: 6, style: .continuous).strokeBorder(Color.secondary.opacity(0.35)))
+            // Dock внизу — ориентир.
+            Capsule().fill(Color.secondary.opacity(0.3)).frame(width: 40, height: 4)
+                .frame(maxHeight: .infinity, alignment: .bottom).padding(.bottom, 4)
+            ForEach(PulseConfig.Display.Anchor.allCases, id: \.self) { corner in
+                Button { anchor = corner } label: {
+                    Circle()
+                        .fill(corner == anchor ? Color.accentColor : Color.secondary.opacity(0.35))
+                        .frame(width: 12, height: 12)
+                        .padding(6)
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .frame(maxWidth: .infinity, maxHeight: .infinity,
+                       alignment: Alignment(horizontal: corner.isRight ? .trailing : .leading, vertical: corner.isTop ? .top : .bottom))
+                .help(Self.title(corner))
+            }
+        }
+        .frame(width: 112, height: 70)
+    }
+
+    static func title(_ corner: PulseConfig.Display.Anchor) -> String {
+        switch corner {
+        case .topRight: "Справа сверху"
+        case .topLeft: "Слева сверху"
+        case .bottomRight: "Справа снизу"
+        case .bottomLeft: "Слева снизу"
+        }
     }
 }
 

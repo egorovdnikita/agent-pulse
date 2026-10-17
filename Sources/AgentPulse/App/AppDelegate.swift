@@ -4,7 +4,7 @@ import ServiceManagement
 import SwiftUI
 
 @MainActor
-final class AppDelegate: NSObject, NSApplicationDelegate {
+final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     let model = PulseModel()
     private let notifier = Notifier()
     private(set) var panel: OverlayPanel?
@@ -213,22 +213,45 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         panel?.gravityChanged()
     }
 
-    let settingsNavigation = SettingsNavigation()
+    private var settingsTabs: NSTabViewController?
 
-    /// Одно окно «Настройки» с вкладками; `tab` — сразу открыть нужную.
+    /// Одно окно «Настройки» с вкладками; `tab` — сразу открыть нужную. Пока окно открыто,
+    /// у приложения есть иконка в Dock и меню — как у обычного окна настроек; закрыли — снова только маскот.
     func showSettings(_ tab: SettingsNavigation.Tab? = nil) {
-        if let tab { settingsNavigation.tab = tab }
         if settingsWindow == nil {
-            let controller = NSHostingController(rootView: SettingsView(app: self, navigation: settingsNavigation))
-            let window = NSWindow(contentViewController: controller)
-            window.title = "Настройки"
+            let tabs = SettingsWindow.makeController(app: self)
+            let window = NSWindow(contentViewController: tabs)
             window.styleMask = [.titled, .closable, .miniaturizable]
+            window.toolbarStyle = .preference
             window.isReleasedWhenClosed = false
+            window.delegate = self
             window.center()
             settingsWindow = window
+            settingsTabs = tabs
         }
+        if let tab, let index = SettingsNavigation.Tab.allCases.firstIndex(of: tab) {
+            settingsTabs?.selectedTabViewItemIndex = index
+        }
+        NSApp.setActivationPolicy(.regular)
         NSApp.activate()
         settingsWindow?.makeKeyAndOrderFront(nil)
+    }
+
+    /// Клик по иконке в Dock или повторный запуск из Launchpad — открыть настройки.
+    func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
+        showSettings()
+        return true
+    }
+
+    func windowWillClose(_ notification: Notification) {
+        guard (notification.object as? NSWindow) === settingsWindow else { return }
+        NSApp.setActivationPolicy(.accessory)
+    }
+
+    func setMascotSize(_ size: Double) {
+        model.config.display.mascotSize = size
+        try? model.config.save()
+        panel?.reposition()
     }
 
     // MARK: - Чат в Claude desktop
