@@ -63,8 +63,9 @@ import Testing
         #expect(d.handle(Signal(.clock, .minute), now: noon.addingTimeInterval(60), rng: &rng)?.special != .news)
         _ = d.handle(Signal(.news, .newsFresh, value: 4), now: noon.addingTimeInterval(61), rng: &rng)
         #expect(d.handle(Signal(.clock, .minute), now: noon.addingTimeInterval(120), rng: &rng)?.special == .news)
-        // Не чаще раза в 2 часа.
-        #expect(d.handle(Signal(.clock, .minute), now: noon.addingTimeInterval(3600), rng: &rng)?.special != .news)
+        // Не чаще раза в 15 минут — и ровно через 15 снова.
+        #expect(d.handle(Signal(.clock, .minute), now: noon.addingTimeInterval(120 + 10 * 60), rng: &rng)?.special != .news)
+        #expect(d.handle(Signal(.clock, .minute), now: noon.addingTimeInterval(120 + 15 * 60), rng: &rng)?.special == .news)
 
         var busy = Director(calendar: calendar)
         busy.agentBusy = true

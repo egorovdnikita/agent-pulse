@@ -328,7 +328,7 @@ private struct NewsSettings: View {
         Form {
             Section {
                 Toggle("Рассказывать новости", isOn: Binding(get: { on }, set: { app.setDesignNews($0) }))
-                Text("До 6 в день, не чаще раза в 75 минут, с 9 до 22 и только когда ты рядом. Дизайн — большая часть.")
+                Text("Каждые 15 минут, с 9 до 22, когда ты рядом и не занят созвоном или агентом. Дизайн — большая часть.")
                     .font(.caption).foregroundStyle(.secondary)
             }
             Section("Темы") {

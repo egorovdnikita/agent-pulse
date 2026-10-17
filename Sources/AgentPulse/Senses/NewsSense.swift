@@ -1,12 +1,12 @@
 import AgentPulseCore
 import Foundation
 
-/// Новости **[решение]**: раз в 2 часа читает публичные ленты и открытые Telegram-каналы включённых тем.
+/// Новости **[решение]**: раз в час читает публичные ленты и открытые Telegram-каналы включённых тем.
 /// Запросы — обычные GET без данных пользователя; что показано, хранится только локально.
 @MainActor
 final class NewsSense: Sense {
     let id = SenseID.news
-    static let interval: TimeInterval = 2 * 3600
+    static let interval: TimeInterval = 3600
     static let firstFetchDelay: TimeInterval = 20
 
     private let topics: Set<NewsTopic>
