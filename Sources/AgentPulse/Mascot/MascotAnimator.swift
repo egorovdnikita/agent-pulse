@@ -29,6 +29,8 @@ final class MascotAnimator {
     var screenCenter: CGPoint?
     /// Курсор над маскотом: во сне он плавно просыпается и смотрит на курсор.
     var hovered = false
+    /// Висит облачко — маскот говорит, а значит не спит: глаза открыты, «Zzz» нет.
+    var speaking = false
     /// Куда всплывают «Zzz» — от края экрана внутрь.
     var zzzSide = -1.0
 
@@ -97,7 +99,7 @@ final class MascotAnimator {
     /// Глубокий сон: ничего процедурного не происходит — можно остановить кадры и отдать дыхание и «Zzz»
     /// повторяющимся анимациям Core Animation. Будит наведение, событие, реакция, перетаскивание.
     func isCalm(at t: Double) -> Bool {
-        state == .sleep && !hovered && active == nil && queue.isEmpty && dragLook == nil
+        state == .sleep && !hovered && !speaking && active == nil && queue.isEmpty && dragLook == nil
             && wake.value < 0.01 && t - stateStart > tuning.fallAsleepDuration + 1.5
             // Поза устоялась: веки и «^ ^» дошли до конца — иначе застынет полузакрытой.
             && abs(happy.value - (contented ? 1 : 0)) < 0.02
@@ -166,7 +168,8 @@ final class MascotAnimator {
         }
 
         // Наведение во сне: веки плавно поднимаются, «Zzz» тают, взгляд — на курсор.
-        wake.update(toward: hovered && state == .sleep ? 1 : 0, omega: hovered ? 9 : 5, dt: dt)
+        let awakeNow = (hovered || speaking) && state == .sleep
+        wake.update(toward: awakeNow ? 1 : 0, omega: awakeNow ? 9 : 5, dt: dt)
         let awake = min(max(wake.value, 0), 1)
         if awake > 0.01 {
             frame.eyeScale += (1.05 - frame.eyeScale) * awake

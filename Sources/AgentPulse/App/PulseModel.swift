@@ -268,6 +268,8 @@ final class PulseModel {
             let isNew = scheduler.current != nil && scheduler.current?.id != bubble?.id
             bubble = scheduler.current
             if let bubble { lastMessage = bubble }
+            // Говорит во сне — странно: на время облачка просыпается. Кроме «Вздремну».
+            animator.speaking = bubble.map { $0.category != .rest } ?? false
             if isNew {
                 // Маскот на мгновение смотрит на облачко — связывает реплику с персонажем.
                 animator.glance(towardX: config.display.anchor.isRight ? -1 : 1, at: now.timeIntervalSinceReferenceDate)
