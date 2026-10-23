@@ -38,13 +38,6 @@ final class OverlayPanel: NSPanel {
         host.sizingOptions = []
         contentView = host
         reposition()
-        // Не виден (полный экран, другое окно поверх) — кадры не рисуем.
-        NotificationCenter.default.addObserver(forName: NSWindow.didChangeOcclusionStateNotification, object: self, queue: .main) { [weak self] _ in
-            MainActor.assumeIsolated {
-                guard let self else { return }
-                self.model.overlayOccluded = !self.occlusionState.contains(.visible)
-            }
-        }
     }
 
     override var canBecomeKey: Bool { false }

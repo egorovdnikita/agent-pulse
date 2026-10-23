@@ -374,11 +374,19 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         if !show, panel.isVisible { panel.orderOut(nil) }
     }
 
+    /// Сколько проверок подряд экран закрыт: переход между рабочими столами мелькает на мгновение,
+    /// полноэкранное видео держится — прячемся после двух проверок подряд (~1 s).
+    private var coveredStreak = 0
+
     private func checkFullScreen() {
         guard let panel, let screen = panel.screen ?? NSScreen.screens.first(where: { $0.frame.intersects(panel.frame) }) else { return }
-        let covered = QuietSense.fullScreenWindow(on: screen)
-        guard covered != fullScreenHidden else { return }
-        fullScreenHidden = covered
+        // Окно на весь экран должно быть у приложения, с которым ты сейчас работаешь.
+        let front = NSWorkspace.shared.frontmostApplication?.processIdentifier
+        let covered = front.map { QuietSense.fullScreenWindow(on: screen, owner: $0) } ?? false
+        coveredStreak = covered ? coveredStreak + 1 : 0
+        let hide = coveredStreak >= 2
+        guard hide != fullScreenHidden else { return }
+        fullScreenHidden = hide
         updatePanelVisibility()
     }
 

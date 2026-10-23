@@ -135,6 +135,11 @@ final class MascotLayerView: NSView {
             link = nil
             calmTimer?.invalidate()
             calmTimer = nil
+            // Без таймера глубокий сон уже не проснётся сам — сбрасываем его; после паузы кадры решат заново.
+            if calm {
+                calm = false
+                for layer in [glow, body] as [CALayer] + ovals + lids + zees { layer.removeAllAnimations() }
+            }
             return
         }
         if !calm, link == nil {

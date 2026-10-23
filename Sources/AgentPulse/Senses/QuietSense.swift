@@ -80,7 +80,7 @@ final class QuietSense: Sense {
 
     /// Окно обычного уровня, закрывающее экран целиком (`screen` — только этот экран).
     /// Читаем только слой, размеры и pid — не названия.
-    static func fullScreenWindow(on screen: NSScreen? = nil) -> Bool {
+    static func fullScreenWindow(on screen: NSScreen? = nil, owner: pid_t? = nil) -> Bool {
         guard let windows = CGWindowListCopyWindowInfo([.optionOnScreenOnly, .excludeDesktopElements], kCGNullWindowID) as? [[String: Any]] else {
             return false
         }
@@ -93,6 +93,7 @@ final class QuietSense: Sense {
         for window in windows {
             guard window[kCGWindowLayer as String] as? Int == 0,
                   window[kCGWindowOwnerPID as String] as? Int32 != ownPid,
+                  owner.map({ window[kCGWindowOwnerPID as String] as? Int32 == $0 }) ?? true,
                   let bounds = window[kCGWindowBounds as String] as? [String: CGFloat],
                   let rect = CGRect(dictionaryRepresentation: bounds as CFDictionary) else { continue }
             if screens.contains(where: { abs($0.width - rect.width) < 1 && abs($0.height - rect.height) < 1 && abs($0.minX - rect.minX) < 1 && abs($0.minY - rect.minY) < 1 }) {
