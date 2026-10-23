@@ -78,15 +78,16 @@ final class QuietSense: Sense {
         return false
     }
 
-    /// Окно обычного уровня, закрывающее экран целиком. Читаем только слой, размеры и pid — не названия.
-    static func fullScreenWindow() -> Bool {
+    /// Окно обычного уровня, закрывающее экран целиком (`screen` — только этот экран).
+    /// Читаем только слой, размеры и pid — не названия.
+    static func fullScreenWindow(on screen: NSScreen? = nil) -> Bool {
         guard let windows = CGWindowListCopyWindowInfo([.optionOnScreenOnly, .excludeDesktopElements], kCGNullWindowID) as? [[String: Any]] else {
             return false
         }
         let ownPid = ProcessInfo.processInfo.processIdentifier
         let mainHeight = NSScreen.screens.first?.frame.height ?? 0
         // Экраны в координатах CoreGraphics (начало — левый верхний угол главного экрана).
-        let screens = NSScreen.screens.map { screen in
+        let screens = (screen.map { [$0] } ?? NSScreen.screens).map { screen in
             CGRect(x: screen.frame.minX, y: mainHeight - screen.frame.maxY, width: screen.frame.width, height: screen.frame.height)
         }
         for window in windows {

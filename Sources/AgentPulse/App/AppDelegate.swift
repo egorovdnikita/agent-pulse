@@ -55,9 +55,18 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         panel.orderFrontRegardless()
         self.panel = panel
 
-        // Панель переезжает на монитор с курсором. Опрос дешёвый и не требует никаких прав.
+        // Панель переезжает на монитор с курсором; на её экране что-то развернули на весь экран — прячемся.
+        // Опрос дешёвый и не требует никаких прав: только размеры окон, без названий и содержимого.
         screenTimer = Timer.scheduledTimer(withTimeInterval: 0.5, repeats: true) { [weak self] _ in
-            MainActor.assumeIsolated { self?.panel?.followActiveScreen() }
+            MainActor.assumeIsolated {
+                self?.panel?.followActiveScreen()
+                self?.checkFullScreen()
+            }
+        }
+        NSWorkspace.shared.notificationCenter.addObserver(
+            forName: NSWorkspace.activeSpaceDidChangeNotification, object: nil, queue: .main
+        ) { [weak self] _ in
+            MainActor.assumeIsolated { self?.checkFullScreen() }
         }
         NotificationCenter.default.addObserver(
             forName: NSApplication.didChangeScreenParametersNotification, object: nil, queue: .main
@@ -72,8 +81,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         model.start()
         startSenses()
         model.onIdleHide = { [weak self] hide in
-            guard let self, self.model.overlayVisible else { return }
-            if hide { self.panel?.orderOut(nil) } else { self.panel?.orderFrontRegardless() }
+            self?.idleHidden = hide
+            self?.updatePanelVisibility()
         }
         model.onSpecial = { [weak self] action, line in
             self?.panel?.perform(action, line: line)
@@ -347,7 +356,30 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
 
     func setOverlayVisible(_ visible: Bool) {
         model.overlayVisible = visible
-        if visible { panel?.orderFrontRegardless() } else { panel?.orderOut(nil) }
+        updatePanelVisibility()
+    }
+
+    // MARK: - Видимость панели
+
+    private var idleHidden = false
+    private var fullScreenHidden = false
+
+    /// Маскот виден, если его не выключили, он не спрятался от долгого простоя
+    /// и на его экране ничего не развёрнуто на весь экран **[решение]**.
+    func updatePanelVisibility() {
+        guard let panel else { return }
+        let show = model.overlayVisible && !idleHidden && !fullScreenHidden
+        model.overlayOccluded = !show
+        if show, !panel.isVisible { panel.orderFrontRegardless() }
+        if !show, panel.isVisible { panel.orderOut(nil) }
+    }
+
+    private func checkFullScreen() {
+        guard let panel, let screen = panel.screen ?? NSScreen.screens.first(where: { $0.frame.intersects(panel.frame) }) else { return }
+        let covered = QuietSense.fullScreenWindow(on: screen)
+        guard covered != fullScreenHidden else { return }
+        fullScreenHidden = covered
+        updatePanelVisibility()
     }
 
     func setAnchor(_ anchor: PulseConfig.Display.Anchor) {
