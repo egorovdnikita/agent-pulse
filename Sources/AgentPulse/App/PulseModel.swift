@@ -30,6 +30,8 @@ final class PulseModel {
     private(set) var lastMessage: Bubble?
     private(set) var lastTask: LastTask?
     var overlayVisible = true
+    /// Панель закрыта целиком (полноэкранный рабочий стол) — кадры маскота на паузе.
+    var overlayOccluded = false
     var hooksInstalled = false
     /// Следим ли за журналами Cowork (nil — выключено в настройках).
     var coworkWatching: Bool?

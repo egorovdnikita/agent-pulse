@@ -19,7 +19,9 @@ final class OverlayPanel: NSPanel {
         )
         isFloatingPanel = true
         level = .statusBar
-        collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary, .stationary, .ignoresCycle]
+        // Без `.fullScreenAuxiliary` **[решение]**: на полноэкранном рабочем столе (видео, презентация, игра)
+        // macOS сам не показывает маскота — он не мешает; вышел из полного экрана — маскот на месте.
+        collectionBehavior = [.canJoinAllSpaces, .stationary, .ignoresCycle]
         isOpaque = false
         backgroundColor = .clear
         hasShadow = false
@@ -36,6 +38,13 @@ final class OverlayPanel: NSPanel {
         host.sizingOptions = []
         contentView = host
         reposition()
+        // Не виден (полный экран, другое окно поверх) — кадры не рисуем.
+        NotificationCenter.default.addObserver(forName: NSWindow.didChangeOcclusionStateNotification, object: self, queue: .main) { [weak self] _ in
+            MainActor.assumeIsolated {
+                guard let self else { return }
+                self.model.overlayOccluded = !self.occlusionState.contains(.visible)
+            }
+        }
     }
 
     override var canBecomeKey: Bool { false }

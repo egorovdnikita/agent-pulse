@@ -74,7 +74,7 @@ struct PillView: View {
         MascotView(
             animator: model.animator,
             diameter: diameter,
-            paused: !model.overlayVisible,
+            paused: !model.overlayVisible || model.overlayOccluded,
             lowFrameRate: model.state == .sleep
         )
         .contentShape(Circle())
