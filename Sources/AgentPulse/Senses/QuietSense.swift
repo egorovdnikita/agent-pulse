@@ -102,4 +102,21 @@ final class QuietSense: Sense {
         }
         return false
     }
+
+    /// Строка меню на этом экране — окно уровня главного меню у его верхнего края. На обычном рабочем столе
+    /// она видна всегда; в настоящем полноэкранном режиме её нет. Читаем только уровень и размеры окон.
+    static func menuBarVisible(on screen: NSScreen) -> Bool {
+        guard let windows = CGWindowListCopyWindowInfo([.optionOnScreenOnly], kCGNullWindowID) as? [[String: Any]] else {
+            return true
+        }
+        let mainHeight = NSScreen.screens.first?.frame.height ?? 0
+        let top = mainHeight - screen.frame.maxY
+        return windows.contains { window in
+            guard window[kCGWindowLayer as String] as? Int == Int(CGWindowLevelForKey(.mainMenuWindow)),
+                  let bounds = window[kCGWindowBounds as String] as? [String: CGFloat],
+                  let rect = CGRect(dictionaryRepresentation: bounds as CFDictionary) else { return false }
+            return abs(rect.minY - top) < 2 && rect.width >= screen.frame.width * 0.9
+                && rect.minX >= screen.frame.minX - 1 && rect.maxX <= screen.frame.maxX + 1
+        }
+    }
 }

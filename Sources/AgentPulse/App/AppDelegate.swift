@@ -1,5 +1,6 @@
 import AgentPulseCore
 import AppKit
+import os
 import ServiceManagement
 import SwiftUI
 
@@ -361,6 +362,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
 
     // MARK: - Видимость панели
 
+    /// Журнал видимости: `log show --predicate 'subsystem == "io.github.egorovdnikita.agentpulse"' --last 1d`.
+    static let log = Logger(subsystem: "io.github.egorovdnikita.agentpulse", category: "panel")
     private var idleHidden = false
     private var fullScreenHidden = false
 
@@ -370,6 +373,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         guard let panel else { return }
         let show = model.overlayVisible && !idleHidden && !fullScreenHidden
         model.overlayOccluded = !show
+        if show != panel.isVisible {
+            Self.log.notice("panel \(show ? "show" : "hide", privacy: .public): visible=\(self.model.overlayVisible) idle=\(self.idleHidden) fullscreen=\(self.fullScreenHidden)")
+        }
         if show, !panel.isVisible { panel.orderFrontRegardless() }
         if !show, panel.isVisible { panel.orderOut(nil) }
     }
@@ -382,11 +388,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         guard let panel, let screen = panel.screen ?? NSScreen.screens.first(where: { $0.frame.intersects(panel.frame) }) else { return }
         // Окно на весь экран должно быть у приложения, с которым ты сейчас работаешь.
         let front = NSWorkspace.shared.frontmostApplication?.processIdentifier
-        let covered = front.map { QuietSense.fullScreenWindow(on: screen, owner: $0) } ?? false
+        // И строка меню на этом экране скрыта: на обычном рабочем столе она видна всегда.
+        let covered = (front.map { QuietSense.fullScreenWindow(on: screen, owner: $0) } ?? false)
+            && !QuietSense.menuBarVisible(on: screen)
         coveredStreak = covered ? coveredStreak + 1 : 0
         let hide = coveredStreak >= 2
         guard hide != fullScreenHidden else { return }
         fullScreenHidden = hide
+        Self.log.notice("fullscreen \(hide ? "on" : "off", privacy: .public): front=\(NSWorkspace.shared.frontmostApplication?.bundleIdentifier ?? "?", privacy: .public)")
         updatePanelVisibility()
     }
 
