@@ -141,3 +141,22 @@ import Testing
         #expect(quiet.current?.trigger == .waitPermission)
     }
 }
+
+@Suite struct IntroductionTests {
+    @Test func linesFollowVoiceRules() {
+        let gendered = ["устал", "понял", "нашёл", "сделал", "рад ", "рада", "готов ", "готова"]
+        for hooks in [false, true] {
+            for step in Introduction.steps(hooksInstalled: hooks) {
+                #expect(Phrases.wordCount(step.line) <= Phrases.maxWords, "\(step.line)")
+                #expect(!step.line.lowercased().contains("агент"), "\(step.line)")
+                #expect(!gendered.contains { (step.line.lowercased() + " ").contains($0) }, "\(step.line)")
+            }
+        }
+    }
+
+    @Test func connectStepOnlyWithoutHooks() {
+        #expect(Introduction.steps(hooksInstalled: false).contains { $0.line.contains("Claude Code") })
+        #expect(!Introduction.steps(hooksInstalled: true).contains { $0.line.contains("Claude Code") })
+        #expect(Introduction.steps(hooksInstalled: true).contains { $0.pose == .waiting })
+    }
+}

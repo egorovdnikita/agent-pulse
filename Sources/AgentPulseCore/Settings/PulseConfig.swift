@@ -11,6 +11,8 @@ public struct PulseConfig: Codable, Sendable, Equatable {
     public var privacy = Privacy()
     public var senses = Senses()
     public var character = Character()
+    /// Маскот уже представился (`Introduction`).
+    public var introduced = false
 
     public init() {}
 

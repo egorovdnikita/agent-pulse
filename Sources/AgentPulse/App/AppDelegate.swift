@@ -81,6 +81,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         startChatWindow()
         model.start()
         startSenses()
+        model.introduce(force: CommandLine.arguments.contains("--intro"))
         model.onIdleHide = { [weak self] hide in
             self?.idleHidden = hide
             self?.updatePanelVisibility()
