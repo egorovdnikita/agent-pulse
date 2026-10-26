@@ -61,13 +61,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         screenTimer = Timer.scheduledTimer(withTimeInterval: 0.5, repeats: true) { [weak self] _ in
             MainActor.assumeIsolated {
                 self?.panel?.followActiveScreen()
-                self?.checkFullScreen()
+                self?.pollFullScreen()
             }
         }
-        NSWorkspace.shared.notificationCenter.addObserver(
-            forName: NSWorkspace.activeSpaceDidChangeNotification, object: nil, queue: .main
-        ) { [weak self] _ in
-            MainActor.assumeIsolated { self?.checkFullScreen() }
+        for name in [NSWorkspace.activeSpaceDidChangeNotification, NSWorkspace.didActivateApplicationNotification] {
+            NSWorkspace.shared.notificationCenter.addObserver(forName: name, object: nil, queue: .main) { [weak self] _ in
+                MainActor.assumeIsolated { self?.watchFullScreen() }
+            }
         }
         NotificationCenter.default.addObserver(
             forName: NSApplication.didChangeScreenParametersNotification, object: nil, queue: .main
@@ -383,6 +383,22 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     /// Сколько проверок подряд экран закрыт: переход между рабочими столами мелькает на мгновение,
     /// полноэкранное видео держится — прячемся после двух проверок подряд (~1 s).
     private var coveredStreak = 0
+    /// Список окон стоит заметно (и нам, и WindowServer): в спокойном состоянии смотрим раз в 2 s,
+    /// а сразу после смены рабочего стола или приложения и пока подозреваем полный экран — каждые 0.5 s.
+    private var fullScreenTick = 0
+    private var fullScreenWatchUntil = Date.distantPast
+
+    private func watchFullScreen() {
+        fullScreenWatchUntil = Date().addingTimeInterval(3)
+        checkFullScreen()
+    }
+
+    private func pollFullScreen() {
+        fullScreenTick += 1
+        let eager = fullScreenHidden || coveredStreak > 0 || Date() < fullScreenWatchUntil
+        guard eager || fullScreenTick % 4 == 0 else { return }
+        checkFullScreen()
+    }
 
     private func checkFullScreen() {
         guard let panel, let screen = panel.screen ?? NSScreen.screens.first(where: { $0.frame.intersects(panel.frame) }) else { return }

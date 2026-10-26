@@ -60,6 +60,9 @@ final class MascotLayerView: NSView {
     private var link: CADisplayLink?
     private var calmTimer: Timer?
     private var calm = false
+    private var shadowKey: [Double] = []
+    private var glowKey: [Double] = []
+    private var bodyWarmth = -1.0
 
     init(animator: MascotAnimator, diameter: Double) {
         self.animator = animator
@@ -256,38 +259,45 @@ final class MascotLayerView: NSView {
         let shadowInner = radius - 3 * unit
         let shadowRadius = radius + 9 * unit
         dropShadow.frame = Self.circle(CGPoint(x: base.x, y: base.y + 2 * unit), shadowRadius)
-        Self.falloff(dropShadow, color: NSColor.black, peak: 0.22, inner: shadowInner / shadowRadius)
+        Self.falloff(dropShadow, color: NSColor.black, peak: 0.22, inner: shadowInner / shadowRadius, cache: &shadowKey)
 
         // Свечение: широкое и размытое, пульсирует — темнее и меньше, светлее и больше; ночью теплеет.
+        // Пульс — прозрачность и масштаб слоя: градиент пересчитывается, только когда меняется сама поза.
         let pulse = 0.5 + 0.5 * sin(2 * .pi * pose.time / Self.glowPulsePeriod)
         let swell = Self.glowPulseScale.lowerBound + (Self.glowPulseScale.upperBound - Self.glowPulseScale.lowerBound) * pulse
-        let glowRadius = (radius + pose.glowRadius * 2.1 * unit) * swell
+        let glowRadius = radius + pose.glowRadius * 2.1 * unit
         let tint = NSColor(red: 1, green: 1 - 0.05 * pose.glowWarmth, blue: 1 - 0.16 * pose.glowWarmth, alpha: 1)
-        glow.frame = Self.circle(center, glowRadius)
-        Self.falloff(glow, color: tint, peak: pose.glowOpacity * (0.85 + 0.15 * pulse), inner: radius * 0.7 / glowRadius, softness: 2.3)
+        glow.bounds = CGRect(x: 0, y: 0, width: glowRadius * 2, height: glowRadius * 2)
+        glow.position = center
+        Self.falloff(glow, color: tint, peak: pose.glowOpacity, inner: radius * 0.7 / glowRadius, softness: 2.3, cache: &glowKey)
         if !calm {
-            glow.opacity = 1
-            glow.transform = CATransform3DIdentity
+            glow.opacity = Float(0.85 + 0.15 * pulse)
+            glow.transform = CATransform3DMakeScale(swell, swell, 1)
         }
 
         // Тело светится само: центр чисто белый, к краю — лёгкая прохладная тень объёма; ночью тёплый белый.
         let bodyRect = CGRect(x: center.x - radius * scaleX, y: center.y - radius * scaleY, width: 2 * radius * scaleX, height: 2 * radius * scaleY)
         body.frame = bodyRect
-        bodyMask.frame = body.bounds
-        bodyMask.path = CGPath(ellipseIn: body.bounds, transform: nil)
-        let warm = pose.glowWarmth
-        func shade(_ white: Double, cool: Double) -> CGColor {
-            NSColor(
-                red: white - cool * 0.4 * (1 - warm),
-                green: white - cool * 0.2 - 0.012 * warm,
-                blue: white - 0.035 * warm,
-                alpha: 1
-            ).cgColor
+        if bodyMask.frame.size != body.bounds.size {
+            bodyMask.frame = body.bounds
+            bodyMask.path = CGPath(ellipseIn: body.bounds, transform: nil)
         }
-        body.colors = [shade(1, cool: 0), shade(0.995, cool: 0.005), shade(0.955, cool: 0.02), shade(0.9, cool: 0.04)]
-        body.locations = [0, 0.4, 0.78, 1]
-        body.startPoint = CGPoint(x: 0.4, y: 0.34)
-        body.endPoint = CGPoint(x: 0.4 + 0.66, y: 0.34 + 0.66)
+        let warm = pose.glowWarmth
+        if (warm * 1000).rounded() != bodyWarmth {
+            bodyWarmth = (warm * 1000).rounded()
+            func shade(_ white: Double, cool: Double) -> CGColor {
+                NSColor(
+                    red: white - cool * 0.4 * (1 - warm),
+                    green: white - cool * 0.2 - 0.012 * warm,
+                    blue: white - 0.035 * warm,
+                    alpha: 1
+                ).cgColor
+            }
+            body.colors = [shade(1, cool: 0), shade(0.995, cool: 0.005), shade(0.955, cool: 0.02), shade(0.9, cool: 0.04)]
+            body.locations = [0, 0.4, 0.78, 1]
+            body.startPoint = CGPoint(x: 0.4, y: 0.34)
+            body.endPoint = CGPoint(x: 0.4 + 0.66, y: 0.34 + 0.66)
+        }
 
         let eyeWidth = 7.5 * unit * pose.bodyScale * scaleX
         let eyeHeight = 10.5 * unit * pose.bodyScale * scaleY
@@ -354,7 +364,13 @@ final class MascotLayerView: NSView {
     static let glowPulseScale: ClosedRange<Double> = 0.88...1.08
 
     /// Радиальный спад, близкий к гауссову: ровно до `inner`, дальше мягко тает — без видимого края.
-    private static func falloff(_ layer: CAGradientLayer, color: NSColor, peak: Double, inner: Double, softness: Double = 3.2) {
+    /// `cache` — последние входные данные: тот же градиент не пересобирается каждый кадр.
+    private static func falloff(
+        _ layer: CAGradientLayer, color: NSColor, peak: Double, inner: Double, softness: Double = 3.2, cache: inout [Double]
+    ) {
+        let key = ((color.cgColor.components ?? []).map { Double($0) } + [peak, inner, softness]).map { ($0 * 200).rounded() }
+        guard key != cache else { return }
+        cache = key
         let steps = [0.0, 0.1, 0.22, 0.36, 0.52, 0.7, 0.86, 1.0]
         let fade = steps.map { exp(-softness * $0 * $0) - exp(-softness) * $0 }
         layer.colors = [color.withAlphaComponent(peak).cgColor] + fade.map { color.withAlphaComponent(peak * max(0, $0)).cgColor }
