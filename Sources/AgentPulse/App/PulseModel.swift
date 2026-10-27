@@ -354,16 +354,23 @@ final class PulseModel {
     /// Клик по облачку: новость — открыть статью, иначе как клик по маскоту.
     func tapBubble() {
         if let news = recentNews, let url = URL(string: news.link) {
-            NSWorkspace.shared.open(url)
+            open(news, url)
         } else {
             activateSource()
         }
     }
 
+    /// Открыл статью — запоминаем вкус: такие темы и источники звучат чаще.
+    private func open(_ news: NewsItem, _ url: URL) {
+        NSWorkspace.shared.open(url)
+        newsDesk.record(.opened, for: news)
+        try? newsDesk.save()
+    }
+
     /// Клик по маскоту: новость — открыть статью; в агентном состоянии — переход к источнику; иначе — тычок.
     func tapMascot() {
         if let news = recentNews, let url = URL(string: news.link) {
-            NSWorkspace.shared.open(url)
+            open(news, url)
             return
         }
         switch state {

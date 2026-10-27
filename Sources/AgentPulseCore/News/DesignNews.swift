@@ -541,8 +541,57 @@ public struct NewsDesk: Sendable, Codable {
 
     public private(set) var seen: [String] = []
     public private(set) var items: [NewsItem] = []
+    /// Вкус **[решение]**: что ты открываешь и что бесит — очки тем («topic:it») и источников («source:Хабр»).
+    /// Опционально: старый `news.json` без вкуса читается как есть.
+    private var tasteScores: [String: Double]?
 
     public init() {}
+
+    // MARK: - Вкус
+
+    public enum Verdict: Sendable {
+        /// Открыл статью кликом.
+        case opened
+        case liked
+        case disliked
+
+        var delta: Double {
+            switch self {
+            case .opened, .liked: 1
+            case .disliked: -2
+            }
+        }
+    }
+
+    public static let tasteRange: ClosedRange<Double> = -6...10
+
+    public mutating func record(_ verdict: Verdict, for item: NewsItem) {
+        var scores = tasteScores ?? [:]
+        for key in Self.tasteKeys(item) {
+            scores[key] = min(Self.tasteRange.upperBound, max(Self.tasteRange.lowerBound, scores[key, default: 0] + verdict.delta))
+        }
+        tasteScores = scores
+    }
+
+    public func score(topic: NewsTopic) -> Double {
+        tasteScores?["topic:\(topic.rawValue)"] ?? 0
+    }
+
+    public func score(source: String) -> Double {
+        tasteScores?["source:\(source)"] ?? 0
+    }
+
+    /// Насколько чаще звучит тема: 5 открытых статей — в 2.5 раза, два «бесит» — в 5 раз реже, но не никогда.
+    public static func weight(_ score: Double) -> Double {
+        min(4, max(0.2, 1 + 0.3 * score))
+    }
+
+    /// Источник, набравший два «бесит» сверх открытого, — молчит, пока есть другие.
+    public static let mutedSourceScore = -4.0
+
+    static func tasteKeys(_ item: NewsItem) -> [String] {
+        ["topic:\(item.topic.rawValue)", "source:\(item.source)"]
+    }
 
     /// Одна статья из двух лент — одна новость; одна история из двух изданий («МРОТ вырастет…») — тоже.
     public mutating func update(_ fresh: [NewsItem]) {
@@ -577,16 +626,22 @@ public struct NewsDesk: Sendable, Codable {
     public static let designShare = 0.65
 
     /// Взять следующую новость и запомнить как показанную. Тема: дизайн с вероятностью `designShare`
-    /// (`roll` — случайное 0…1), иначе другая тема — не та, что была последней. Источники чередуются.
-    public mutating func take(now: Date, lastSource: String? = nil, lastTopic: NewsTopic? = nil, roll: Double = .random(in: 0..<1)) -> NewsItem? {
-        let fresh = available(now: now)
+    /// (`roll` — случайное 0…1), иначе другая тема — не та, что была последней, по вкусу: чем чаще
+    /// открываешь тему, тем вероятнее она (`pick` — случайное 0…1). Источники чередуются; надоевший молчит.
+    public mutating func take(
+        now: Date, lastSource: String? = nil, lastTopic: NewsTopic? = nil,
+        roll: Double = .random(in: 0..<1), pick: Double = .random(in: 0..<1)
+    ) -> NewsItem? {
+        let all = available(now: now)
+        let liked = all.filter { score(source: $0.source) > Self.mutedSourceScore }
+        let fresh = liked.isEmpty ? all : liked
         let design = fresh.filter { $0.topic == .design }
         let others = fresh.filter { $0.topic != .design }
         let preferred = others.filter { $0.topic != lastTopic }
         let pool: [NewsItem] = if roll < Self.designShare, !design.isEmpty {
             design
         } else if !preferred.isEmpty {
-            preferred
+            byTaste(preferred, pick: pick)
         } else if !others.isEmpty {
             others
         } else {
@@ -596,6 +651,19 @@ public struct NewsDesk: Sendable, Codable {
         seen.append(item.link)
         if seen.count > Self.seenLimit { seen.removeFirst(seen.count - Self.seenLimit) }
         return item
+    }
+
+    /// Новости одной темы, выбранной по весам вкуса; порядок внутри темы сохраняется (новые сначала).
+    func byTaste(_ items: [NewsItem], pick: Double) -> [NewsItem] {
+        var topics: [NewsTopic] = []
+        for item in items where !topics.contains(item.topic) { topics.append(item.topic) }
+        let weights = topics.map { Self.weight(score(topic: $0)) }
+        var target = pick * weights.reduce(0, +)
+        for (topic, weight) in zip(topics, weights) {
+            target -= weight
+            if target < 0 { return items.filter { $0.topic == topic } }
+        }
+        return items.filter { $0.topic == topics.last }
     }
 
     public static var defaultURL: URL {

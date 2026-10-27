@@ -155,7 +155,7 @@ extension PulseModel {
         guard ignoringQuiet || !quiet, let item = newsDesk.take(now: now, lastSource: currentNews?.source, lastTopic: currentNews?.topic) else { return }
         currentNews = item
         currentNewsAt = now
-        lastReaction = "news.design"
+        lastReaction = Self.newsReaction
         lastLine = item.teaser
         // Как человек: сначала «Смотри, что нашлось», потом суть своими словами.
         // Заход утра или возвращения — только к дизайну; у остальных тем свой: «Из мира ИТ».
@@ -174,8 +174,15 @@ extension PulseModel {
     }
 
     /// Локальный лог оценок последней реакции — для недели валидации.
+    /// Оценка рассказанной новости: не повод глушить новости, а вкус — тема и источник звучат реже или чаще.
+    static let newsReaction = "news.item"
+
     func feedback(_ verdict: String) {
         guard let reaction = lastReaction else { return }
+        if reaction == Self.newsReaction, let item = currentNews {
+            newsDesk.record(verdict == "бесит" ? .disliked : .liked, for: item)
+            try? newsDesk.save()
+        }
         let entry: [String: Any] = [
             "ts": ISO8601DateFormatter().string(from: Date()), "reaction": reaction, "verdict": verdict,
             "line": lastLine ?? "",

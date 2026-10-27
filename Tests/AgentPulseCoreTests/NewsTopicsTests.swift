@@ -100,3 +100,72 @@ import Testing
         }
     }
 }
+
+@Suite struct NewsTasteTests {
+    let now = ISO8601DateFormatter().date(from: "2026-10-17T09:00:00Z")!
+
+    func desk(_ topics: [NewsTopic], sources: [String] = ["A"]) -> NewsDesk {
+        var desk = NewsDesk()
+        var pool: [NewsItem] = []
+        for index in 0..<20 {
+            for topic in topics {
+                for source in sources {
+                    // Суть из уникальных слов: иначе похожие новости склеятся в одну историю.
+                    let word = String(format: "%05d", pool.count)
+                    pool.append(NewsItem(title: "t", link: "https://\(topic)/\(source)/\(index)", source: source,
+                                         date: now.addingTimeInterval(-Double(index) * 60),
+                                         gist: "\(word)aa \(word)bb", topic: topic))
+                }
+            }
+        }
+        desk.update(pool)
+        return desk
+    }
+
+    /// Тема, которую открываешь, звучит чаще; та, что бесит, — реже, но не пропадает.
+    @Test func openedTopicsSoundMoreOften() {
+        var desk = desk([.it, .science, .games])
+        let sample = desk.available(now: now)
+        for _ in 0..<5 { desk.record(.opened, for: sample.first { $0.topic == .science }!) }
+        for _ in 0..<2 { desk.record(.disliked, for: sample.first { $0.topic == .games }!) }
+        // Доли тем при `pick`, равномерно пробегающем шкалу: наука 2.5, ИТ 1, игры 0.2.
+        let fresh = desk.available(now: now)
+        var counts: [NewsTopic: Int] = [:]
+        for step in 0..<1000 {
+            guard let topic = desk.byTaste(fresh, pick: Double(step) / 1000).first?.topic else { continue }
+            counts[topic, default: 0] += 1
+        }
+        #expect(abs(counts[.science, default: 0] - 676) <= 2, "\(counts)")
+        #expect(abs(counts[.it, default: 0] - 270) <= 2, "\(counts)")
+        #expect(abs(counts[.games, default: 0] - 54) <= 2, "\(counts)")
+        // Через `take` тема тоже выбирается по вкусу: дизайна нет, бросок — в остальные темы.
+        #expect(desk.take(now: now, roll: 0.99, pick: 0.999)?.topic != nil)
+    }
+
+    /// Надоевший источник молчит, пока есть другие; дизайн по-прежнему большая часть.
+    @Test func dislikedSourceIsSkipped() {
+        var desk = desk([.design], sources: ["A", "B"])
+        let fromA = desk.available(now: now).first { $0.source == "A" }!
+        desk.record(.disliked, for: fromA)
+        desk.record(.disliked, for: fromA)
+        for _ in 0..<10 {
+            #expect(desk.take(now: now, roll: 0)?.source == "B")
+        }
+        #expect(NewsDesk.weight(-100) > 0)
+    }
+
+    /// Оценка новости во вкус, а не в глушилку: два «бесит» новости не выключают новости.
+    @Test func newsFeedbackDoesNotMuteNews() {
+        let entries = (0..<3).map { _ in FeedbackLog.Entry(at: now, reaction: "news.item", verdict: "бесит") }
+            + (0..<2).map { _ in FeedbackLog.Entry(at: now, reaction: "news.design", verdict: "бесит") }
+        #expect(FeedbackLog.muted(entries, now: now).isEmpty)
+    }
+
+    /// Старый `news.json` без вкуса читается.
+    @Test func oldDeskDecodes() throws {
+        let data = Data(#"{"seen":["x"],"items":[]}"#.utf8)
+        let desk = try JSONDecoder().decode(NewsDesk.self, from: data)
+        #expect(desk.seen == ["x"])
+        #expect(desk.score(topic: .it) == 0)
+    }
+}
