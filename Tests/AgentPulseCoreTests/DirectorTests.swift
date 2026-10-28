@@ -217,6 +217,41 @@ struct ZeroRNG: RandomNumberGenerator {
         }
     }
 
+    /// В выходные новости тише: только в начале 45-минутных окон.
+    @Test func weekendNewsIsRarer() {
+        var rng = FixedRNG()
+        var d = director()
+        let saturday = date(2026, 10, 17, 10, 1)
+        _ = d.handle(Signal(.presence, .userBack), now: saturday, rng: &rng)
+        _ = d.handle(Signal(.news, .newsFresh, value: 5), now: saturday, rng: &rng)
+        var told: [Int] = []
+        for minute in 1..<180 {
+            let now = saturday.addingTimeInterval(Double(minute) * 60)
+            _ = d.handle(Signal(.presence, .userBack), now: now, rng: &rng)
+            if d.handle(Signal(.clock, .minute), now: now, rng: &rng)?.special == .news { told.append(minute) }
+        }
+        #expect(told.count >= 3 && told.count <= 4, "\(told)")
+        for (a, b) in zip(told, told.dropFirst()) { #expect(b - a >= 45) }
+    }
+
+    /// Долгая задача: раз в 15 мин, если ты рядом, — «Ещё работаю, уже 11 мин»; между ними — зевок без реплики.
+    @Test func longTaskChecksInEveryFifteenMinutes() {
+        var rng = FixedRNG()
+        var d = director()
+        let t = wednesday
+        _ = d.handle(Signal(.presence, .userBack), now: t, rng: &rng)
+        let early = d.handle(Signal(.agents, .agentStep, value: 5 * 60), now: t.addingTimeInterval(60), rng: &rng)
+        #expect(early == nil)
+        let first = d.handle(Signal(.agents, .agentStep, value: 11 * 60), now: t.addingTimeInterval(120), rng: &rng)
+        #expect(first?.reaction == "agent.checkIn")
+        #expect(first?.line?.contains("11 мин") == true || first?.line == "Долгая задача, но идёт")
+        let next = d.handle(Signal(.agents, .agentStep, value: 15 * 60), now: t.addingTimeInterval(360), rng: &rng)
+        #expect(next?.reaction == "agent.longTask")
+        #expect(next?.line == nil)
+        let later = d.handle(Signal(.agents, .agentStep, value: 27 * 60), now: t.addingTimeInterval(120 + 16 * 60), rng: &rng)
+        #expect(later?.reaction == "agent.checkIn")
+    }
+
     @Test func newsWhileAwayAreDeliveredOnReturn() {
         var rng = FixedRNG()
         var d = director()

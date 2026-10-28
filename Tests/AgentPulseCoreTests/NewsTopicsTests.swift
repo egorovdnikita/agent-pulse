@@ -53,14 +53,16 @@ import Testing
         var last: NewsItem?
         for step in 0..<40 {
             let roll = Double(step % 20) / 20 // ровно 65% бросков < 0.65
-            guard let item = desk.take(now: now, lastSource: last?.source, lastTopic: last?.topic, roll: roll) else { break }
+            // Тема среди остальных — по вкусу (здесь он ровный): `pick` обходит шкалу без повторов подряд.
+            let pick = Double((step * 7) % 40) / 40
+            guard let item = desk.take(now: now, lastSource: last?.source, lastTopic: last?.topic, roll: roll, pick: pick) else { break }
             counts[item.topic, default: 0] += 1
             last = item
         }
         #expect(counts[.design, default: 0] == 26)
         // Остальные темы — по очереди: каждая хотя бы раз, ни одна не перетягивает.
         let others = NewsTopic.allCases.filter { $0 != .design }
-        #expect(others.allSatisfy { (1...4).contains(counts[$0, default: 0]) })
+        #expect(others.allSatisfy { (1...4).contains(counts[$0, default: 0]) }, "\(counts)")
     }
 
     @Test func oldNewsJSONDecodesAsDesign() throws {
@@ -159,6 +161,16 @@ import Testing
         let entries = (0..<3).map { _ in FeedbackLog.Entry(at: now, reaction: "news.item", verdict: "бесит") }
             + (0..<2).map { _ in FeedbackLog.Entry(at: now, reaction: "news.design", verdict: "бесит") }
         #expect(FeedbackLog.muted(entries, now: now).isEmpty)
+    }
+
+    /// В выходные рабочие темы молчат, пока есть другие.
+    @Test func weekendSkipsWorkTopics() {
+        var desk = desk([.it, .economy, .art])
+        for step in 0..<10 {
+            #expect(desk.take(now: now, resting: true, roll: 0.99, pick: Double(step) / 10)?.topic == .art)
+        }
+        var work = self.desk([.it])
+        #expect(work.take(now: now, resting: true, roll: 0.99)?.topic == .it)
     }
 
     /// Старый `news.json` без вкуса читается.

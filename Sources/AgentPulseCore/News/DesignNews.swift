@@ -4,6 +4,9 @@ import Foundation
 public enum NewsTopic: String, Sendable, Codable, CaseIterable {
     case design, it, economy, science, art, games, space
 
+    /// Рабочие темы — в выходные молчат.
+    public static let workTopics: Set<NewsTopic> = [.it, .economy]
+
     public var title: String {
         switch self {
         case .design: "Новости дизайна"
@@ -628,11 +631,14 @@ public struct NewsDesk: Sendable, Codable {
     /// Взять следующую новость и запомнить как показанную. Тема: дизайн с вероятностью `designShare`
     /// (`roll` — случайное 0…1), иначе другая тема — не та, что была последней, по вкусу: чем чаще
     /// открываешь тему, тем вероятнее она (`pick` — случайное 0…1). Источники чередуются; надоевший молчит.
+    /// `resting` — выходной: рабочие темы (ИТ, экономика) молчат, пока есть другие.
     public mutating func take(
-        now: Date, lastSource: String? = nil, lastTopic: NewsTopic? = nil,
+        now: Date, lastSource: String? = nil, lastTopic: NewsTopic? = nil, resting: Bool = false,
         roll: Double = .random(in: 0..<1), pick: Double = .random(in: 0..<1)
     ) -> NewsItem? {
-        let all = available(now: now)
+        let everything = available(now: now)
+        let light = everything.filter { !NewsTopic.workTopics.contains($0.topic) }
+        let all = resting && !light.isEmpty ? light : everything
         let liked = all.filter { score(source: $0.source) > Self.mutedSourceScore }
         let fresh = liked.isEmpty ? all : liked
         let design = fresh.filter { $0.topic == .design }

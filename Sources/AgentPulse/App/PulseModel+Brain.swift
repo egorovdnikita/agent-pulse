@@ -152,7 +152,9 @@ extension PulseModel {
 
     /// Director решил: пора рассказать новость. (Отладка: `--news-now` — сразу.)
     func tellNews(at now: Date, duration: TimeInterval, leadIn: String? = nil, ignoringQuiet: Bool = false) {
-        guard ignoringQuiet || !quiet, let item = newsDesk.take(now: now, lastSource: currentNews?.source, lastTopic: currentNews?.topic) else { return }
+        guard ignoringQuiet || !quiet, let item = newsDesk.take(
+            now: now, lastSource: currentNews?.source, lastTopic: currentNews?.topic, resting: Calendar.current.isDateInWeekend(now)
+        ) else { return }
         currentNews = item
         currentNewsAt = now
         lastReaction = Self.newsReaction

@@ -62,6 +62,8 @@ public struct DirectorContext: Sendable {
     public var weekday: Int { calendar.component(.weekday, from: now) }
     public var day: Int { calendar.component(.day, from: now) }
     public var month: Int { calendar.component(.month, from: now) }
+    public var isWeekend: Bool { weekday == 1 || weekday == 7 }
+    public var minuteOfDay: Int { hour * 60 + calendar.component(.minute, from: now) }
 }
 
 public struct ReactionSpec: Sendable {
@@ -160,6 +162,13 @@ public enum ReactionCatalog {
                      behavior: .done,
                      linesFor: { _, c in ["Уже \(c.today.agentTasks) задач за сегодня", "Сегодня \(c.today.agentTasks) задач, красота"] },
                      bubble: 3),
+        // Долгая задача: раз в 15 мин, если ты рядом, — коротко, что дело идёт **[решение]**.
+        ReactionSpec("agent.checkIn", on: [.agentStep], tier: .agent, cooldown: 15 * 60,
+                     when: { signal, c in c.userPresent && !c.quiet && (signal.value ?? 0) > 10 * 60 }, behavior: .notice,
+                     linesFor: { signal, _ in
+                         let minutes = Int((signal.value ?? 0) / 60)
+                         return ["Ещё работаю, уже \(minutes) мин", "Всё ещё в деле, \(minutes) мин", "Долгая задача, но идёт"]
+                     }, bubble: 3),
         ReactionSpec("agent.longTask", on: [.agentStep], tier: .agent, cooldown: 3 * 60,
                      when: { signal, _ in (signal.value ?? 0) > 10 * 60 }, behavior: .yawn),
     ]
@@ -306,7 +315,11 @@ public enum ReactionCatalog {
     /// Новость можно рассказать: ты рядом и не занят, не тишина, не работает агент, день.
     static func canTellNews(_ c: DirectorContext) -> Bool {
         c.newsWaiting > 0 && c.userPresent && c.idleSeconds < 120 && !c.quiet && !c.agentBusy && (9..<22).contains(c.hour)
+            && (!c.isWeekend || c.minuteOfDay % weekendNewsSlot == 0)
     }
+
+    /// В выходные тише **[решение]**: новость не чаще раза в 45 мин — в начале каждого 45-минутного окна.
+    static let weekendNewsSlot = 45
 
     /// Новость каждые 15 минут **[решение]**, пока ты рядом, с 9 до 22, не в тишине и не пока работает агент.
     /// Все поводы делят один интервал.
