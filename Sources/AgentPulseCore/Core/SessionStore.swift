@@ -5,6 +5,8 @@ public struct SessionInfo: Sendable, Equatable, Identifiable {
     public var source: AgentEvent.Source
     public var context: String?
     public var hostBundleId: String?
+    /// Имя агента, если источник запускает разных (`AgentEvent.agent`).
+    public var agent: String?
     public var phase: Phase
     public var phaseSince: Date
     public var lastEventAt: Date
@@ -64,6 +66,7 @@ public struct SessionTable: Sendable {
         session.lastEventAt = event.ts
         if let context = event.context { session.context = context }
         if let host = event.hostBundleId { session.hostBundleId = host }
+        if let agent = event.agent { session.agent = agent }
 
         switch event.kind {
         case .promptSubmitted:

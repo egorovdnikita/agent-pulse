@@ -28,7 +28,7 @@ struct MenuContent: View {
         } else {
             Section("Сейчас") {
                 ForEach(active.prefix(6)) { session in
-                    let name = [BubbleCategory.agentTitle(session.source), session.context].compactMap(\.self).joined(separator: " · ")
+                    let name = BubbleCategory.sessionTitle(session)
                     Text("\(name) — \(session.phase.text)")
                 }
             }

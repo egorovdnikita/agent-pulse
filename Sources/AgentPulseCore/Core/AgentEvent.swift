@@ -3,7 +3,7 @@ import Foundation
 /// Единая модель события. Все источники приводятся к ней; UI и маскот ничего не знают об источниках.
 public struct AgentEvent: Codable, Sendable, Equatable {
     public enum Source: String, Codable, Sendable {
-        case claudeCode, cowork, claudeChat, figmaAI, figmaMCP, figmaCompanion
+        case claudeCode, cowork, claudeChat, figmaAI, figmaMCP, figmaCompanion, orca
 
         public var displayName: String {
             switch self {
@@ -12,6 +12,7 @@ public struct AgentEvent: Codable, Sendable, Equatable {
             case .claudeChat: "Claude Chat"
             case .figmaAI: "Figma AI"
             case .figmaMCP, .figmaCompanion: "Figma"
+            case .orca: "Orca"
             }
         }
     }
@@ -38,6 +39,8 @@ public struct AgentEvent: Codable, Sendable, Equatable {
     public var isError: Bool
     /// Bundle id приложения, в котором живёт агент (терминал, IDE), — для перехода по клику.
     public var hostBundleId: String?
+    /// Имя агента, если источник запускает разных («Codex» в Orca). nil — агент следует из источника.
+    public var agent: String?
     public var ts: Date
 
     public init(
@@ -50,6 +53,7 @@ public struct AgentEvent: Codable, Sendable, Equatable {
         awaitReason: AwaitReason? = nil,
         isError: Bool = false,
         hostBundleId: String? = nil,
+        agent: String? = nil,
         ts: Date = Date()
     ) {
         self.source = source
@@ -61,6 +65,7 @@ public struct AgentEvent: Codable, Sendable, Equatable {
         self.awaitReason = awaitReason
         self.isError = isError
         self.hostBundleId = hostBundleId
+        self.agent = agent
         self.ts = ts
     }
 }

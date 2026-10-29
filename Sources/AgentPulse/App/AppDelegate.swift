@@ -11,6 +11,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     private(set) var panel: OverlayPanel?
     private var server: SocketServer?
     private var cowork: CoworkWatcher?
+    private var orca: OrcaWatcher?
     private var companion: LocalHTTPServer?
     private var chatWindow: ChatWindowWatcher?
     private var senses: [Sense] = []
@@ -77,6 +78,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
 
         startServer()
         startCowork()
+        startOrca()
         startCompanion()
         startChatWindow()
         model.start()
@@ -131,6 +133,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     func applicationWillTerminate(_ notification: Notification) {
         server?.stop()
         cowork?.stop()
+        orca?.stop()
         companion?.stop()
         chatWindow?.stop()
         senses.forEach { $0.stop() }
@@ -163,6 +166,28 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         }
         model.coworkWatching = watcher.start()
         cowork = watcher
+    }
+
+    /// Агенты в Orca. Claude Code оттуда же виден через хуки Pulse подробнее — без хуков берём его из Orca.
+    private func startOrca() {
+        orca?.stop()
+        orca = nil
+        guard model.config.sources.orca else {
+            model.orcaWatching = nil
+            return
+        }
+        let inbox = model.inbox
+        let watcher = OrcaWatcher(includeClaude: !model.hooksInstalled) { events in
+            for event in events { inbox.yield(.event(event)) }
+        }
+        model.orcaWatching = watcher.start()
+        orca = watcher
+    }
+
+    func setOrcaEnabled(_ enabled: Bool) {
+        model.config.sources.orca = enabled
+        try? model.config.save()
+        startOrca()
     }
 
     /// Сервер для плагина-компаньона Figma: события «ИИ генерирует» и кадры зеркала.
@@ -562,6 +587,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         do {
             try HookInstaller.install(command: command)
             model.hooksInstalled = true
+            startOrca()
         } catch {
             showAlert("Хуки не установлены", "\(error)")
         }
@@ -571,6 +597,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         do {
             try HookInstaller.uninstall()
             model.hooksInstalled = false
+            startOrca()
         } catch {
             showAlert("Хуки не удалены", "\(error)")
         }

@@ -385,6 +385,12 @@ private struct SourcesSettings: View {
                     Text(coworkStatus(model)).font(.caption).foregroundStyle(.secondary)
                 }
             }
+            Section("Orca") {
+                Toggle(isOn: Binding(get: { model.config.sources.orca }, set: { app.setOrcaEnabled($0) })) {
+                    Text("Следить за агентами в Orca")
+                    Text(orcaStatus(model)).font(.caption).foregroundStyle(.secondary)
+                }
+            }
             Section("Claude в браузере") {
                 LabeledContent("Мост для расширения", value: model.browserBridgeInstalled ? "установлен" + Self.ago(model, .claudeChat) : "не установлен")
                 if model.browserBridgeInstalled {
@@ -440,6 +446,14 @@ private struct SourcesSettings: View {
         switch model.coworkWatching {
         case true?: "Слежу" + Self.ago(model, .cowork)
         case false?: "Cowork не найден"
+        case nil: "Выключено"
+        }
+    }
+
+    private func orcaStatus(_ model: PulseModel) -> String {
+        switch model.orcaWatching {
+        case true?: "Codex, OpenCode и другие" + Self.ago(model, .orca)
+        case false?: "Orca не найдена"
         case nil: "Выключено"
         }
     }

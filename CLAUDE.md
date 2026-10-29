@@ -34,7 +34,7 @@
 | Оверлей | `NSPanel` (`.nonactivatingPanel`, `.floating`, `canJoinAllSpaces`), прозрачный фон | Не крадёт фокус, одна панель на все рабочие столы, кроме полноэкранных |
 | Маскот | Процедурная поза + отрисовка слоями Core Animation **[решение]**: покой и сон — повторяющиеся CA-анимации без кадров на CPU, активные состояния — display link 30 fps | Персонаж геометрический, поведение процедурное; SwiftUI `Canvas` упирался в 5–8% CPU в покое |
 | Хранение | JSON в Application Support для настроек и памяти (агрегаты, 30 дней) | Только локально; без внешних зависимостей |
-| Агенты | Claude Code hooks → `pulse-hook` → Unix socket; Cowork — журнал `audit.jsonl`; claude.ai и Figma Make — расширение Chrome; Figma AI — плагин-компаньон; чат в Claude desktop — Accessibility по opt-in **[решение]** | Только наблюдение, см. «Каналы агентов» |
+| Агенты | Claude Code hooks → `pulse-hook` → Unix socket; Cowork — журнал `audit.jsonl`; Codex, OpenCode и другие в Orca — снимок `last-status.json` **[решение]**; claude.ai и Figma Make — расширение Chrome; Figma AI — плагин-компаньон; чат в Claude desktop — Accessibility по opt-in **[решение]** | Только наблюдение, см. «Каналы агентов» |
 | Обновления | Sparkle | Developer ID + нотаризация, не App Store |
 | Тесты | Swift Testing, виртуальные часы для Director | — |
 
@@ -375,6 +375,7 @@ struct ReactionSpec {
 | Источник | Канал | Что видно | Статус |
 |---|---|---|---|
 | Claude Code (CLI, IDE, вкладка Code в Claude desktop) | Hooks → `pulse-hook` → сокет | Всё: запрос, каждый инструмент, разрешение, итог | **Готово** (MVP) |
+| Агенты в Orca (Codex, OpenCode, Gemini, Cursor…) | Снимок `~/Library/Application Support/orca/agent-hooks/last-status.json` (FSEvents): Orca сама ставит хуки своим агентам и переписывает файл, одна запись на панель; события — разница соседних снимков (`OrcaStatus`) | `working` → работает (имя инструмента), `blocked` → ждёт разрешения, `waiting` → ждёт ответа, `done` → итог (`outcome: failure` → ошибка). Текст промпта, ответа и аргументы не читаются | **Сделано** **[решение]**. Формат внутренний (`version: 2`), при другой версии источник «не найден». Claude Code из Orca берётся отсюда, только если хуки Pulse не стоят. В меню — «Codex в Orca · проект», заголовок облачка — Orca с её значком, клик открывает Orca |
 | Claude Cowork | Хвост `~/Library/Application Support/Claude/local-agent-mode-sessions/**/audit.jsonl` (FSEvents) | Всё: `user` → запрос, `assistant.tool_use` → инструмент, `permission_request` → ждёт, `result` → итог (`is_error`) | **Сделано**. Формат внутренний (поток Agent SDK) → адаптер версионируется, при незнакомом формате молча выключается |
 | Claude Chat: вызовы MCP (в т.ч. Figma-коннектор) | Строки `[MCP] tool_approval_gate` в `~/Library/Logs/Claude/claude.ai-web.log` (`toolName`, `approvalRequired`); локальные MCP — через MCP-прокси | Только вызовы инструментов и запрос одобрения | Под вопросом: лог неофициальный, пишется ли он сразу — не проверено |
 | Claude Chat в браузере (claude.ai) | Расширение Chrome: content script следит за состоянием генерации (кнопка «Стоп», диалог одобрения) → native messaging → сокет | Генерирует / готово / ждёт одобрения | **Сделано** (`Extensions/Chrome`, мост — `pulse-hook` в режиме native messaging). Зависит от DOM claude.ai — селекторы изолированы в `content.js` |

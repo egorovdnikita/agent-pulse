@@ -35,6 +35,8 @@ final class PulseModel {
     var hooksInstalled = false
     /// Следим ли за журналами Cowork (nil — выключено в настройках).
     var coworkWatching: Bool?
+    /// Следим ли за агентами в Orca (nil — выключено в настройках).
+    var orcaWatching: Bool?
     var browserBridgeInstalled = false
     var companionError: String?
     /// Есть ли у приложения разрешение «Универсальный доступ» (нужно для чата в Claude desktop).

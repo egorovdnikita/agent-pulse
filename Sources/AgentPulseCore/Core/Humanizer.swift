@@ -103,6 +103,15 @@ public enum Humanizer {
             return HumanizedTool(kind: .other, target: .code, text: "Подбирает инструменты")
         case "Skill":
             return HumanizedTool(kind: .other, target: .code, text: "Применяет навык")
+        // Агенты не от Anthropic (Codex, OpenCode, Gemini — через Orca) называют инструменты по-своему.
+        case "exec_command", "shell", "local_shell", "bash", "run_shell_command":
+            return HumanizedTool(kind: .run, target: .code, text: bash(input))
+        case "apply_patch", "edit", "write", "write_file", "replace":
+            return HumanizedTool(kind: .edit, target: .code, text: "Правит файл")
+        case "read", "view", "read_file", "read_many_files":
+            return HumanizedTool(kind: .read, target: .code, text: "Читает файл")
+        case "grep", "glob", "list", "search_file_content", "list_directory":
+            return HumanizedTool(kind: .read, target: .code, text: "Изучает проект")
         default:
             return HumanizedTool(kind: .other, target: .code, text: "Работает: \(tool)")
         }

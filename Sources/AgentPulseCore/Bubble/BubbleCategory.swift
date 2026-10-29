@@ -3,12 +3,13 @@ import Foundation
 /// К чему относится реплика: заголовок облачка, иконка и её цвет. Работа Claude и Figma — иконкой самого приложения,
 /// остальное — иконками Solar (стиль Bold, как в box-ui), у каждой категории свой цвет.
 public enum BubbleCategory: String, Sendable, CaseIterable, Codable {
-    case claude, figma, news, newsIT, newsEconomy, newsScience, newsArt, newsGames, newsSpace, battery, wellbeing, network, devices, day, holiday, together, mood, rest
+    case claude, figma, orca, news, newsIT, newsEconomy, newsScience, newsArt, newsGames, newsSpace, battery, wellbeing, network, devices, day, holiday, together, mood, rest
 
     public var title: String {
         switch self {
         case .claude: "Claude"
         case .figma: "Figma"
+        case .orca: "Orca"
         case .news: NewsTopic.design.title
         case .newsIT: NewsTopic.it.title
         case .newsEconomy: NewsTopic.economy.title
@@ -31,7 +32,7 @@ public enum BubbleCategory: String, Sendable, CaseIterable, Codable {
     /// Иконка Solar Bold; для приложений — запасная, если приложение не установлено.
     public var icon: String {
         switch self {
-        case .claude, .figma: "stars"
+        case .claude, .figma, .orca: "stars"
         case .news: "palette"
         case .newsIT: "code-square"
         case .newsEconomy: "graph-up"
@@ -56,6 +57,7 @@ public enum BubbleCategory: String, Sendable, CaseIterable, Codable {
         switch self {
         case .claude: 0xD97757
         case .figma: 0xA259FF
+        case .orca: 0x1C1C1E
         case .news: 0x2F6BFF
         case .newsIT: 0x3A3A3C
         case .newsEconomy: 0x00875A
@@ -80,6 +82,7 @@ public enum BubbleCategory: String, Sendable, CaseIterable, Codable {
         switch self {
         case .claude: "com.anthropic.claudefordesktop"
         case .figma: "com.figma.Desktop"
+        case .orca: OrcaStatus.hostBundleId
         default: nil
         }
     }
@@ -88,6 +91,7 @@ public enum BubbleCategory: String, Sendable, CaseIterable, Codable {
     public static func agent(_ source: AgentEvent.Source?) -> BubbleCategory {
         switch source {
         case .figmaAI, .figmaMCP, .figmaCompanion: .figma
+        case .orca: .orca
         default: .claude
         }
     }
@@ -100,7 +104,15 @@ public enum BubbleCategory: String, Sendable, CaseIterable, Codable {
         case .claudeChat, nil: "Claude"
         case .figmaAI: "Figma AI"
         case .figmaMCP, .figmaCompanion: "Figma"
+        case .orca: "Orca"
         }
+    }
+
+    /// Строка сессии в меню: кто работает и где. «Codex в Orca · agent-pulse».
+    public static func sessionTitle(_ session: SessionInfo) -> String {
+        var name = session.agent ?? agentTitle(session.source)
+        if session.hostBundleId == OrcaStatus.hostBundleId, name != "Orca" { name += " в Orca" }
+        return [name, session.context].compactMap(\.self).joined(separator: " · ")
     }
 
     public var isNews: Bool {
