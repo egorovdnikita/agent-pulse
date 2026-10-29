@@ -87,9 +87,6 @@ struct PillView: View {
         )
         // То же меню, что в строке меню: значок там легко потерять среди других.
         .contextMenu { MenuContent(app: app) }
-        .overlay(alignment: model.config.display.anchor.isRight ? .topLeading : .topTrailing) {
-            SessionCountBadge(count: model.activeSessions.count, diameter: diameter)
-        }
     }
 
     private func bubbleSlot(tailOnRight: Bool) -> some View {
@@ -107,26 +104,5 @@ struct PillView: View {
         }
         .frame(width: BubbleView.maxWidth, alignment: tailOnRight ? .trailing : .leading)
         .animation(reduceMotion ? .easeOut(duration: 0.2) : .spring(duration: 0.18), value: model.bubbleKey)
-    }
-}
-
-/// Несколько агентов работают одновременно — маленький счётчик у маскота. Маскот показывает самого важного.
-struct SessionCountBadge: View {
-    let count: Int
-    let diameter: Double
-
-    var body: some View {
-        if count > 1 {
-            Text("\(count)")
-                .font(.system(size: max(9, diameter * 0.2), weight: .bold, design: .rounded))
-                .foregroundStyle(.white)
-                .padding(.horizontal, 5)
-                .frame(minWidth: 16, minHeight: 16)
-                .background(Capsule().fill(.black.opacity(0.75)))
-                .overlay(Capsule().strokeBorder(.white, lineWidth: 1.5))
-                .padding(diameter * 0.25)
-                .transition(.scale.combined(with: .opacity))
-                .help("Агентов в работе: \(count)")
-        }
     }
 }
