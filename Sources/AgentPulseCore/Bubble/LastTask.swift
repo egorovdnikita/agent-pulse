@@ -11,13 +11,22 @@ public struct LastTask: Sendable, Equatable {
     }
 
     public var source: AgentEvent.Source
+    /// Приложение, в котором живёт агент (Orca, терминал).
+    public var hostBundleId: String?
+    /// Имя агента, если источник запускает разных (`AgentEvent.agent`).
+    public var agent: String?
     public var usedFigma: Bool
     public var context: String?
     public var status: Status
     public var at: Date
 
-    public init(source: AgentEvent.Source, usedFigma: Bool, context: String?, status: Status, at: Date) {
+    public init(
+        source: AgentEvent.Source, hostBundleId: String? = nil, agent: String? = nil,
+        usedFigma: Bool, context: String?, status: Status, at: Date
+    ) {
         self.source = source
+        self.hostBundleId = hostBundleId
+        self.agent = agent
         self.usedFigma = usedFigma
         self.context = context
         self.status = status
@@ -37,12 +46,14 @@ public struct LastTask: Sendable, Equatable {
             guard let previous else { return nil }
             status = previous.status
         }
-        return LastTask(source: session.source, usedFigma: session.usedFigma, context: session.context, status: status, at: event.ts)
+        return LastTask(
+            source: session.source, hostBundleId: session.hostBundleId, agent: session.agent, usedFigma: session.usedFigma, context: session.context, status: status, at: event.ts)
     }
 
     /// Две строки: откуда и что с ним. «Figma (Cowork)» / «Готово · 5 мин назад».
     public func summary(now: Date) -> String {
-        let origin = usedFigma && source != .figmaAI ? "Figma (\(source.displayName))" : source.displayName
+        let name = BubbleCategory.origin(source, agent: agent, host: hostBundleId)
+        let origin = usedFigma && source != .figmaAI ? "Figma (\(name))" : name
         let head = [origin, context].compactMap(\.self).joined(separator: " · ")
         let tail = switch status {
         case .active(let text): text

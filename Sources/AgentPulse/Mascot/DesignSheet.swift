@@ -57,6 +57,7 @@ enum BubbleSheet {
     static let samples: [BubbleMessage] = [
         BubbleMessage(category: .claude, title: "Claude Code", text: "Готово, проверь"),
         BubbleMessage(category: .figma, title: "Figma", text: "Двигаю слои…"),
+        BubbleMessage(category: .orca, title: "Orca", text: "У меня готово"),
         BubbleMessage(category: .news, title: "Новости дизайна", text: "Айдентику редко используют ровно в тех форматах, которые предусматривались при разработке"),
         BubbleMessage(category: .newsIT, title: "Новости ИТ", text: "Microsoft представила обновлённое приложение «Фотографии» для Windows 11"),
         BubbleMessage(category: .newsEconomy, title: "Экономика", text: "МРОТ в России составит 28 935 рублей в 2027 году"),

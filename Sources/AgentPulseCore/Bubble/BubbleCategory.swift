@@ -87,9 +87,10 @@ public enum BubbleCategory: String, Sendable, CaseIterable, Codable {
         }
     }
 
-    /// Агентный источник → приложение в заголовке.
-    public static func agent(_ source: AgentEvent.Source?) -> BubbleCategory {
-        switch source {
+    /// Агентный источник → приложение в заголовке. Агент внутри Orca — значок Orca, кто бы он ни был.
+    public static func agent(_ source: AgentEvent.Source?, host: String? = nil) -> BubbleCategory {
+        if host == OrcaStatus.hostBundleId { return .orca }
+        return switch source {
         case .figmaAI, .figmaMCP, .figmaCompanion: .figma
         case .orca: .orca
         default: .claude
@@ -97,8 +98,9 @@ public enum BubbleCategory: String, Sendable, CaseIterable, Codable {
     }
 
     /// Заголовок агентной реплики — приложение, в котором идёт работа.
-    public static func agentTitle(_ source: AgentEvent.Source?) -> String {
-        switch source {
+    public static func agentTitle(_ source: AgentEvent.Source?, host: String? = nil) -> String {
+        if host == OrcaStatus.hostBundleId { return "Orca" }
+        return switch source {
         case .claudeCode: "Claude Code"
         case .cowork: "Claude Cowork"
         case .claudeChat, nil: "Claude"
@@ -108,10 +110,15 @@ public enum BubbleCategory: String, Sendable, CaseIterable, Codable {
         }
     }
 
-    /// Строка сессии в меню: кто работает и где. «Codex в Orca · agent-pulse».
+    /// Кто работает и где: «Codex в Orca», «Claude Code».
+    public static func origin(_ source: AgentEvent.Source, agent: String?, host: String?) -> String {
+        let name = agent ?? agentTitle(source)
+        return host == OrcaStatus.hostBundleId && name != "Orca" ? name + " в Orca" : name
+    }
+
+    /// Строка сессии в меню: «Codex в Orca · agent-pulse».
     public static func sessionTitle(_ session: SessionInfo) -> String {
-        var name = session.agent ?? agentTitle(session.source)
-        if session.hostBundleId == OrcaStatus.hostBundleId, name != "Orca" { name += " в Orca" }
+        let name = origin(session.source, agent: session.agent, host: session.hostBundleId)
         return [name, session.context].compactMap(\.self).joined(separator: " · ")
     }
 

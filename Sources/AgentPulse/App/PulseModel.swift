@@ -200,25 +200,30 @@ final class PulseModel {
         feedAgentSignals(event)
 
         if let reaction = MascotStateMapper.reaction(for: event), MascotStateMapper.dominant(sessions)?.id == event.sessionId {
-            playReaction(reaction, source: event.source, now: now)
+            let host = sessions.first { $0.id == event.sessionId }?.hostBundleId ?? event.hostBundleId
+            playReaction(reaction, source: event.source, host: host, now: now)
         }
         notify(event)
         update(now: now)
     }
 
-    func playReaction(_ reaction: MascotReaction, source: AgentEvent.Source? = nil, now: Date = Date()) {
+    func playReaction(_ reaction: MascotReaction, source: AgentEvent.Source? = nil, host: String? = nil, now: Date = Date()) {
         animator.enqueue(reaction)
         lastReaction = "agent.\(reaction.rawValue)"
         if let trigger = reaction.bubbleTrigger {
+            let host = source == nil ? dominant?.hostBundleId : host
             let source = source ?? dominant?.source
-            scheduler.react(trigger, category: .agent(source), title: BubbleCategory.agentTitle(source), now: now)
+            scheduler.react(
+                trigger, category: .agent(source, host: host), title: BubbleCategory.agentTitle(source, host: host), now: now
+            )
         }
     }
 
     private func notify(_ event: AgentEvent) {
         guard let notifier else { return }
         let awaitId = "await-\(event.sessionId)"
-        let title = [event.source.displayName, event.context].compactMap(\.self).joined(separator: " · ")
+        let origin = BubbleCategory.origin(event.source, agent: event.agent, host: event.hostBundleId)
+        let title = [origin, event.context].compactMap(\.self).joined(separator: " · ")
         switch event.kind {
         case .awaitingUser where config.events.awaitingUser.notification:
             let fallback = event.awaitReason == .permission ? "Мне нужно твоё разрешение" : "Я жду тебя"
@@ -259,7 +264,8 @@ final class PulseModel {
         let activityTarget: WorkTarget? = if case .working(let activity) = dominant?.phase { activity.target } else { nil }
         scheduler.ambient(
             MascotStateMapper.ambientTrigger(for: state, target: activityTarget),
-            category: .agent(dominant?.source), title: BubbleCategory.agentTitle(dominant?.source), heldSince: stateSince, now: now
+            category: .agent(dominant?.source, host: dominant?.hostBundleId),
+            title: BubbleCategory.agentTitle(dominant?.source, host: dominant?.hostBundleId), heldSince: stateSince, now: now
         )
         scheduler.tick(now: now)
         updateHover()
@@ -286,8 +292,8 @@ final class PulseModel {
         }
         if case .waitYou(let reason) = target, previous != target {
             scheduler.react(
-                MascotStateMapper.waitTrigger(reason), category: .agent(dominant?.source),
-                title: BubbleCategory.agentTitle(dominant?.source), now: now
+                MascotStateMapper.waitTrigger(reason), category: .agent(dominant?.source, host: dominant?.hostBundleId),
+                title: BubbleCategory.agentTitle(dominant?.source, host: dominant?.hostBundleId), now: now
             )
         }
         if target == .sleep && previous != .sleep {
@@ -411,7 +417,7 @@ final class PulseModel {
     /// вечером, если сообщение давнее, — итог дня (в пятницу и выходные — недели); иначе «Я тут».
     private func restingMessage(now: Date) -> BubbleMessage {
         if let top = dominant, state != .sleep, state != .idle {
-            return HoverStory.working(source: top.source, phase: top.phase, since: promptAt[top.id] ?? top.phaseSince, steps: top.timeline.count, now: now)
+            return HoverStory.working(source: top.source, host: top.hostBundleId, phase: top.phase, since: promptAt[top.id] ?? top.phaseSince, steps: top.timeline.count, now: now)
         }
         if let news = awayNews, let at = awayNewsAt, now.timeIntervalSince(at) < 10 * 60 {
             return BubbleMessage(category: .claude, title: "Claude", text: news.summary, when: HumanTime.ago(now.timeIntervalSince(at)))

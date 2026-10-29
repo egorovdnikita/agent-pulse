@@ -44,8 +44,11 @@ extension PulseModel {
         } else if let special = decision.special {
             onSpecial?(special, decision.line)
         } else if let line = decision.line {
-            let category = BubbleCategory.forReaction(decision.reaction)
-            let title = category == .claude ? BubbleCategory.agentTitle(lastTask?.source) : nil
+            // Агентная реакция — значком и именем приложения, где работал агент (Claude, Orca).
+            let host = lastTask?.hostBundleId
+            let reacted = BubbleCategory.forReaction(decision.reaction)
+            let category = reacted == .claude ? BubbleCategory.agent(lastTask?.source, host: host) : reacted
+            let title = reacted == .claude ? BubbleCategory.agentTitle(lastTask?.source, host: host) : nil
             scheduler.say(
                 line, duration: decision.bubbleDuration, category: category, title: title,
                 agent: decision.tier == .agent, now: signal.ts

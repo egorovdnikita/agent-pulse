@@ -131,7 +131,7 @@ private struct GeneralSettings: View {
     @MainActor static func now(_ model: PulseModel) -> String {
         if let top = model.dominant, model.state != .sleep, model.state != .idle {
             let story = HoverStory.working(
-                source: top.source, phase: top.phase, since: model.promptAt[top.id] ?? top.phaseSince,
+                source: top.source, host: top.hostBundleId, phase: top.phase, since: model.promptAt[top.id] ?? top.phaseSince,
                 steps: top.timeline.count, now: Date()
             )
             return "\(story.title): \(story.text.prefix(1).lowercased() + story.text.dropFirst())"

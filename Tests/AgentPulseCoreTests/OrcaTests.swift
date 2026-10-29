@@ -145,3 +145,21 @@ enum OrcaFixtures {
         #expect(BubbleCategory.orca.appBundleId == OrcaStatus.hostBundleId)
     }
 }
+
+@Suite struct OrcaHostTests {
+    @Test func claudeCodeInOrcaSpeaksAsOrca() {
+        let orca = OrcaStatus.hostBundleId
+        #expect(BubbleCategory.agent(.claudeCode, host: orca) == .orca)
+        #expect(BubbleCategory.agentTitle(.claudeCode, host: orca) == "Orca")
+        #expect(BubbleCategory.agent(.claudeCode, host: "com.apple.Terminal") == .claude)
+        #expect(BubbleCategory.agentTitle(.claudeCode) == "Claude Code")
+
+        let now = Date()
+        let story = HoverStory.working(source: .claudeCode, host: orca, phase: .thinking, since: now, steps: 0, now: now)
+        #expect(story.category == .orca)
+        #expect(story.title == "Orca")
+
+        let task = LastTask(source: .claudeCode, hostBundleId: orca, usedFigma: false, context: "agent-pulse", status: .done, at: now)
+        #expect(task.summary(now: now).hasPrefix("Claude Code в Orca · agent-pulse"))
+    }
+}

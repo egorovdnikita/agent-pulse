@@ -3,7 +3,7 @@ import Foundation
 /// Что маскот рассказывает при наведении — от себя и по-человечески, без технических строк.
 public enum HoverStory {
     /// Агент сейчас занят: «Работаю 12 мин, сделано 8 шагов», «Жду тебя уже 3 мин».
-    public static func working(source: AgentEvent.Source?, phase: Phase, since: Date, steps: Int, now: Date) -> BubbleMessage {
+    public static func working(source: AgentEvent.Source?, host: String? = nil, phase: Phase, since: Date, steps: Int, now: Date) -> BubbleMessage {
         let minutes = Int(now.timeIntervalSince(since) / 60)
         let text: String
         switch phase {
@@ -16,7 +16,7 @@ public enum HoverStory {
             let time = minutes > 0 ? "Работаю \(minutes) мин" : "Только начинаю"
             text = steps > 1 ? "\(time), сделано \(steps) \(HumanTime.plural(steps, "шаг", "шага", "шагов"))" : time
         }
-        return BubbleMessage(category: .agent(source), title: BubbleCategory.agentTitle(source), text: text, when: "сейчас")
+        return BubbleMessage(category: .agent(source, host: host), title: BubbleCategory.agentTitle(source, host: host), text: text, when: "сейчас")
     }
 
     /// Итог дня или, в пятницу вечером и в выходные, недели. nil — рассказывать нечего.
