@@ -6,6 +6,10 @@ public enum SenseID: String, Sendable, Codable, CaseIterable {
     case appearance, audio, quiet, keyboard, interaction, lidAngle
     /// Новости UI/UX-дизайна из публичных лент **[решение]**.
     case news
+    /// Гости: флешки, диски, iPhone по кабелю (только факт подключения).
+    case devices
+    /// Сам Mac между запусками: внезапная перезагрузка, новая версия системы.
+    case system
 }
 
 /// Что заметил орган чувств. Только системные сигналы: ни окон, ни приложений, ни содержимого.
@@ -13,20 +17,34 @@ public enum SignalKind: String, Sendable, Codable, CaseIterable {
     // Питание
     case batteryLow, batteryCritical, batteryRecovered, chargerConnected, chargerDisconnected, fullyCharged
     case lowPowerOn, lowPowerOff
+    // Слабый адаптер (value — ватты); зарядка на паузе у ~80% (оптимизированная), value — процент
+    case chargerWeak, chargingPaused
     // Тепло, память, диск
     case thermalHigh, thermalNormal, memoryPressure, memoryNormal, diskLow, diskOK
     // Сеть и мониторы (value — направление нового/ушедшего монитора: −1 слева, 1 справа)
     case networkLost, networkBack, displayAdded, displayRemoved
+    // Интернет через телефон или «экономия трафика»; большая загрузка (value — MB/s)
+    case networkExpensive, networkCheap, bigDownload
+    // Флешка или диск: подключили, вынули без извлечения; iPhone по кабелю
+    case diskMounted, diskYanked, phoneConnected
     // Сон, блокировка (value у screenUnlocked — сколько был заблокирован, s)
     case systemWake, systemSleep, screenLocked, screenUnlocked
+    // Заставка
+    case screensaverOn, screensaverOff
+    // Между запусками: Mac выключился внезапно; обновилась macOS
+    case unexpectedRestart, systemUpdated
     // Присутствие (value у userBack — сколько отсутствовал, s)
     case userAway, userBack, longWork
     // Ритм: сосредоточен (давно без пауз), замер (пауза посреди работы)
     case userFocused, userPaused
     // Часы: раз в минуту; uptime > 7 дней
     case minute, uptimeLong
+    // Сменился часовой пояс (value — сдвиг, ч); перевели часы (value — сдвиг, ч)
+    case timeZoneChanged, clockShifted
     // Тема, звук, клавиатура
     case darkMode, lightMode, headphonesOn, headphonesOff, volumeMax, capsLockOn, capsLockOff
+    // Где-то играет звук (только факт, без содержимого)
+    case soundPlaying
     // Тишина: микрофон/камера заняты, полный экран, тихие часы
     case quietOn, quietOff
     // Рабочие столы
@@ -35,10 +53,14 @@ public enum SignalKind: String, Sendable, Codable, CaseIterable {
     case stroke, poke, dragged, thrown, dropped
     // Курсор быстро пролетел сквозь маскота
     case cursorFlyby
+    // Трясёшь курсор, чтобы найти его; над маскотом что-то несут (перетаскивание файла)
+    case cursorShake, itemCarried
     // Агенты — сверх основного конвейера состояний
     case agentWaitingLong, agentErrorStreak, agentStep, agentDone, agentError
     // Эксперимент: угол крышки, градусы
     case lidAngle
+    // Крышку почти закрыли
+    case lidClosing
     // Есть свежие новости дизайна (value — сколько)
     case newsFresh
 }
@@ -48,23 +70,25 @@ extension SignalKind {
     public var defaultSense: SenseID {
         switch self {
         case .batteryLow, .batteryCritical, .batteryRecovered, .chargerConnected, .chargerDisconnected, .fullyCharged,
-             .lowPowerOn, .lowPowerOff: .power
+             .lowPowerOn, .lowPowerOff, .chargerWeak, .chargingPaused: .power
         case .thermalHigh, .thermalNormal: .thermal
         case .memoryPressure, .memoryNormal: .memory
         case .diskLow, .diskOK: .disk
-        case .networkLost, .networkBack: .network
+        case .networkLost, .networkBack, .networkExpensive, .networkCheap, .bigDownload: .network
+        case .diskMounted, .diskYanked, .phoneConnected: .devices
+        case .unexpectedRestart, .systemUpdated: .system
         case .displayAdded, .displayRemoved: .display
-        case .systemWake, .systemSleep, .screenLocked, .screenUnlocked: .sleepWake
+        case .systemWake, .systemSleep, .screenLocked, .screenUnlocked, .screensaverOn, .screensaverOff: .sleepWake
         case .userAway, .userBack, .longWork, .userFocused, .userPaused: .presence
-        case .minute, .uptimeLong: .clock
+        case .minute, .uptimeLong, .timeZoneChanged, .clockShifted: .clock
         case .darkMode, .lightMode: .appearance
-        case .headphonesOn, .headphonesOff, .volumeMax: .audio
+        case .headphonesOn, .headphonesOff, .volumeMax, .soundPlaying: .audio
         case .capsLockOn, .capsLockOff: .keyboard
         case .quietOn, .quietOff: .quiet
         case .spaceChanged: .space
-        case .stroke, .poke, .dragged, .thrown, .dropped, .cursorFlyby: .interaction
+        case .stroke, .poke, .dragged, .thrown, .dropped, .cursorFlyby, .cursorShake, .itemCarried: .interaction
         case .agentWaitingLong, .agentErrorStreak, .agentStep, .agentDone, .agentError: .agents
-        case .lidAngle: .lidAngle
+        case .lidAngle, .lidClosing: .lidAngle
         case .newsFresh: .news
         }
     }

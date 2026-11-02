@@ -45,6 +45,8 @@ public struct DirectorSettings: Sendable, Equatable {
     /// Тихие часы, минуты от полуночи; могут переходить через полночь.
     public var quietFrom: Int?
     public var quietTo: Int?
+    /// Первая встреча — для годовщин.
+    public var firstSeen: Date?
 
     public init() {}
 
@@ -172,6 +174,9 @@ public struct Director: Sendable {
         context.quiet = isQuiet || isQuietHours(now)
         context.agentBusy = agentBusy
         context.daysAway = memory.daysSinceLastVisit(before: now, calendar: calendar)
+        context.daysTogether = settings.firstSeen.flatMap {
+            calendar.dateComponents([.day], from: calendar.startOfDay(for: $0), to: calendar.startOfDay(for: now)).day
+        }
         if returning, !news.isEmpty {
             deliveredNews = news
             news = AwayNews()

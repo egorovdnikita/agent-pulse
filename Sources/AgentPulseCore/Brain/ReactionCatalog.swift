@@ -37,6 +37,8 @@ public struct DirectorContext: Sendable {
     public var newsWaiting = 0
     public var quiet = false
     public var agentBusy = false
+    /// Сколько дней знакомы (с первого запуска); nil — неизвестно.
+    public var daysTogether: Int?
 
     public init(
         now: Date, calendar: Calendar, mood: Mood, today: DayMemory.Day, firstPresenceToday: Bool, earlyBy: Double?,
@@ -64,6 +66,7 @@ public struct DirectorContext: Sendable {
     public var month: Int { calendar.component(.month, from: now) }
     public var isWeekend: Bool { weekday == 1 || weekday == 7 }
     public var minuteOfDay: Int { hour * 60 + calendar.component(.minute, from: now) }
+    public var isFullMoon: Bool { MoonPhase.isFull(now) }
 }
 
 public struct ReactionSpec: Sendable {
@@ -178,7 +181,21 @@ public enum ReactionCatalog {
     static let body: [ReactionSpec] = [
         ReactionSpec("battery.critical", on: [.batteryCritical], tier: .body, behavior: .slowClose, lines: ["Совсем всё", "Я на последнем…"]),
         ReactionSpec("battery.low", on: [.batteryLow], tier: .body, behavior: .slowClose, lines: ["Есть хочу", "Мне бы поесть"]),
-        ReactionSpec("charger.on", on: [.chargerConnected], tier: .body, cooldown: 5 * 60, behavior: .startle, lines: ["Ммм…", "Ммм, вкусно"]),
+        // Зарядка: value — процент батареи. Голодному — с облегчением.
+        ReactionSpec("charger.on", group: "charger", on: [.chargerConnected], tier: .body, cooldown: 2 * 60, behavior: .startle,
+                     linesFor: { signal, _ in
+                         (signal.value ?? 100) < 20 ? ["Ммм, наконец-то еда", "Очень кстати, спасибо"] : ["Ммм…", "Ммм, вкусно"]
+                     }),
+        // Кабель вынули: смотрит вниз, туда, где был провод.
+        ReactionSpec("charger.off", group: "charger", on: [.chargerDisconnected], tier: .body, cooldown: 2 * 60, behavior: .lookDown,
+                     linesFor: { signal, _ in
+                         (signal.value ?? 100) < 30 ? ["Ой, мне бы ещё поесть", "Рано отключили…"] : ["Дальше на батарейке", "Ой, провод", "Пошли гулять?"]
+                     }),
+        ReactionSpec("charger.weak", on: [.chargerWeak], tier: .body, cooldown: 6 * 3600, behavior: .squint,
+                     lines: ["Еле кормят…", "Кормят по ложечке"]),
+        // Оптимизированная зарядка встала на паузу у ~80%.
+        ReactionSpec("charger.paused", on: [.chargingPaused], tier: .body, cooldown: 6 * 3600, dailyLimit: 1, behavior: .contentSquint,
+                     lines: ["Мне хватит, сыто", "Хватит, берегу батарейку"]),
         ReactionSpec("battery.full", on: [.fullyCharged], tier: .body, behavior: .contentSquint, lines: ["Ням", "Сыто"]),
         ReactionSpec("lowPower", on: [.lowPowerOn], tier: .body, lines: ["Экономлю", "Берегу силы"]),
         ReactionSpec("thermal.high", on: [.thermalHigh], tier: .body, behavior: .fastBlink, lines: ["Жарко…", "Мне жарко…"]),
@@ -187,6 +204,31 @@ public enum ReactionCatalog {
         ReactionSpec("disk.low", on: [.diskLow], tier: .body, cooldown: 6 * 3600, behavior: .puff, lines: ["Я лопну"]),
         ReactionSpec("network.lost", on: [.networkLost], tier: .body, cooldown: 10 * 60, behavior: .lookAround, lines: ["Где все?", "Я никого не слышу"]),
         ReactionSpec("network.back", on: [.networkBack], tier: .body, cooldown: 10 * 60, lines: ["Вот вы где", "О, снова всех слышу"]),
+        ReactionSpec("network.expensive", on: [.networkExpensive], tier: .body, cooldown: 30 * 60, behavior: .squint,
+                     lines: ["Сидим на телефоне, экономлю", "Берегу твой трафик"]),
+        ReactionSpec("network.download", on: [.bigDownload], tier: .body, cooldown: 60 * 60, behavior: .lookAround,
+                     lines: ["Что-то качается", "Ого, сколько всего несут"]),
+        // Гости: порты у MacBook слева — туда и смотрит.
+        ReactionSpec("guest.disk", on: [.diskMounted], tier: .body, cooldown: 10 * 60, behavior: .lookLeft, lines: ["О, гость", "Кто это к нам?"]),
+        ReactionSpec("guest.yanked", on: [.diskYanked], tier: .body, cooldown: 60, behavior: .startle,
+                     lines: ["Ай, не попрощались", "Даже не попрощались…"]),
+        ReactionSpec("guest.phone", on: [.phoneConnected], tier: .body, cooldown: 30 * 60, behavior: .lookLeft,
+                     lines: ["Привет, телефон", "О, телефон в гостях"]),
+        // Заставка — засыпает вместе с ней, молча.
+        ReactionSpec("screensaver", on: [.screensaverOn], tier: .body, cooldown: 10 * 60, behavior: .slowClose),
+        ReactionSpec("restart.unexpected", on: [.unexpectedRestart], tier: .body, cooldown: 3600, behavior: .startle,
+                     lines: ["Ой, всё погасло", "Что это было?"]),
+        ReactionSpec("system.updated", on: [.systemUpdated], tier: .body, cooldown: 3600, behavior: .stretch,
+                     lines: ["Новая версия. Приятно", "Обновились. Всё на месте?"]),
+        // Где-то играет звук — покачивается, без реплики. Что играет, не знает.
+        ReactionSpec("sound.playing", on: [.soundPlaying], tier: .body, cooldown: 30 * 60, behavior: .wobble),
+        ReactionSpec("timezone", on: [.timeZoneChanged], tier: .body, cooldown: 3600, behavior: .lookAround,
+                     lines: ["Мы где-то далеко?", "Новое место?"]),
+        // Перевели часы: вперёд — час забрали, назад — подарили.
+        ReactionSpec("clockShift", on: [.clockShifted], tier: .body, cooldown: 3600, behavior: .notice,
+                     linesFor: { signal, _ in (signal.value ?? 0) > 0 ? ["Час забрали"] : ["Час подарили"] }),
+        ReactionSpec("lid.closing", on: [.lidClosing], tier: .body, cooldown: 5 * 60, behavior: .lookDown,
+                     lines: ["Ты куда?", "Уже закрываемся?"]),
         ReactionSpec("display.added", on: [.displayAdded], tier: .body, cooldown: 5 * 60,
                      behaviorFor: { signal, _ in (signal.value ?? 1) < 0 ? .lookLeft : .lookRight }, lines: ["О, второй"]),
         ReactionSpec("display.removed", on: [.displayRemoved], tier: .body, cooldown: 5 * 60,
@@ -214,6 +256,10 @@ public enum ReactionCatalog {
         ReactionSpec("birthday", group: "holiday", on: present, tier: .rhythm,
                      when: { _, c in c.userPresent && c.birthday?.month == c.month && c.birthday?.day == c.day },
                      behavior: .done, lines: ["С днюхой!"], bubble: 4),
+        // Годовщина знакомства — в первое появление дня, вместо обычного приветствия.
+        ReactionSpec("anniversary", on: present, tier: .rhythm,
+                     when: { _, c in c.firstPresenceToday && c.daysTogether.flatMap(Anniversary.lines(days:)) != nil },
+                     behavior: .done, linesFor: { _, c in c.daysTogether.flatMap(Anniversary.lines(days:)) ?? [] }, bubble: 3),
         ReactionSpec("aprilFools", on: present, tier: .rhythm,
                      when: { _, c in c.userPresent && c.month == 4 && c.day == 1 }, behavior: .eyeSwap),
         ReactionSpec("friday13", on: present, tier: .rhythm,
@@ -305,6 +351,10 @@ public enum ReactionCatalog {
                      when: { signal, _ in (signal.value ?? 0) > 900 }, lines: ["Уиии"], bubble: 1.2),
         ReactionSpec("thrown", on: [.thrown], tier: .interaction, cooldown: 2, behavior: .dizzy, lines: ["Укачало"]),
         ReactionSpec("dropped", on: [.dropped], tier: .interaction, cooldown: 5, behavior: .lookAround, lines: ["Так лучше", "Мне тут нравится"]),
+        // Трясёшь курсор, чтобы найти его, — маскот тоже отзывается.
+        ReactionSpec("cursorShake", on: [.cursorShake], tier: .interaction, cooldown: 5 * 60, behavior: .hop, lines: ["Я тут", "Вот же я"], bubble: 1.5),
+        // Над ним что-то несут — любопытно, но в руки не берёт.
+        ReactionSpec("carried", on: [.itemCarried], tier: .interaction, cooldown: 60, behavior: .wideEyes, lines: ["Что это?", "Что несёшь?"], bubble: 1.5),
         ReactionSpec("spaces.dizzy", on: [.spaceChanged], tier: .interaction, cooldown: 60,
                      when: { _, c in c.spaceChangesRecent > 5 }, behavior: .dizzy, lines: ["Укачало"]),
     ]
@@ -346,6 +396,10 @@ public enum ReactionCatalog {
         ReactionSpec("fun.nap", on: [.minute], tier: .fun, behavior: .nap, chance: funChance),
         ReactionSpec("fun.stare", on: [.minute], tier: .fun, behavior: .stare, chance: funChance),
         ReactionSpec("fun.peekaboo", on: [.minute], tier: .fun, lines: ["Ку-ку"], bubble: 2, chance: funChance, special: .peekaboo),
+        // В полнолуние лунатизм вероятнее.
+        ReactionSpec("fun.sleepwalk.moon", group: "fun.sleepwalk", on: [.minute], tier: .fun,
+                     when: { _, c in c.isFullMoon && (0..<6).contains(c.hour) && c.idleSeconds > 10 * 60 },
+                     chance: 1.0 / 4, special: .sleepwalk, needsPresence: false),
         ReactionSpec("fun.sleepwalk", on: [.minute], tier: .fun,
                      when: { _, c in (0..<6).contains(c.hour) && c.idleSeconds > 10 * 60 },
                      chance: 1.0 / 10, special: .sleepwalk, needsPresence: false),

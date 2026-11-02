@@ -88,15 +88,29 @@ final class NetworkSense: Sense {
     private let monitor = NWPathMonitor()
     private var online: Bool?
     private var pending: DispatchWorkItem?
+    private var expensive = false
+    /// Интернет через телефон (точка доступа) или «экономия трафика» — новости ждут.
+    static var isExpensive = false
 
     func start(emit: @escaping @Sendable (Signal) -> Void) {
         monitor.pathUpdateHandler = { [weak self] path in
             let up = path.status == .satisfied
+            let costly = up && (path.isExpensive || path.isConstrained)
             DispatchQueue.main.async {
-                MainActor.assumeIsolated { self?.update(up, emit: emit) }
+                MainActor.assumeIsolated {
+                    self?.update(up, emit: emit)
+                    self?.updateCost(costly, emit: emit)
+                }
             }
         }
         monitor.start(queue: DispatchQueue(label: "pulse.network"))
+    }
+
+    private func updateCost(_ costly: Bool, emit: @escaping @Sendable (Signal) -> Void) {
+        Self.isExpensive = costly
+        guard costly != expensive else { return }
+        expensive = costly
+        emit(Signal(.network, costly ? .networkExpensive : .networkCheap))
     }
 
     private func update(_ up: Bool, emit: @escaping @Sendable (Signal) -> Void) {
@@ -171,6 +185,12 @@ final class SleepWakeSense: Sense {
         observers.append((distributed, distributed.addObserver(forName: .init("com.apple.screenIsLocked"), object: nil, queue: .main) { [weak self] _ in
             MainActor.assumeIsolated { self?.lockedAt = Date() }
             emit(Signal(.sleepWake, .screenLocked))
+        }))
+        observers.append((distributed, distributed.addObserver(forName: .init("com.apple.screensaver.didstart"), object: nil, queue: .main) { _ in
+            emit(Signal(.sleepWake, .screensaverOn))
+        }))
+        observers.append((distributed, distributed.addObserver(forName: .init("com.apple.screensaver.didstop"), object: nil, queue: .main) { _ in
+            emit(Signal(.sleepWake, .screensaverOff))
         }))
         observers.append((distributed, distributed.addObserver(forName: .init("com.apple.screenIsUnlocked"), object: nil, queue: .main) { [weak self] _ in
             MainActor.assumeIsolated {
@@ -266,6 +286,9 @@ final class PresenceSense: Sense {
 final class ClockSense: Sense {
     let id = SenseID.clock
     private var timer: Timer?
+    private var observer: NSObjectProtocol?
+    private var zone = TimeZone.current.identifier
+    private var offset = TimeZone.current.secondsFromGMT()
 
     nonisolated static var uptime: TimeInterval {
         var boot = timeval()
@@ -277,16 +300,38 @@ final class ClockSense: Sense {
 
     func start(emit: @escaping @Sendable (Signal) -> Void) {
         let next = (floor(Date().timeIntervalSinceReferenceDate / 60) + 1) * 60
-        let timer = Timer(fire: Date(timeIntervalSinceReferenceDate: next), interval: 60, repeats: true) { _ in
+        let timer = Timer(fire: Date(timeIntervalSinceReferenceDate: next), interval: 60, repeats: true) { [weak self] _ in
             emit(Signal(.clock, .minute))
             if Self.uptime > 7 * 86_400 { emit(Signal(.clock, .uptimeLong)) }
+            MainActor.assumeIsolated { self?.checkZone(emit) }
         }
         RunLoop.main.add(timer, forMode: .common)
         self.timer = timer
+        observer = NotificationCenter.default.addObserver(forName: .NSSystemTimeZoneDidChange, object: nil, queue: .main) { [weak self] _ in
+            MainActor.assumeIsolated { self?.checkZone(emit) }
+        }
+    }
+
+    /// Новый часовой пояс — «Мы где-то далеко?»; тот же пояс, другое смещение — перевели часы.
+    private func checkZone(_ emit: @Sendable (Signal) -> Void) {
+        NSTimeZone.resetSystemTimeZone()
+        let current = TimeZone.current
+        let newOffset = current.secondsFromGMT()
+        defer {
+            zone = current.identifier
+            offset = newOffset
+        }
+        let shift = Double(newOffset - offset) / 3600
+        if current.identifier != zone {
+            emit(Signal(.clock, .timeZoneChanged, value: shift))
+        } else if shift != 0 {
+            emit(Signal(.clock, .clockShifted, value: shift))
+        }
     }
 
     func stop() {
         timer?.invalidate()
+        if let observer { NotificationCenter.default.removeObserver(observer) }
     }
 }
 

@@ -132,9 +132,22 @@ extension PulseModel {
     /// Применить характер из настроек (слайдеры, тихие часы, день рождения).
     func applyCharacter() {
         try? config.save()
-        let settings = config.character.directorSettings
+        let settings = directorSettings
         let director = director
         Task { await director.update { $0.settings = settings } }
+    }
+
+    /// Настройки Director: характер из конфига и дата первой встречи.
+    var directorSettings: DirectorSettings {
+        var settings = config.character.directorSettings
+        settings.firstSeen = launch.firstSeen
+        return settings
+    }
+
+    /// Штатный выход: следующий запуск не примет его за внезапное выключение.
+    func markCleanExit() {
+        launch.cleanExit = true
+        try? launch.save()
     }
 
     func resetMemory() {

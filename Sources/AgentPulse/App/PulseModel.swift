@@ -113,6 +113,12 @@ final class PulseModel {
     @ObservationIgnored var onUserBack: (() -> Void)?
     @ObservationIgnored var strokeTrail: [(Date, Double)] = []
     @ObservationIgnored var lastMouse: (Date, CGPoint)?
+    /// Курсор по всему экрану за последнюю секунду — чтобы заметить, что его трясут.
+    @ObservationIgnored var shakeTrail: [(Date, Double)] = []
+    /// Номер содержимого перетаскивания, о котором маскот уже удивился.
+    @ObservationIgnored var carriedCount = NSPasteboard(name: .drag).changeCount
+    /// Служебные отметки между запусками: внезапное выключение, новая macOS, первая встреча.
+    @ObservationIgnored var launch = LaunchRecord.load()
     @ObservationIgnored var hiddenForIdle = false
     @ObservationIgnored var promptAt: [String: Date] = [:]
     @ObservationIgnored var toolErrorStreak = 0
@@ -143,7 +149,14 @@ final class PulseModel {
     }
 
     func start() {
-        var initial = Director(settings: config.character.directorSettings)
+        // Mac между запусками: выключился внезапно, обновилась система. Сказать, когда всё проснётся.
+        let started = launch.start(bootTime: Date().timeIntervalSince1970 - ClockSense.uptime,
+                                   osVersion: ProcessInfo.processInfo.operatingSystemVersionString, now: Date())
+        try? launch.save()
+        for (index, kind) in started.enumerated() {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 8 + Double(index) * 6) { [weak self] in self?.simulate(kind) }
+        }
+        var initial = Director(settings: directorSettings)
         initial.memory = DayMemory.load()
         initial.mutedReactions = Self.loadMuted()
         mutedReactions = initial.mutedReactions
@@ -351,6 +364,10 @@ final class PulseModel {
 
         if inside { detectStroke(mouse.x) } else if !strokeTrail.isEmpty { strokeTrail.removeAll() }
         detectFlyby(mouse, center: center, radius: diameter / 2)
+        detectShake(mouse.x)
+        detectCarried(mouse, center: center, radius: diameter / 2)
+        // Печатаешь — маскот не мельтешит.
+        animator.typing = CGEventSource.secondsSinceLastEventType(.combinedSessionState, eventType: .keyDown) < 1.5
 
         guard inside != isHovering else { return }
         isHovering = inside
@@ -411,6 +428,7 @@ final class PulseModel {
                 activateSource()
             } else {
                 simulate(.poke)
+                Haptics.tap()
             }
         }
     }
@@ -432,7 +450,38 @@ final class PulseModel {
         if reversals >= 3, travel > 30 {
             strokeTrail.removeAll()
             simulate(.stroke)
+            Haptics.purr()
         }
+    }
+
+    /// Трясёшь курсор, чтобы найти его (macOS его увеличивает): четыре разворота и много пути за секунду.
+    private func detectShake(_ x: Double) {
+        let now = Date()
+        shakeTrail = shakeTrail.filter { now.timeIntervalSince($0.0) < 1 } + [(now, x)]
+        var reversals = 0
+        var direction = 0.0
+        var travel = 0.0
+        for (previous, next) in zip(shakeTrail, shakeTrail.dropFirst()) {
+            let dx = next.1 - previous.1
+            guard abs(dx) > 20 else { continue }
+            travel += abs(dx)
+            if direction != 0, (dx > 0) != (direction > 0) { reversals += 1 }
+            direction = dx
+        }
+        if reversals >= 4, travel > tuning.shakeTravel {
+            shakeTrail.removeAll()
+            simulate(.cursorShake)
+        }
+    }
+
+    /// Над маскотом несут файл: кнопка зажата, а у системного буфера перетаскивания новое содержимое.
+    /// Что несут — не читаем, только номер изменения.
+    private func detectCarried(_ mouse: CGPoint, center: CGPoint, radius: Double) {
+        guard NSEvent.pressedMouseButtons & 1 != 0, hypot(mouse.x - center.x, mouse.y - center.y) <= radius + 12 else { return }
+        let count = NSPasteboard(name: .drag).changeCount
+        guard count != carriedCount else { return }
+        carriedCount = count
+        simulate(.itemCarried)
     }
 
     /// Что показать при наведении. По порядку: что делаю сейчас; что было без тебя; последнее сообщение;

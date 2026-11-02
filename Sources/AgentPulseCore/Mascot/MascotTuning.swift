@@ -66,6 +66,8 @@ public struct MascotTuning: Codable, Sendable, Equatable {
     public var farGlanceDuration: Double = 1.4
     /// Курсор быстрее этого (pt/s) прошёл сквозь маскота — вздрагивает.
     public var flybySpeed: Double = 1800
+    /// Курсор трясут: столько pt пути за секунду при четырёх разворотах.
+    public var shakeTravel: Double = 1500
 
     // Гравитация (если включена): ускорение, pt/s², и упругость отскока от пола.
     public var gravity: Double = 2600

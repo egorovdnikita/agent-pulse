@@ -29,6 +29,8 @@ final class MascotAnimator {
     var screenCenter: CGPoint?
     /// Курсор над маскотом: во сне он плавно просыпается и смотрит на курсор.
     var hovered = false
+    /// Ты печатаешь — в покое не мельтешит: самостоятельные движения ждут паузы.
+    var typing = false
     /// Висит облачко — маскот говорит, а значит не спит: глаза открыты, «Zzz» нет.
     var speaking = false
     /// Куда всплывают «Zzz» — от края экрана внутрь.
@@ -126,6 +128,10 @@ final class MascotAnimator {
         let interval: ClosedRange<Double>
         let pool: [MascotReaction]
         switch state {
+        case .idle where typing:
+            // Отложить, а не отменить: после паузы в наборе — снова живой.
+            if let due = nextAct, t >= due { nextAct = t + 3 }
+            return
         case .idle:
             interval = tuning.idleActInterval
             pool = [.lookAround, .curious, .curious, .hop, .squint, .sideEye, .wideEyes, .fastBlink]

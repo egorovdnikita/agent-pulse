@@ -12,6 +12,9 @@ final class PowerSense: Sense {
     private var critical = Hysteresis(enter: 5, exit: 10)
     private var onAC: Bool?
     private var charged = false
+    private var paused = false
+    /// Слабее этого — «Еле кормят…»: родной адаптер 13″ MacBook Pro — 67 W, USB-C от телефона — 20 W.
+    static let weakWatts = 30
     private var observer: NSObjectProtocol?
 
     func start(emit: @escaping @Sendable (Signal) -> Void) {
@@ -42,6 +45,12 @@ final class PowerSense: Sense {
         source = nil
     }
 
+    /// Мощность адаптера, W — публичный `IOPSCopyExternalPowerAdapterDetails`.
+    static func adapterWatts() -> Int? {
+        guard let details = IOPSCopyExternalPowerAdapterDetails()?.takeRetainedValue() as? [String: Any] else { return nil }
+        return details[kIOPSPowerAdapterWattsKey] as? Int
+    }
+
     private func read() {
         guard let emit else { return }
         let info = IOPSCopyPowerSourcesInfo().takeRetainedValue()
@@ -55,10 +64,18 @@ final class PowerSense: Sense {
         let percent = maxCapacity > 0 ? capacity / maxCapacity * 100 : capacity
         let ac = battery[kIOPSPowerSourceStateKey] as? String == kIOPSACPowerValue
         let isCharged = battery[kIOPSIsChargedKey] as? Bool ?? false
+        let isCharging = battery[kIOPSIsChargingKey] as? Bool ?? false
 
         if let previous = onAC, previous != ac {
             emit(Signal(.power, ac ? .chargerConnected : .chargerDisconnected, value: percent))
+            if ac, let watts = Self.adapterWatts(), watts > 0, watts < Self.weakWatts {
+                emit(Signal(.power, .chargerWeak, value: Double(watts)))
+            }
         }
+        // Оптимизированная зарядка: на сети, не заряжается и не полная, около 80% — пауза, а не поломка.
+        let nowPaused = ac && !isCharging && !isCharged && (75...85).contains(percent)
+        if nowPaused, !paused { emit(Signal(.power, .chargingPaused, value: percent)) }
+        paused = nowPaused
         onAC = ac
         if ac, isCharged, !charged { emit(Signal(.power, .fullyCharged, value: percent)) }
         charged = isCharged

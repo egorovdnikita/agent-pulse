@@ -127,7 +127,19 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         // Отладка: `--pin-space` — привязать маскота к текущему рабочему столу, как бывает после
         // показа во время перехода; смена стола должна вернуть его на все столы (`ensureOnActiveSpace`).
         if arguments.contains("--pin-space") {
-            DispatchQueue.main.asyncAfter(deadline: .now() + 2) { [weak self] in self?.panel?.collectionBehavior = [] }
+            // `--pin-space hard` — как в жизни: поведение «на всех столах» на месте, а окно всё равно на одном столе.
+            let hard = arguments.contains("hard")
+            DispatchQueue.main.asyncAfter(deadline: .now() + 2) { [weak self] in
+                self?.panel?.collectionBehavior = []
+                if hard {
+                    self?.panel?.orderFrontRegardless()
+                    self?.panel?.collectionBehavior = OverlayPanel.spaceBehavior
+                }
+            }
+        }
+        // Отладка: `--rebuild-panel` — пересоздать панель, как последняя ступень самолечения.
+        if arguments.contains("--rebuild-panel") {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 2) { [weak self] in self?.rebuildPanel() }
         }
         // Отладка: `--behavior doze` — как «Поведение вручную» в MascotLab.
         let behaviors = arguments.indices.compactMap { index in
@@ -145,6 +157,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         companion?.stop()
         chatWindow?.stop()
         senses.forEach { $0.stop() }
+        model.markCleanExit()
     }
 
     private func startServer() {
@@ -427,14 +440,39 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
 
     /// Самолечение: после смены рабочего стола маскот должен быть и здесь. Если панель видима,
     /// но на этом столе её нет (и это не полноэкранный стол, где её нет нарочно) — возвращаем на все столы.
+    /// Одного переобъявления «на всех столах» мало: 3 ноября после полноэкранного Chrome оно срабатывало
+    /// 12 раз подряд и не помогало — WindowServer держал окно на одном столе. Поэтому по ступеням:
+    /// 1) убрать окно и выложить заново; 2) не помогло — пересоздать панель (новое окно на всех столах).
     private func ensureOnActiveSpace() {
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.8) { [weak self] in
-            guard let self, let panel = self.panel, panel.isVisible, !panel.isOnActiveSpace,
-                  !self.fullScreenHidden, NSMenu.menuBarVisible() else { return }
-            Self.log.notice("panel rejoin: была только на одном рабочем столе")
-            panel.rejoinAllSpaces()
-            panel.orderFrontRegardless()
+            guard let self, self.panelStuck else { return }
+            Self.log.notice("panel rejoin: была только на одном рабочем столе — выкладываю заново")
+            self.panel?.orderOut(nil)
+            self.panel?.rejoinAllSpaces()
+            self.panel?.orderFrontRegardless()
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) { [weak self] in
+                guard let self, self.panelStuck else { return }
+                Self.log.notice("panel rebuild: выкладка не помогла — пересоздаю панель")
+                self.rebuildPanel()
+            }
         }
+    }
+
+    /// Панель видима, но на текущем обычном рабочем столе её нет.
+    private var panelStuck: Bool {
+        guard let panel, panel.isVisible else { return false }
+        return !panel.isOnActiveSpace && !fullScreenHidden && NSMenu.menuBarVisible()
+    }
+
+    /// Новое окно вместо прилипшего: позиция, видимость и маскот те же — модель общая.
+    private func rebuildPanel() {
+        let old = panel
+        let fresh = OverlayPanel(app: self)
+        panel = fresh
+        fresh.orderFrontRegardless()
+        // Без close(): у программно созданного окна он отпускает объект дважды. Ссылок больше нет — уйдёт само.
+        old?.orderOut(nil)
+        updatePanelVisibility()
     }
 
     /// Сколько проверок подряд экран закрыт: переход между рабочими столами мелькает на мгновение,

@@ -34,6 +34,8 @@ final class NewsSense: Sense {
     }
 
     private func fetch() {
+        // Интернет через телефон или «экономия трафика» — ленты подождут.
+        guard !NetworkSense.isExpensive else { return }
         task?.cancel()
         let topics = topics
         task = Task { [weak self] in

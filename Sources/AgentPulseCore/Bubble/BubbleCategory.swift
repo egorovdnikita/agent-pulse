@@ -151,13 +151,13 @@ public enum BubbleCategory: String, Sendable, CaseIterable, Codable {
         case "agent": return .claude
         case "news": return .news
         case "battery", "charger", "lowPower": return .battery
-        case "thermal", "memory", "disk", "uptime": return .wellbeing
+        case "thermal", "memory", "disk", "uptime", "restart", "system": return .wellbeing
         case "network": return .network
-        case "display", "headphones", "volume", "capsLock", "theme": return .devices
+        case "display", "headphones", "volume", "capsLock", "theme", "guest", "sound", "lid": return .devices
         case "newYear", "birthday", "aprilFools": return .holiday
-        case "poke", "stroke", "flyby", "drag", "thrown", "dropped", "spaces": return .together
+        case "poke", "stroke", "flyby", "drag", "thrown", "dropped", "spaces", "cursorShake", "carried", "anniversary": return .together
         case "fun": return .mood
-        case "sleep", "nodOff": return .rest
+        case "sleep", "nodOff", "screensaver": return .rest
         default: return .day
         }
     }

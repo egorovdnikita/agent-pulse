@@ -29,6 +29,8 @@ final class LidAngleSense: Sense {
             MainActor.assumeIsolated {
                 guard let self, let angle = self.read() else { return }
                 if self.last.map({ abs($0 - angle) >= 3 }) ?? true {
+                    // Крышку почти закрыли (была открыта) — «Ты куда?».
+                    if let last = self.last, last >= 45, angle < 30 { emit(Signal(.lidAngle, .lidClosing, value: angle)) }
                     self.last = angle
                     emit(Signal(.lidAngle, .lidAngle, value: angle))
                 }

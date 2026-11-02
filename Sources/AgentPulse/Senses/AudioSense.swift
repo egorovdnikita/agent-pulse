@@ -11,6 +11,10 @@ final class AudioSense: Sense {
     private var device = AudioObjectID(kAudioObjectUnknown)
     private var headphones = false
     private var loud = Hysteresis(enter: 0.99, exit: 0.9, falling: false)
+    /// Звук идёт подряд столько — значит, это музыка или видео, а не короткий системный сигнал.
+    static let soundHold: TimeInterval = 10
+    private var soundSince: Date?
+    private var soundTimer: Timer?
     private var listeners: [(AudioObjectID, AudioObjectPropertyAddress, AudioObjectPropertyListenerBlock)] = []
 
     func start(emit: @escaping @Sendable (Signal) -> Void) {
@@ -28,6 +32,7 @@ final class AudioSense: Sense {
             AudioObjectRemovePropertyListenerBlock(object, &address, DispatchQueue.main, block)
         }
         listeners.removeAll()
+        soundTimer?.invalidate()
     }
 
     /// Новое устройство вывода: перевесить слушателей громкости и источника.
@@ -46,6 +51,10 @@ final class AudioSense: Sense {
         listen(device, kAudioDevicePropertyDataSource, kAudioDevicePropertyScopeOutput) { [weak self] in
             self?.checkHeadphones()
         }
+        listen(device, kAudioDevicePropertyDeviceIsRunningSomewhere, kAudioObjectPropertyScopeGlobal) { [weak self] in
+            self?.checkPlaying()
+        }
+        checkPlaying()
         checkHeadphones()
         checkVolume()
     }
@@ -55,6 +64,29 @@ final class AudioSense: Sense {
         let block: AudioObjectPropertyListenerBlock = { _, _ in MainActor.assumeIsolated { action() } }
         if AudioObjectAddPropertyListenerBlock(object, &address, DispatchQueue.main, block) == noErr {
             listeners.append((object, address, block))
+        }
+    }
+
+    /// Где-то играет звук: только факт, что устройство вывода занято, — без того, что и где играет.
+    private func checkPlaying() {
+        var running = UInt32(0)
+        var size = UInt32(MemoryLayout<UInt32>.size)
+        var address = AudioObjectPropertyAddress(
+            mSelector: kAudioDevicePropertyDeviceIsRunningSomewhere, mScope: kAudioObjectPropertyScopeGlobal,
+            mElement: kAudioObjectPropertyElementMain
+        )
+        guard AudioObjectGetPropertyData(device, &address, 0, nil, &size, &running) == noErr else { return }
+        soundTimer?.invalidate()
+        guard running != 0 else {
+            soundSince = nil
+            return
+        }
+        soundSince = soundSince ?? Date()
+        soundTimer = Timer.scheduledTimer(withTimeInterval: Self.soundHold, repeats: false) { [weak self] _ in
+            MainActor.assumeIsolated {
+                guard let self, let since = self.soundSince, Date().timeIntervalSince(since) >= Self.soundHold - 0.5 else { return }
+                self.emit?(Signal(.audio, .soundPlaying))
+            }
         }
     }
 

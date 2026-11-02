@@ -16,7 +16,7 @@ enum SenseRegistry {
     static func make(_ config: PulseConfig, news: @escaping @MainActor ([NewsItem]) -> Void) -> [Sense] {
         var senses: [Sense] = []
         if config.senses.body {
-            senses += [PowerSense(), ThermalSense(), MemorySense(), DiskSense(), NetworkSense(), DisplaySense(), KeyboardSense()]
+            senses += [PowerSense(), ThermalSense(), MemorySense(), DiskSense(), NetworkSense(), DisplaySense(), KeyboardSense(), DeviceSense(), DownloadSense()]
         }
         if config.senses.rhythm {
             senses += [SleepWakeSense(), PresenceSense(), ClockSense(), AppearanceSense(), SpaceSense()]
