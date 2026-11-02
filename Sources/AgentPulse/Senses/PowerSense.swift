@@ -12,6 +12,7 @@ final class PowerSense: Sense {
     private var critical = Hysteresis(enter: 5, exit: 10)
     private var onAC: Bool?
     private var charged = false
+    private var onACKnown = false
     private var paused = false
     /// Слабее этого — «Еле кормят…»: родной адаптер 13″ MacBook Pro — 67 W, USB-C от телефона — 20 W.
     static let weakWatts = 30
@@ -77,7 +78,9 @@ final class PowerSense: Sense {
         if nowPaused, !paused { emit(Signal(.power, .chargingPaused, value: percent)) }
         paused = nowPaused
         onAC = ac
-        if ac, isCharged, !charged { emit(Signal(.power, .fullyCharged, value: percent)) }
+        // На старте уже полный — не новость; «Сыто» только когда дозарядился при нас.
+        if ac, isCharged, !charged, onACKnown { emit(Signal(.power, .fullyCharged, value: percent)) }
+        onACKnown = true
         charged = isCharged
 
         switch critical.update(percent) {

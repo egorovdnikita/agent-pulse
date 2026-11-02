@@ -68,12 +68,27 @@ import Testing
         let on = d.handle(Signal(.power, .chargerConnected, value: 12), now: now, rng: &rng)
         #expect(on?.reaction == "charger.on")
         #expect(["Ммм, наконец-то еда", "Очень кстати, спасибо"].contains(on?.line ?? ""))
-        // Сразу выдернули — кулдаун общий, не дёргается.
-        #expect(d.handle(Signal(.power, .chargerDisconnected, value: 13), now: now.addingTimeInterval(30), rng: &rng) == nil)
-        let off = d.handle(Signal(.power, .chargerDisconnected, value: 80), now: now.addingTimeInterval(3 * 60), rng: &rng)
+        // Вынули и вставили снова через 12 s — оба раза отвечает.
+        let off = d.handle(Signal(.power, .chargerDisconnected, value: 80), now: now.addingTimeInterval(30), rng: &rng)
         #expect(off?.reaction == "charger.off")
         #expect(off?.behavior == .lookDown)
         #expect(["Дальше на батарейке", "Ой, провод", "Пошли гулять?"].contains(off?.line ?? ""))
+        #expect(d.handle(Signal(.power, .chargerConnected, value: 80), now: now.addingTimeInterval(42), rng: &rng)?.reaction == "charger.on")
+        // Дребезг разъёма — не каждый раз.
+        #expect(d.handle(Signal(.power, .chargerDisconnected, value: 80), now: now.addingTimeInterval(45), rng: &rng) == nil)
+    }
+
+    /// Тихие часы: на кабель отвечает облачком — это твоё действие. Фоновое (сеть) — только глазами.
+    @Test func quietHoursStillAnswerTheCable() {
+        var rng = FixedRNG()
+        var settings = DirectorSettings()
+        settings.talkativeness = 1
+        settings.quietFrom = 23 * 60 + 30
+        settings.quietTo = 8 * 60
+        var d = Director(settings: settings, calendar: calendar)
+        let night = date(2026, 11, 3, 6)
+        #expect(d.handle(Signal(.power, .chargerDisconnected, value: 100), now: night, rng: &rng)?.line != nil)
+        #expect(d.handle(Signal(.network, .networkLost), now: night, rng: &rng)?.line == nil)
     }
 
     /// В тишине (созвон) — только глазами.

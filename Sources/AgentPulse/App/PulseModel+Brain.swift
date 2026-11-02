@@ -1,8 +1,11 @@
 import AgentPulseCore
 import AppKit
+import os
 
 /// Органы чувств → Director → тело и голос.
 extension PulseModel {
+    static let brainLog = Logger(subsystem: "io.github.egorovdnikita.agentpulse", category: "brain")
+
     func handleSignal(_ signal: Signal) async {
         if signal.kind == .minute || signal.kind == .systemWake {
             let hour = Calendar.current.component(.hour, from: signal.ts)
@@ -35,6 +38,11 @@ extension PulseModel {
         handleIdleHide(signal)
         await saveMemoryIfNeeded(signal.ts)
 
+        if signal.kind != .minute, signal.kind != .agentStep {
+            // Журнал решений: `log show --predicate 'subsystem == "io.github.egorovdnikita.agentpulse" && category == "brain"'`.
+            let decided = outcome.decision.map { "\($0.reaction) line=\($0.line ?? "—")" } ?? "нет реакции"
+            Self.brainLog.notice("signal \(signal.kind.rawValue, privacy: .public) value=\(signal.value ?? -1) quiet=\(outcome.quiet) → \(decided, privacy: .public)")
+        }
         guard let decision = outcome.decision else { return }
         lastReaction = decision.reaction
         lastLine = decision.line

@@ -220,7 +220,9 @@ public struct Director: Sendable {
         var line = spec.lines(signal, context).randomElement(using: &rng)
         // Облачко вне агентов — по болтливости; в тишине — только глаза.
         let talk = spec.tier == .agent ? 1 : min(1, settings.talkativeness * 2)
-        if quiet && spec.tier != .agent { line = nil }
+        // Тихие часы не глушат ответ на твоё действие; созвон и полный экран — глушат.
+        let silenced = spec.answersUser ? isQuiet : quiet
+        if silenced && spec.tier != .agent { line = nil }
         if mutedReactions.contains(spec.id) { line = nil }
         if line != nil, talk < 1, Double.random(in: 0..<1, using: &rng) >= talk { line = nil }
         // Восклицательный знак — не чаще раза в день.

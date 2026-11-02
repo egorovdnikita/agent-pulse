@@ -92,6 +92,9 @@ public struct ReactionSpec: Sendable {
     public let special: SpecialAction?
     /// Приколу нужен пользователь рядом (кроме лунатизма).
     public let needsPresence: Bool
+    /// Ответ на твоё собственное действие (кабель, тычок): в тихие часы звучит — ты же рядом и что-то сделал.
+    /// Созвон и полный экран его по-прежнему глушат.
+    public let answersUser: Bool
 
     public init(
         _ id: String,
@@ -109,7 +112,8 @@ public struct ReactionSpec: Sendable {
         bubble: TimeInterval = 2.5,
         chance: Double = 1,
         special: SpecialAction? = nil,
-        needsPresence: Bool = true
+        needsPresence: Bool = true,
+        answersUser: Bool? = nil
     ) {
         self.id = id
         self.group = group ?? id
@@ -125,6 +129,7 @@ public struct ReactionSpec: Sendable {
         self.chance = chance
         self.special = special
         self.needsPresence = needsPresence
+        self.answersUser = answersUser ?? (tier == .interaction)
     }
 
     static func defaultCooldown(_ tier: Tier) -> TimeInterval {
@@ -182,15 +187,15 @@ public enum ReactionCatalog {
         ReactionSpec("battery.critical", on: [.batteryCritical], tier: .body, behavior: .slowClose, lines: ["Совсем всё", "Я на последнем…"]),
         ReactionSpec("battery.low", on: [.batteryLow], tier: .body, behavior: .slowClose, lines: ["Есть хочу", "Мне бы поесть"]),
         // Зарядка: value — процент батареи. Голодному — с облегчением.
-        ReactionSpec("charger.on", group: "charger", on: [.chargerConnected], tier: .body, cooldown: 2 * 60, behavior: .startle,
+        ReactionSpec("charger.on", on: [.chargerConnected], tier: .body, cooldown: 20, behavior: .startle,
                      linesFor: { signal, _ in
                          (signal.value ?? 100) < 20 ? ["Ммм, наконец-то еда", "Очень кстати, спасибо"] : ["Ммм…", "Ммм, вкусно"]
-                     }),
+                     }, answersUser: true),
         // Кабель вынули: смотрит вниз, туда, где был провод.
-        ReactionSpec("charger.off", group: "charger", on: [.chargerDisconnected], tier: .body, cooldown: 2 * 60, behavior: .lookDown,
+        ReactionSpec("charger.off", on: [.chargerDisconnected], tier: .body, cooldown: 20, behavior: .lookDown,
                      linesFor: { signal, _ in
                          (signal.value ?? 100) < 30 ? ["Ой, мне бы ещё поесть", "Рано отключили…"] : ["Дальше на батарейке", "Ой, провод", "Пошли гулять?"]
-                     }),
+                     }, answersUser: true),
         ReactionSpec("charger.weak", on: [.chargerWeak], tier: .body, cooldown: 6 * 3600, behavior: .squint,
                      lines: ["Еле кормят…", "Кормят по ложечке"]),
         // Оптимизированная зарядка встала на паузу у ~80%.
