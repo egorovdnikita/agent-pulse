@@ -21,7 +21,7 @@ final class OverlayPanel: NSPanel {
         level = .statusBar
         // Без `.fullScreenAuxiliary` **[решение]**: на полноэкранном рабочем столе (видео, презентация, игра)
         // macOS сам не показывает маскота — он не мешает; вышел из полного экрана — маскот на месте.
-        collectionBehavior = [.canJoinAllSpaces, .stationary, .ignoresCycle]
+        collectionBehavior = Self.spaceBehavior
         isOpaque = false
         backgroundColor = .clear
         hasShadow = false
@@ -395,4 +395,16 @@ final class OverlayPanel: NSPanel {
 /// Клик по маскоту срабатывает с первого раза, без предварительной активации окна.
 final class FirstMouseHostingView<Content: View>: NSHostingView<Content> {
     override func acceptsFirstMouse(for event: NSEvent?) -> Bool { true }
+}
+
+extension OverlayPanel {
+    static let spaceBehavior: NSWindow.CollectionBehavior = [.canJoinAllSpaces, .stationary, .ignoresCycle]
+
+    /// Панель, показанная во время перехода между рабочими столами (например, выход из полноэкранного Figma),
+    /// иногда прилипает к одному столу, хотя «на всех столах» у неё стоит. Объявляем поведение заново —
+    /// WindowServer снова вешает окно на все столы.
+    func rejoinAllSpaces() {
+        collectionBehavior = []
+        collectionBehavior = Self.spaceBehavior
+    }
 }

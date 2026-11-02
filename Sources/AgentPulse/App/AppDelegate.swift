@@ -67,7 +67,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         }
         for name in [NSWorkspace.activeSpaceDidChangeNotification, NSWorkspace.didActivateApplicationNotification] {
             NSWorkspace.shared.notificationCenter.addObserver(forName: name, object: nil, queue: .main) { [weak self] _ in
-                MainActor.assumeIsolated { self?.watchFullScreen() }
+                MainActor.assumeIsolated {
+                    self?.watchFullScreen()
+                    if name == NSWorkspace.activeSpaceDidChangeNotification { self?.ensureOnActiveSpace() }
+                }
             }
         }
         NotificationCenter.default.addObserver(
@@ -120,6 +123,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         if let index = arguments.firstIndex(of: "--settings") {
             let tab = index + 1 < arguments.count ? SettingsNavigation.Tab(rawValue: arguments[index + 1]) : nil
             DispatchQueue.main.asyncAfter(deadline: .now() + 1) { [weak self] in self?.showSettings(tab) }
+        }
+        // Отладка: `--pin-space` — привязать маскота к текущему рабочему столу, как бывает после
+        // показа во время перехода; смена стола должна вернуть его на все столы (`ensureOnActiveSpace`).
+        if arguments.contains("--pin-space") {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 2) { [weak self] in self?.panel?.collectionBehavior = [] }
         }
         // Отладка: `--behavior doze` — как «Поведение вручную» в MascotLab.
         let behaviors = arguments.indices.compactMap { index in
@@ -410,8 +418,23 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         if show != panel.isVisible {
             Self.log.notice("panel \(show ? "show" : "hide", privacy: .public): visible=\(self.model.overlayVisible) idle=\(self.idleHidden) fullscreen=\(self.fullScreenHidden)")
         }
-        if show, !panel.isVisible { panel.orderFrontRegardless() }
+        if show, !panel.isVisible {
+            panel.rejoinAllSpaces()
+            panel.orderFrontRegardless()
+        }
         if !show, panel.isVisible { panel.orderOut(nil) }
+    }
+
+    /// Самолечение: после смены рабочего стола маскот должен быть и здесь. Если панель видима,
+    /// но на этом столе её нет (и это не полноэкранный стол, где её нет нарочно) — возвращаем на все столы.
+    private func ensureOnActiveSpace() {
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.8) { [weak self] in
+            guard let self, let panel = self.panel, panel.isVisible, !panel.isOnActiveSpace,
+                  !self.fullScreenHidden, NSMenu.menuBarVisible() else { return }
+            Self.log.notice("panel rejoin: была только на одном рабочем столе")
+            panel.rejoinAllSpaces()
+            panel.orderFrontRegardless()
+        }
     }
 
     /// Сколько проверок подряд экран закрыт: переход между рабочими столами мелькает на мгновение,
