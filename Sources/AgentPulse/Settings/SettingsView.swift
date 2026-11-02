@@ -92,6 +92,17 @@ private struct GeneralSettings: View {
                 }
                 .padding(.vertical, 4)
             }
+            Section("Облик") {
+                let bots = PalSkin.installed()
+                Picker("Облик", selection: Binding(get: { model.config.mascot.skin }, set: { app.setSkin($0) })) {
+                    Text("Светящийся круг").tag(PalSkin.classic)
+                    ForEach(bots, id: \.bot) { Text($0.bot).tag($0.configValue) }
+                }
+                if bots.isEmpty {
+                    Text("Боты Agent Pals не установлены: scripts/install-agent-pals.sh путь/к/паку.zip")
+                        .font(.caption).foregroundStyle(.secondary)
+                }
+            }
             Section("Где живёт") {
                 LabeledContent("Угол экрана") {
                     CornerPicker(anchor: Binding(get: { model.config.display.anchor }, set: { app.setAnchor($0) }))

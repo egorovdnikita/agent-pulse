@@ -18,6 +18,10 @@ mkdir -p "$APP/Contents/Resources"
 cp Resources/AppIcon.icns "$APP/Contents/Resources/AppIcon.icns"
 cp -R Extensions/Chrome "$APP/Contents/Resources/ChromeExtension"
 cp -R FigmaCompanion "$APP/Contents/Resources/FigmaCompanion"
+# Lottie — готовый фреймворк (lottie-spm): исходники lottie-ios без Xcode не собираются.
+mkdir -p "$APP/Contents/Frameworks"
+cp -R "$BIN/Lottie.framework" "$APP/Contents/Frameworks/"
+install_name_tool -add_rpath "@executable_path/../Frameworks" "$APP/Contents/MacOS/AgentPulse" 2>/dev/null || true
 
 # Ad-hoc подпись для локального запуска. Для дистрибуции — Developer ID + нотаризация.
 # macOS привязывает «Универсальный доступ» к подписи: с ad-hoc разрешение слетает после каждой сборки.
@@ -29,6 +33,7 @@ if [[ -z "${AGENT_PULSE_SIGN_IDENTITY:-}" ]] && security find-identity -p codesi
 fi
 IDENTITY="${AGENT_PULSE_SIGN_IDENTITY:--}"
 codesign --force --sign "$IDENTITY" "$APP/Contents/MacOS/pulse-hook"
+codesign --force --sign "$IDENTITY" "$APP/Contents/Frameworks/Lottie.framework"
 codesign --force --sign "$IDENTITY" "$APP"
 
 echo "$APP"

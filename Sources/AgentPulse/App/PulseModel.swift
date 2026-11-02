@@ -49,7 +49,9 @@ final class PulseModel {
     private(set) var showMirror = false
     private(set) var isHovering = false
     var serverError: String?
-    var config = PulseConfig.load()
+    var config = PulseConfig.load() {
+        didSet { if oldValue.mascot != config.mascot { applySkin() } }
+    }
 
     // Мозг
     var mood = Mood()
@@ -120,6 +122,12 @@ final class PulseModel {
         (stream, inbox) = AsyncStream.makeStream(of: PulseInput.self, bufferingPolicy: .bufferingNewest(256))
         animator.tuning = tuning
         animator.setState(.sleep, at: Date.timeIntervalSinceReferenceDate)
+        applySkin()
+    }
+
+    /// Облик Agent Pals, если он выбран и бот установлен целиком; иначе — классический круг.
+    func applySkin() {
+        animator.skin = PalSkin(config: config.mascot.skin).flatMap { $0.isComplete() ? $0 : nil }
     }
 
     func start() {
@@ -254,6 +262,7 @@ final class PulseModel {
         animator.reduceMotion = labReduceMotion || NSWorkspace.shared.accessibilityDisplayShouldReduceMotion
 
         let target = labOverride ?? MascotStateMapper.state(for: sessions, now: now, sleepAfter: tuning.sleepAfter)
+        if case .working(let activity) = dominant?.phase { animator.workTarget = activity.target }
         if target != state {
             // Анти-дребезг: состояние держится минимум minStateHold; ожидание пользователя — сразу.
             if target.isWaiting || now.timeIntervalSince(stateSince) >= tuning.minStateHold {

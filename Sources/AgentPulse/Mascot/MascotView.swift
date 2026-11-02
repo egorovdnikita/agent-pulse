@@ -56,6 +56,9 @@ final class MascotLayerView: NSView {
     private let lids = [CAShapeLayer(), CAShapeLayer()]
     private let arcs = [CAShapeLayer(), CAShapeLayer()]
     private let zees = [CATextLayer(), CATextLayer(), CATextLayer()]
+    /// Облик Agent Pals поверх тени; пока он выбран, свечение, тело и глаза спрятаны.
+    private let pal = PalLayer()
+    private var palSince = -Double.infinity
 
     private var link: CADisplayLink?
     private var calmTimer: Timer?
@@ -100,6 +103,7 @@ final class MascotLayerView: NSView {
             zee.opacity = 0
             canvas.addSublayer(zee)
         }
+        canvas.addSublayer(pal)
         // Слои не анимируют изменения сами: позу задаём мы, кадр за кадром.
         disableImplicitAnimations(in: canvas)
     }
@@ -133,6 +137,7 @@ final class MascotLayerView: NSView {
     // MARK: - Кадры
 
     private func updateDriver() {
+        pal.stopped = window == nil || paused
         guard window != nil, !paused else {
             link?.invalidate()
             link = nil
@@ -191,6 +196,8 @@ final class MascotLayerView: NSView {
     }
 
     private func installSleepAnimations() {
+        // Облик спит сам: клип Sleeping с «z» крутит Core Animation.
+        guard animator.skin == nil else { return }
         let tuning = animator.tuning
         // Свечение дышит: темнее и меньше — светлее и больше.
         let breath = CABasicAnimation(keyPath: "opacity")
@@ -259,7 +266,12 @@ final class MascotLayerView: NSView {
         let shadowInner = radius - 3 * unit
         let shadowRadius = radius + 9 * unit
         dropShadow.frame = Self.circle(CGPoint(x: base.x, y: base.y + 2 * unit), shadowRadius)
-        Self.falloff(dropShadow, color: NSColor.black, peak: 0.22, inner: shadowInner / shadowRadius, cache: &shadowKey)
+        let skinned = syncSkin()
+        Self.falloff(dropShadow, color: NSColor.black, peak: skinned ? Self.palShadowPeak : 0.22, inner: shadowInner / shadowRadius, cache: &shadowKey)
+        if skinned {
+            applyPal(pose, center: center, unit: unit, scale: (scaleX, scaleY))
+            return
+        }
 
         // Свечение: широкое и размытое, пульсирует — темнее и меньше, светлее и больше; ночью теплеет.
         // Пульс — прозрачность и масштаб слоя: градиент пересчитывается, только когда меняется сама поза.
@@ -357,6 +369,46 @@ final class MascotLayerView: NSView {
             zee.opacity = Float(pose.zzz * sin(.pi * phase))
             zee.transform = CATransform3DIdentity
         }
+    }
+
+    // MARK: - Облик Agent Pals
+
+    /// Тень под ботом слабее: у него своя светотень, тень лишь держит силуэт на светлом фоне.
+    static let palShadowPeak = 0.12
+    /// Наклон всего тела вслед за взглядом, pt при диаметре 48: глаза бота нарисованы, взгляд читается телом.
+    static let palGazeLean = SIMD2(1.6, 1.0)
+
+    /// Включает или выключает облик. Возвращает true, если рисуется бот.
+    private func syncSkin() -> Bool {
+        let skin = animator.skin
+        if pal.skin != skin {
+            pal.use(skin)
+            palSince = -.infinity
+            let classic: [CALayer] = [glow, body] + ovals + lids + arcs
+            for layer in classic { layer.isHidden = skin != nil }
+            for zee in zees where skin != nil { zee.opacity = 0 }
+            pal.isHidden = skin == nil
+        }
+        guard skin != nil else { return false }
+        pal.frozen = animator.reduceMotion
+        let choreo = animator.choreo
+        if choreo.since != palSince {
+            let restart = pal.clip == choreo.clip
+            palSince = choreo.since
+            pal.show(choreo.clip, restart: restart)
+        }
+        return true
+    }
+
+    /// Поза → тело бота: сдвиг, дыхание, сжатие с сохранением объёма, наклон и лёгкий наклон к взгляду.
+    private func applyPal(_ pose: MascotPose, center: CGPoint, unit: Double, scale: (x: Double, y: Double)) {
+        let side = diameter / PalLayer.bodyShare
+        let lean = SIMD2(pose.gaze.x * Self.palGazeLean.x, pose.gaze.y * Self.palGazeLean.y) * unit
+        pal.position = CGPoint(x: center.x + lean.x, y: center.y + lean.y)
+        var transform = CATransform3DMakeRotation(pose.tilt, 0, 0, 1)
+        let fit = side / PalLayer.canvas
+        transform = CATransform3DScale(transform, fit * pose.bodyScale * scale.x, fit * pose.bodyScale * scale.y, 1)
+        pal.transform = transform
     }
 
     /// Свечение пульсирует: период и размах размера.

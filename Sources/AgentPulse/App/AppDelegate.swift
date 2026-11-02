@@ -243,6 +243,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         if !on { model.simulate(.newsFresh, value: 0) }
     }
 
+    /// Облик маскота: `PalSkin.classic` или `agent-pals/<Бот>`.
+    func setSkin(_ skin: String) {
+        model.config.mascot.skin = skin
+        try? model.config.save()
+    }
+
     func setGravity(_ on: Bool) {
         model.config.display.gravity = on
         try? model.config.save()

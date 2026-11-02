@@ -6,3 +6,4 @@
 xcuserdata/
 DerivedData/
 *.xcodeproj
+/.playwright-mcp

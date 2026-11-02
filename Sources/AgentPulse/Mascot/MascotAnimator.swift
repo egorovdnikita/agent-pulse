@@ -34,6 +34,14 @@ final class MascotAnimator {
     /// Куда всплывают «Zzz» — от края экрана внутрь.
     var zzzSide = -1.0
 
+    /// Облик Agent Pals; nil — классический круг.
+    var skin: PalSkin?
+    /// Что правит агент: код или макет в Figma — у облика разные клипы.
+    var workTarget: WorkTarget?
+    /// Какой клип облика играет и когда его сменить.
+    private(set) var choreo = PalChoreographer()
+    private var choreoAwake = false
+
     private(set) var state: MascotState = .sleep
     private var behavior: any MascotBehavior = SleepBehavior(start: 0)
     private var queue: [MascotReaction] = []
@@ -78,6 +86,7 @@ final class MascotAnimator {
     func setState(_ newState: MascotState, at t: Double) {
         state = newState
         stateStart = t
+        choreo.setState(newState, target: workTarget, awake: choreoAwake, at: t)
         nextAct = nil
         behavior = BehaviorFactory.make(newState, at: t, gaze: gaze.value, tuning: tuning)
         if newState.isWaiting {
@@ -92,6 +101,7 @@ final class MascotAnimator {
     /// Реакции не прерывают друг друга, а встают в очередь.
     func enqueue(_ reaction: MascotReaction) {
         guard !state.isWaiting else { return }
+        choreo.react(reaction, at: Date.timeIntervalSinceReferenceDate)
         queue.append(reaction)
         if queue.count > 4 { queue.removeFirst() }
     }
@@ -100,6 +110,8 @@ final class MascotAnimator {
     /// повторяющимся анимациям Core Animation. Будит наведение, событие, реакция, перетаскивание.
     func isCalm(at t: Double) -> Bool {
         state == .sleep && !hovered && !speaking && active == nil && queue.isEmpty && dragLook == nil
+            // Облик ещё доигрывает разовый клип или ждёт смены — кадры нужны.
+            && (skin == nil || choreo.nextDeadline == nil)
             && wake.value < 0.01 && t - stateStart > tuning.fallAsleepDuration + 1.5
             // Поза устоялась: веки и «^ ^» дошли до конца — иначе застынет полузакрытой.
             && abs(happy.value - (contented ? 1 : 0)) < 0.02
@@ -133,6 +145,17 @@ final class MascotAnimator {
         queue.append(act)
     }
 
+    /// Ты рядом — спящий облик сразу просыпается; дальше клипы сменяются по правилам `PalChoreographer`.
+    /// Вызывается из кадра и из таймера глубокого сна.
+    func updateChoreo(at t: Double) {
+        let awake = state == .sleep && (hovered || speaking)
+        if awake != choreoAwake {
+            choreoAwake = awake
+            choreo.setState(state, target: workTarget, awake: awake, at: t)
+        }
+        choreo.tick(at: t)
+    }
+
     func glance(towardX x: Double, at t: Double) {
         glanceX = x
         glanceUntil = t + tuning.bubbleGlance
@@ -143,6 +166,7 @@ final class MascotAnimator {
         lastT = t
 
         ambientAct(at: t)
+        updateChoreo(at: t)
         var context = BehaviorContext(t: t, tuning: effectiveTuning, rng: rng)
         var frame = behavior.step(&context)
 
