@@ -53,29 +53,113 @@ struct PalGallery: View {
         Scenario(id: "Сон: облачко молчит", clip: .sleeping, message: nil),
     ]
 
+    var diameter: Double = 52
+
     var body: some View {
-        VStack(spacing: 8) {
+        VStack(alignment: .leading, spacing: 10) {
             ForEach(Self.scenarios) { scenario in
                 VStack(alignment: .leading, spacing: 4) {
                     Text(scenario.id).font(.caption.weight(.semibold)).foregroundStyle(.secondary)
-                    // Хвостик в 8 pt от тела, как на экране: клетка 96, тело — половина, поле по 24 pt.
-                    HStack(spacing: -16) {
-                        Spacer(minLength: 0)
-                        if let message = scenario.message {
-                            BubbleView(message: message, tailOnRight: true)
-                        }
-                        PalClipView(skin: skin, clip: scenario.clip)
-                            .frame(width: 96, height: 96)
-                    }
-                    .padding(.leading, 12)
-                    .frame(maxWidth: .infinity, minHeight: 96)
-                    .background(Color(white: 0.08), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+                    DesktopScene(skin: skin, clip: scenario.clip, message: scenario.message, diameter: diameter)
                 }
             }
         }
         .padding(.vertical, 4)
         .id(skin.bot)
     }
+}
+
+/// Угол экрана, как он выглядит у тебя: низ окна со строкой состояния, край Dock с Orca и Корзиной,
+/// чёрный рабочий стол, справа маскот и облачко. Размеры и цвета сняты со скриншота (pt = px / 2),
+/// сцена 570×255 pt вписывается в ширину карточки целиком, без искажений.
+private struct DesktopScene: View {
+    let skin: PalSkin
+    let clip: PalClip
+    let message: BubbleMessage?
+    let diameter: Double
+
+    static let size = CGSize(width: 570, height: 255)
+    static let mascot = CGPoint(x: 511.5, y: 196.75)
+
+    var body: some View {
+        Color.clear
+            .aspectRatio(Self.size.width / Self.size.height, contentMode: .fit)
+            .overlay(alignment: .topLeading) {
+                GeometryReader { proxy in
+                    let scale = proxy.size.width / Self.size.width
+                    scene
+                        .frame(width: Self.size.width, height: Self.size.height, alignment: .topLeading)
+                        .scaleEffect(scale, anchor: .topLeading)
+                }
+            }
+            .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+    }
+
+    private static func gray(_ value: Int) -> Color {
+        Color(red: Double(value) / 255, green: Double(value) / 255, blue: Double(value) / 255)
+    }
+
+    private var scene: some View {
+        ZStack(alignment: .topLeading) {
+            Color.black
+
+            // Окно: кромка #454545, тело #171717, радиус 12 pt справа снизу; левый край за кадром.
+            UnevenRoundedRectangle(bottomTrailingRadius: 12, style: .continuous)
+                .fill(Self.gray(0x45))
+                .frame(width: 589.5, height: 148)
+                .offset(x: -20)
+            UnevenRoundedRectangle(bottomTrailingRadius: 11, style: .continuous)
+                .fill(Self.gray(0x17))
+                .frame(width: 588.5, height: 147)
+                .offset(x: -20)
+            // Левая панель #101010 до разделителя строки состояния; линии контента #888.
+            Rectangle().fill(Self.gray(0x10)).frame(width: 350, height: 124)
+            Rectangle().fill(Self.gray(0x88)).frame(width: 343, height: 1).offset(y: 51.5)
+            Rectangle().fill(Self.gray(0x88)).frame(width: 343, height: 1).offset(y: 83.5)
+            Rectangle().fill(Self.gray(0x27)).frame(width: 1, height: 124).offset(x: 350)
+            Rectangle().fill(Self.gray(0x27)).frame(width: 569.5, height: 1).offset(y: 124)
+
+            // Dock: #0b0b0b с рамкой, радиус 27.5 pt; левый край за кадром.
+            RoundedRectangle(cornerRadius: 27.5, style: .continuous)
+                .fill(Self.gray(0x0B))
+                .overlay(RoundedRectangle(cornerRadius: 27.5, style: .continuous).strokeBorder(Self.gray(0x30), lineWidth: 1))
+                .frame(width: 264.5, height: 100.5)
+                .offset(x: -40, y: 149)
+            Rectangle().fill(Self.gray(0x30)).frame(width: 1, height: 74.5).offset(x: 113, y: 162)
+            icon(Self.orcaIcon, center: CGPoint(x: 50.25, y: 199.25))
+            Circle().fill(Self.gray(0x87)).frame(width: 4, height: 4).position(x: 49.75, y: 243.75)
+            icon(Self.trashIcon, center: CGPoint(x: 174.25, y: 200.5))
+
+            // Облачко: хвостик в 8 pt от тела, по центру маскота — как в оверлее.
+            if let message {
+                BubbleView(message: message, tailOnRight: true)
+                    .frame(width: Self.mascot.x - diameter / 2 - 8, height: Self.mascot.y * 2, alignment: .trailing)
+            }
+            PalClipView(skin: skin, clip: clip)
+                .frame(width: diameter * 2, height: diameter * 2)
+                .position(Self.mascot)
+        }
+    }
+
+    /// Значок Dock: рисунок 65.5 pt, у системных значков он занимает ~80.5% холста.
+    private func icon(_ image: NSImage?, center: CGPoint) -> some View {
+        let side = 65.5 / 0.805
+        return Group {
+            if let image {
+                Image(nsImage: image).resizable().interpolation(.high)
+            }
+        }
+        .frame(width: side, height: side)
+        .position(center)
+    }
+
+    /// Светлая стеклянная корзина, как в Dock; `NSImage.trashEmptyName` — тёмная и не та.
+    private static let trashIcon: NSImage? =
+        NSImage(contentsOfFile: "/System/Library/CoreServices/CoreTypes.bundle/Contents/Resources/TrashIcon.icns")
+            ?? NSImage(named: NSImage.trashEmptyName)
+
+    private static let orcaIcon: NSImage? = NSWorkspace.shared.urlForApplication(withBundleIdentifier: OrcaStatus.hostBundleId)
+        .map { NSWorkspace.shared.icon(forFile: $0.path) }
 }
 
 /// Один клип в петле. Галерея живёт, только пока открыто окно настроек.

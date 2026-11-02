@@ -109,7 +109,7 @@ private struct GeneralSettings: View {
                             .font(.caption).foregroundStyle(.secondary)
                     }
                     if let skin = model.animator.skin, bots.contains(skin) {
-                        DisclosureGroup("Сценарии: анимации и облачка") { PalGallery(skin: skin) }
+                        DisclosureGroup("Сценарии: анимации и облачка") { PalGallery(skin: skin, diameter: model.config.display.mascotSize) }
                     }
                 }
             }
