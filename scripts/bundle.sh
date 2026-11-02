@@ -16,6 +16,7 @@ cp "$BIN/AgentPulse" "$BIN/pulse-hook" "$APP/Contents/MacOS/"
 cp Resources/Info.plist "$APP/Contents/Info.plist"
 mkdir -p "$APP/Contents/Resources"
 cp Resources/AppIcon.icns "$APP/Contents/Resources/AppIcon.icns"
+cp Resources/Scenes/DeskCorner.png "$APP/Contents/Resources/DeskCorner.png"
 cp -R Extensions/Chrome "$APP/Contents/Resources/ChromeExtension"
 cp -R FigmaCompanion "$APP/Contents/Resources/FigmaCompanion"
 # Lottie — готовый фреймворк (lottie-spm): исходники lottie-ios без Xcode не собираются.

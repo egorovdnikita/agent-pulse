@@ -392,7 +392,8 @@ final class MascotLayerView: NSView {
         guard skin != nil else { return false }
         pal.frozen = animator.reduceMotion
         let choreo = animator.choreo
-        if choreo.since != palSince {
+        // Клип ещё не показан (запуск во сне: время клипа — «никогда») — показываем сразу.
+        if choreo.since != palSince || pal.clip == nil {
             let restart = pal.clip == choreo.clip
             palSince = choreo.since
             pal.show(choreo.clip, restart: restart)

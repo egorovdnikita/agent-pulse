@@ -99,7 +99,32 @@ private struct DesktopScene: View {
         Color(red: Double(value) / 255, green: Double(value) / 255, blue: Double(value) / 255)
     }
 
+    /// Снимок угла экрана владельца (`Resources/Scenes/DeskCorner.png`, 1140×510 px = сцена @2x),
+    /// свой маскот на нём закрашен. Нет снимка — фон рисуется по замерам ниже.
+    private static let backdrop: NSImage? = Bundle.main.url(forResource: "DeskCorner", withExtension: "png")
+        .flatMap(NSImage.init(contentsOf:))
+
     private var scene: some View {
+        ZStack(alignment: .topLeading) {
+            if let backdrop = Self.backdrop {
+                Image(nsImage: backdrop).resizable().interpolation(.high)
+                    .frame(width: Self.size.width, height: Self.size.height)
+            } else {
+                drawnBackdrop
+            }
+
+            // Облачко: хвостик в 8 pt от тела, по центру маскота — как в оверлее.
+            if let message {
+                BubbleView(message: message, tailOnRight: true)
+                    .frame(width: Self.mascot.x - diameter / 2 - 8, height: Self.mascot.y * 2, alignment: .trailing)
+            }
+            PalClipView(skin: skin, clip: clip)
+                .frame(width: diameter * 2, height: diameter * 2)
+                .position(Self.mascot)
+        }
+    }
+
+    private var drawnBackdrop: some View {
         ZStack(alignment: .topLeading) {
             Color.black
 
@@ -129,15 +154,6 @@ private struct DesktopScene: View {
             icon(Self.orcaIcon, center: CGPoint(x: 50.25, y: 199.25))
             Circle().fill(Self.gray(0x87)).frame(width: 4, height: 4).position(x: 49.75, y: 243.75)
             icon(Self.trashIcon, center: CGPoint(x: 174.25, y: 200.5))
-
-            // Облачко: хвостик в 8 pt от тела, по центру маскота — как в оверлее.
-            if let message {
-                BubbleView(message: message, tailOnRight: true)
-                    .frame(width: Self.mascot.x - diameter / 2 - 8, height: Self.mascot.y * 2, alignment: .trailing)
-            }
-            PalClipView(skin: skin, clip: clip)
-                .frame(width: diameter * 2, height: diameter * 2)
-                .position(Self.mascot)
         }
     }
 
