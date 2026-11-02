@@ -133,12 +133,11 @@ final class PulseModel {
         updateWardrobe(now: Date())
     }
 
-    /// Какой бот сейчас на маскоте — правила в `PalWardrobe`: бот дня дома, у каждого агента свой.
+    /// Какой бот сейчас на маскоте — правила в `PalWardrobe`: сменяется сам на новой задаче и при пробуждении.
     func updateWardrobe(now: Date) {
         let bot = wardrobe.update(
-            mode: PalWardrobe.Mode(config: config.mascot.skin), costumes: config.mascot.agentCostumes,
-            installed: installedBots, state: state, source: dominant?.source, agent: dominant?.agent,
-            day: PalWardrobe.dayNumber(now), present: Self.idleSeconds() < 30, at: now.timeIntervalSinceReferenceDate
+            mode: PalWardrobe.Mode(config: config.mascot.skin), installed: installedBots, state: state,
+            at: now.timeIntervalSinceReferenceDate
         )
         animator.skin = bot.map(PalSkin.init(bot:))
     }

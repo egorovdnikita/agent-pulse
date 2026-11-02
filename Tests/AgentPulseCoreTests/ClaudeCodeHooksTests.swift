@@ -88,8 +88,7 @@ import Testing
         #expect(event?.source == .claudeCode)
     }
 
-    @Test func codexWearsHexagon() {
-        #expect(PalWardrobe.costume(source: .codex, agent: nil) == "Hexagon")
+    @Test func codexBubbleIsChatGPT() {
         #expect(BubbleCategory.agent(.codex) == .chatgpt)
         #expect(BubbleCategory.agentTitle(.codex) == "ChatGPT")
     }

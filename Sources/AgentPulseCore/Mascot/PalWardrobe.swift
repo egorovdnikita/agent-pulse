@@ -2,27 +2,26 @@ import Foundation
 
 /// Гардероб облика Agent Pals: какой бот сейчас на маскоте. Единственное место с правилами смены ботов.
 ///
-/// Смысл **[решение]**: бот меняется не ради разнообразия, а чтобы ещё и сообщать.
-/// 1. Дома маскот — «бот дня»: каждый день новый из домашних ботов, по кругу, без повторов подряд.
-///    Новый день наступает не в полночь, а при тебе — первое появление за день, и переодевание видно.
-/// 2. Пришёл агент — маскот переодевается в его бота: форма сразу говорит, кто работает
-///    (Claude Code — Clover, Codex — Hexagon, Figma — Triangle…). Ботов агентов нет среди домашних —
-///    не перепутать гостя с хозяином.
-/// 3. Агент закончил — его бот ещё минуту доигрывает итог, потом маскот возвращается домой; заснул — сразу.
-/// 4. Два агента работают вперемешку — бот сменяется не чаще раза в 20 s, иначе мельтешит.
-///    «Ждёт тебя» — сразу: важно, кто именно ждёт.
-/// 5. Любая смена держится хотя бы 3 s — успевает доиграть переодевание.
+/// Правила **[решение]**: бот меняется сам и не зависит от того, какой агент или программа работает.
+/// 1. Повод сменить бота — начало: новая задача (из покоя или сна маскот начинает думать или работать)
+///    и пробуждение (сон кончился). Посреди работы бот не меняется — характер работы читается по клипу.
+/// 2. Не чаще раза в `minGap` (3 мин): быстрые задачи подряд не превращаются в карусель.
+/// 3. Пока агент ждёт тебя, бот не меняется никогда — важное не тонет в милом.
+/// 4. Боты идут «мешком»: все установленные в случайном порядке, без повторов, пока не покажутся все;
+///    следующий мешок не начинается с только что показанного.
 public struct PalWardrobe: Sendable {
     public enum Mode: Sendable, Equatable {
         case classic
-        case daily
+        case shuffle
         case fixed(String)
 
-        public static let dailyConfig = "agent-pals/daily"
+        public static let shuffleConfig = "agent-pals/shuffle"
+        /// Прежнее значение «Каждый день новый» — читается как «Меняется сам».
+        static let legacyDaily = "agent-pals/daily"
 
         public init(config skin: String) {
-            if skin == Self.dailyConfig {
-                self = .daily
+            if skin == Self.shuffleConfig || skin == Self.legacyDaily {
+                self = .shuffle
             } else if let pal = PalSkin(config: skin) {
                 self = .fixed(pal.bot)
             } else {
@@ -31,110 +30,71 @@ public struct PalWardrobe: Sendable {
         }
     }
 
-    /// Домашние боты — по одному на день. Ботов агентов среди них нет.
-    public static let homePool = ["Arch", "Cat", "Circle", "Drop", "Flame", "Ghost", "Heart", "Pill", "Scallop"]
-    public static let agentHold = 20.0
-    public static let leaveAfter = 60.0
-    public static let minHold = 3.0
-
-    /// Бот агента — по цвету и форме бренда.
-    public static func costume(source: AgentEvent.Source, agent: String?) -> String {
-        switch source {
-        case .claudeCode: return "Clover"
-        case .cowork: return "Briefcase"
-        case .claudeChat: return "Cloud"
-        case .codex: return "Hexagon"
-        case .figmaAI, .figmaMCP, .figmaCompanion: return "Triangle"
-        case .orca:
-            switch agent {
-            case "Claude Code": return "Clover"
-            case "Codex": return "Hexagon"
-            case "Gemini": return "Star"
-            case "Cursor": return "Square"
-            default: return "Oval"
-            }
-        }
-    }
-
-    /// Все боты агентов — для подписи в настройках.
-    public static let costumes: [(agent: String, bot: String)] = [
-        ("Claude Code", "Clover"), ("ChatGPT и Codex", "Hexagon"), ("Cowork", "Briefcase"), ("Claude Chat", "Cloud"),
-        ("Figma", "Triangle"), ("Gemini", "Star"), ("Cursor", "Square"), ("Другие в Orca", "Oval"),
-    ]
-
-    /// Бот дня: шаг 5 по кругу из 9 обходит всех без повторов подряд.
-    public static func dailyBot(day: Int, installed: Set<String>) -> String? {
-        let pool = homePool.filter(installed.contains)
-        guard !pool.isEmpty else { return installed.sorted().first }
-        let index = ((day * 5) % pool.count + pool.count) % pool.count
-        return pool[index]
-    }
-
-    /// Номер дня по местному календарю.
-    public static func dayNumber(_ date: Date, calendar: Calendar = .current) -> Int {
-        let start = calendar.startOfDay(for: date)
-        return Int((start.timeIntervalSinceReferenceDate / 86_400).rounded())
-    }
+    public static let minGap = 180.0
 
     public private(set) var bot: String?
     public private(set) var since = -Double.infinity
-    /// Сейчас надет бот агента.
-    public private(set) var inCostume = false
-    private var homeDay: Int?
-    private var idleSince: Double?
+    private var bag: [String] = []
+    private var lastState: MascotState?
 
     public init() {}
 
     /// Что сейчас происходит → какой бот на маскоте (nil — классический круг).
     @discardableResult
-    public mutating func update(
-        mode: Mode, costumes: Bool, installed: Set<String>, state: MascotState,
-        source: AgentEvent.Source?, agent: String?, day: Int, present: Bool, at t: Double
+    public mutating func update<R: RandomNumberGenerator>(
+        mode: Mode, installed: Set<String>, state: MascotState, at t: Double, using rng: inout R
     ) -> String? {
-        let home: String?
+        let previous = lastState
+        lastState = state
         switch mode {
         case .classic:
             bot = nil
-            inCostume = false
             return nil
         case .fixed(let name):
-            home = installed.contains(name) ? name : nil
-        case .daily:
-            if homeDay == nil || (homeDay != day && present && !inCostume) { homeDay = day }
-            home = Self.dailyBot(day: homeDay ?? day, installed: installed)
+            bot = installed.contains(name) ? name : nil
+            return bot
+        case .shuffle:
+            break
         }
+        guard !installed.isEmpty else {
+            bot = nil
+            return nil
+        }
+        guard let current = bot, installed.contains(current) else {
+            return dress(next(installed, rng: &rng), at: t)
+        }
+        guard let previous, previous != state, !state.isWaiting, t - since >= Self.minGap else { return current }
+        let taskStarts = !Self.isActive(previous) && Self.isActive(state)
+        let wakes = previous == .sleep
+        return taskStarts || wakes ? dress(next(installed, rng: &rng), at: t) : current
+    }
 
-        let active: Bool = switch state {
+    @discardableResult
+    public mutating func update(mode: Mode, installed: Set<String>, state: MascotState, at t: Double) -> String? {
+        var rng = SystemRandomNumberGenerator()
+        return update(mode: mode, installed: installed, state: state, at: t, using: &rng)
+    }
+
+    static func isActive(_ state: MascotState) -> Bool {
+        switch state {
         case .think, .work, .waitYou: true
         case .idle, .sleep: false
         }
-        idleSince = active ? nil : (idleSince ?? t)
+    }
 
-        var wanted = home
-        var wantedCostume = false
-        if costumes, active, let source {
-            let guest = Self.costume(source: source, agent: agent)
-            if installed.contains(guest) {
-                wanted = guest
-                wantedCostume = true
-            }
-        } else if inCostume, state != .sleep, let idle = idleSince, t - idle < Self.leaveAfter {
-            // Гость ещё доигрывает итог, потом уходит.
-            wanted = bot
-            wantedCostume = true
-        }
-
-        guard wanted != bot else {
-            inCostume = wantedCostume && wanted != nil
-            return bot
-        }
-        if bot != nil, !state.isWaiting {
-            guard t - since >= Self.minHold else { return bot }
-            if inCostume, wantedCostume, t - since < Self.agentHold { return bot }
-        }
-        bot = wanted
-        inCostume = wantedCostume
+    private mutating func dress(_ name: String, at t: Double) -> String {
+        bot = name
         since = t
-        return bot
+        return name
+    }
+
+    private mutating func next<R: RandomNumberGenerator>(_ installed: Set<String>, rng: inout R) -> String {
+        bag.removeAll { !installed.contains($0) }
+        if bag.isEmpty {
+            bag = installed.sorted().shuffled(using: &rng)
+            // Новый мешок не начинается с того, кто только что был.
+            if bag.count > 1, bag.last == bot { bag.swapAt(bag.count - 1, 0) }
+        }
+        return bag.removeLast()
     }
 }

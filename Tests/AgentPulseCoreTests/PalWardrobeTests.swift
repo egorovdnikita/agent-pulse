@@ -2,90 +2,85 @@ import Foundation
 import Testing
 @testable import AgentPulseCore
 
-@Suite struct PalWardrobeTests {
-    let all = Set(PalWardrobe.homePool + PalWardrobe.costumes.map(\.bot))
-
-    func wear(
-        _ wardrobe: inout PalWardrobe, _ state: MascotState, source: AgentEvent.Source? = nil, agent: String? = nil,
-        mode: PalWardrobe.Mode = .daily, day: Int = 100, present: Bool = true, at t: Double
-    ) -> String? {
-        wardrobe.update(
-            mode: mode, costumes: true, installed: all, state: state, source: source, agent: agent,
-            day: day, present: present, at: t
-        )
+/// Детерминированный генератор для тестов.
+struct SeededRandom: RandomNumberGenerator {
+    var state: UInt64
+    mutating func next() -> UInt64 {
+        state = state &* 6_364_136_223_846_793_005 &+ 1_442_695_040_888_963_407
+        return state
     }
+}
 
-    @Test func dailyBotCyclesWithoutRepeats() {
-        let week = (0..<9).compactMap { PalWardrobe.dailyBot(day: $0, installed: all) }
-        #expect(Set(week).count == 9)
-        for day in 0..<30 {
-            #expect(PalWardrobe.dailyBot(day: day, installed: all) != PalWardrobe.dailyBot(day: day + 1, installed: all))
-        }
-        #expect(Set(week).isDisjoint(with: PalWardrobe.costumes.map(\.bot)))
+@Suite struct PalWardrobeTests {
+    let all: Set<String> = [
+        "Arch", "Briefcase", "Cat", "Circle", "Cloud", "Clover", "Drop", "Flame", "Flower",
+        "Ghost", "Heart", "Hexagon", "Oval", "Pill", "Scallop", "Square", "Star", "Triangle",
+    ]
+    var rng = SeededRandom(state: 42)
+
+    mutating func wear(_ wardrobe: inout PalWardrobe, _ state: MascotState, mode: PalWardrobe.Mode = .shuffle, at t: Double) -> String? {
+        wardrobe.update(mode: mode, installed: all, state: state, at: t, using: &rng)
     }
 
     @Test func modeParsing() {
         #expect(PalWardrobe.Mode(config: "default") == .classic)
-        #expect(PalWardrobe.Mode(config: "agent-pals/daily") == .daily)
+        #expect(PalWardrobe.Mode(config: "agent-pals/shuffle") == .shuffle)
+        #expect(PalWardrobe.Mode(config: "agent-pals/daily") == .shuffle)
         #expect(PalWardrobe.Mode(config: "agent-pals/Cat") == .fixed("Cat"))
     }
 
-    @Test func agentArrivesImmediatelyAndLeavesAfterAMinute() {
+    @Test mutating func newTaskBringsNewBot() {
         var wardrobe = PalWardrobe()
-        let home = wear(&wardrobe, .idle, at: 0)
-        #expect(wear(&wardrobe, .think, source: .claudeCode, at: 10) == "Clover")
-        #expect(wardrobe.inCostume)
-        // Закончил: гость ещё доигрывает итог.
-        #expect(wear(&wardrobe, .idle, at: 20) == "Clover")
-        #expect(wear(&wardrobe, .idle, at: 79) == "Clover")
-        #expect(wear(&wardrobe, .idle, at: 80) == home)
-        #expect(!wardrobe.inCostume)
+        let first = wear(&wardrobe, .idle, at: 0)
+        #expect(wear(&wardrobe, .think, at: 200) != first)
     }
 
-    @Test func fallingAsleepReturnsHome() {
+    @Test mutating func botStaysDuringWork() {
         var wardrobe = PalWardrobe()
-        let home = wear(&wardrobe, .idle, at: 0)
-        _ = wear(&wardrobe, .work(.edit), source: .cowork, at: 5)
-        #expect(wear(&wardrobe, .sleep, at: 30) == home)
+        _ = wear(&wardrobe, .idle, at: 0)
+        let working = wear(&wardrobe, .think, at: 200)
+        #expect(wear(&wardrobe, .work(.read), at: 500) == working)
+        #expect(wear(&wardrobe, .work(.edit), at: 900) == working)
+        #expect(wear(&wardrobe, .idle, at: 1000) == working)
     }
 
-    @Test func orcaAgentsGetTheirOwnBots() {
-        #expect(PalWardrobe.costume(source: .orca, agent: "Codex") == "Hexagon")
-        #expect(PalWardrobe.costume(source: .orca, agent: "Claude Code") == "Clover")
-        #expect(PalWardrobe.costume(source: .orca, agent: "Grok") == "Oval")
-        #expect(PalWardrobe.costume(source: .figmaMCP, agent: nil) == "Triangle")
+    @Test mutating func notMoreOftenThanMinGap() {
+        var wardrobe = PalWardrobe()
+        let first = wear(&wardrobe, .idle, at: 0)
+        #expect(wear(&wardrobe, .think, at: 60) == first)
+        _ = wear(&wardrobe, .idle, at: 90)
+        #expect(wear(&wardrobe, .think, at: 181) != first)
     }
 
-    @Test func twoAgentsDoNotFlicker() {
+    @Test mutating func waitingNeverChangesBot() {
         var wardrobe = PalWardrobe()
-        _ = wear(&wardrobe, .work(.read), source: .claudeCode, at: 0)
-        #expect(wear(&wardrobe, .work(.run), source: .orca, agent: "Codex", at: 5) == "Clover")
-        #expect(wear(&wardrobe, .work(.run), source: .orca, agent: "Codex", at: 20) == "Hexagon")
+        let first = wear(&wardrobe, .sleep, at: 0)
+        #expect(wear(&wardrobe, .waitYou(.permission), at: 500) == first)
     }
 
-    @Test func waitingSwitchesToWhoeverWaitsImmediately() {
+    @Test mutating func wakingBringsNewBot() {
         var wardrobe = PalWardrobe()
-        _ = wear(&wardrobe, .work(.read), source: .claudeCode, at: 0)
-        #expect(wear(&wardrobe, .waitYou(.permission), source: .orca, agent: "Codex", at: 1) == "Hexagon")
+        let first = wear(&wardrobe, .sleep, at: 0)
+        #expect(wear(&wardrobe, .idle, at: 400) != first)
     }
 
-    @Test func newDayChangesHomeOnlyWhenYouAreHere() {
+    @Test mutating func allBotsShowBeforeRepeat() {
         var wardrobe = PalWardrobe()
-        let yesterday = wear(&wardrobe, .sleep, day: 100, at: 0)
-        #expect(wear(&wardrobe, .sleep, day: 101, present: false, at: 10) == yesterday)
-        let today = wear(&wardrobe, .idle, day: 101, present: true, at: 20)
-        #expect(today != yesterday)
-        #expect(today == PalWardrobe.dailyBot(day: 101, installed: all))
+        var seen: [String] = [wear(&wardrobe, .idle, at: 0)].compactMap { $0 }
+        var t = 0.0
+        for _ in 1..<all.count {
+            t += 200
+            _ = wear(&wardrobe, .idle, at: t)
+            t += 200
+            if let bot = wear(&wardrobe, .think, at: t) { seen.append(bot) }
+        }
+        #expect(Set(seen).count == all.count)
+        for index in 1..<seen.count { #expect(seen[index] != seen[index - 1]) }
     }
 
-    @Test func fixedBotStillHostsGuests() {
+    @Test mutating func fixedAndClassic() {
         var wardrobe = PalWardrobe()
-        #expect(wear(&wardrobe, .idle, mode: .fixed("Cat"), at: 0) == "Cat")
-        #expect(wear(&wardrobe, .work(.edit), source: .figmaCompanion, mode: .fixed("Cat"), at: 5) == "Triangle")
-    }
-
-    @Test func classicHasNoBot() {
-        var wardrobe = PalWardrobe()
-        #expect(wear(&wardrobe, .work(.edit), source: .claudeCode, mode: .classic, at: 0) == nil)
+        #expect(wear(&wardrobe, .think, mode: .fixed("Cat"), at: 0) == "Cat")
+        #expect(wear(&wardrobe, .think, mode: .classic, at: 1) == nil)
     }
 }

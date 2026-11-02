@@ -251,11 +251,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         try? model.config.save()
     }
 
-    func setAgentCostumes(_ on: Bool) {
-        model.config.mascot.agentCostumes = on
-        try? model.config.save()
-    }
-
     func setGravity(_ on: Bool) {
         model.config.display.gravity = on
         try? model.config.save()

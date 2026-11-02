@@ -97,20 +97,15 @@ private struct GeneralSettings: View {
                 let mode = PalWardrobe.Mode(config: model.config.mascot.skin)
                 Picker("Облик", selection: Binding(get: { model.config.mascot.skin }, set: { app.setSkin($0) })) {
                     Text("Светящийся круг").tag(PalSkin.classic)
-                    if !bots.isEmpty { Text("Каждый день новый").tag(PalWardrobe.Mode.dailyConfig) }
+                    if !bots.isEmpty { Text("Меняется сам").tag(PalWardrobe.Mode.shuffleConfig) }
                     ForEach(bots, id: \.bot) { Text($0.bot).tag($0.configValue) }
                 }
                 if bots.isEmpty {
                     Text("Боты Agent Pals не установлены: scripts/install-agent-pals.sh путь/к/паку.zip")
                         .font(.caption).foregroundStyle(.secondary)
                 } else if mode != .classic {
-                    if mode == .daily {
-                        Text("Новый бот появляется утром, при тебе. Сегодня — \(model.animator.skin.map(\.bot) ?? "—")")
-                            .font(.caption).foregroundStyle(.secondary)
-                    }
-                    Toggle(isOn: Binding(get: { model.config.mascot.agentCostumes }, set: { app.setAgentCostumes($0) })) {
-                        Text("У каждого агента свой бот")
-                        Text(PalWardrobe.costumes.map { "\($0.agent) — \($0.bot)" }.joined(separator: " · "))
+                    if mode == .shuffle {
+                        Text("Новая задача любого агента или пробуждение — новый бот, не чаще раза в 3 мин. Все \(bots.count) по очереди, без повторов")
                             .font(.caption).foregroundStyle(.secondary)
                     }
                     if let skin = model.animator.skin, bots.contains(skin) {
@@ -413,7 +408,7 @@ private struct SourcesSettings: View {
             }
             Section("ChatGPT") {
                 LabeledContent("Хуки Codex", value: Self.codexHooked ? "зовут маскота" + Self.ago(model, .codex) : "не найдены")
-                Text("Приложение ChatGPT перенимает хуки Claude Code: маскот видит его работу и переодевается в Hexagon")
+                Text("Приложение ChatGPT перенимает хуки Claude Code: маскот видит его работу")
                     .font(.caption).foregroundStyle(.secondary)
             }
             Section("Orca") {
