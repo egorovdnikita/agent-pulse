@@ -59,7 +59,7 @@ extension PulseModel {
             let title = reacted == .claude ? BubbleCategory.agentTitle(lastTask?.source, host: host) : nil
             scheduler.say(
                 line, duration: decision.bubbleDuration, category: category, title: title,
-                agent: decision.tier == .agent, now: signal.ts
+                agent: decision.tier == .agent, answersUser: decision.answersUser, now: signal.ts
             )
         }
     }

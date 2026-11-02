@@ -159,4 +159,29 @@ import Testing
         #expect(!Introduction.steps(hooksInstalled: true).contains { $0.line.contains("Claude Code") })
         #expect(Introduction.steps(hooksInstalled: true).contains { $0.pose == .waiting })
     }
+
+    /// Наложение: агент ждёт, ты вынул кабель — ответ вклинивается и уходит, ожидание возвращается.
+    /// Фоновое (сеть) в ожидание не вклинивается. Тишина пропускает ответ на действие.
+    @Test func answerToUserInterjectsIntoWait() {
+        let start = Date(timeIntervalSinceReferenceDate: 0)
+        func at(_ s: Double) -> Date { start.addingTimeInterval(s) }
+        var scheduler = BubbleScheduler()
+        scheduler.quiet = true
+        scheduler.react(.waitInput, category: .orca, title: "Orca", now: at(0))
+        let wait = scheduler.current
+        #expect(wait?.trigger == .waitInput)
+        scheduler.say("Где все?", duration: 2.5, now: at(1))
+        #expect(scheduler.current == wait)
+        scheduler.say("Ой, провод", duration: 2.5, category: .battery, answersUser: true, now: at(2))
+        #expect(scheduler.current?.text == "Ой, провод")
+        scheduler.tick(now: at(3))
+        #expect(scheduler.current?.text == "Ой, провод")
+        scheduler.tick(now: at(6))
+        #expect(scheduler.current == wait)
+        // Ты ответил агенту, пока висел ответ на кабель, — ожидание не возвращается.
+        scheduler.say("Ммм…", duration: 2.5, category: .battery, answersUser: true, now: at(7))
+        scheduler.endWait(now: at(8))
+        scheduler.tick(now: at(12))
+        #expect(scheduler.current == nil)
+    }
 }

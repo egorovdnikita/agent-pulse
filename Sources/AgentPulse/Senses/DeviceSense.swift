@@ -12,6 +12,8 @@ final class DeviceSense: Sense {
     private var observers: [NSObjectProtocol] = []
     /// Тома, которые извлекают штатно (пришёл willUnmount) — их уход не «вынули без извлечения».
     private var ejecting: Set<URL> = []
+    /// Подключённые гости. «Вынули без извлечения» — только про них, не про системные тома и снимки.
+    private var guests: Set<URL> = []
     private var port: IONotificationPortRef?
     private var iterator: io_iterator_t = 0
     private var emit: (@Sendable (Signal) -> Void)?
@@ -19,20 +21,25 @@ final class DeviceSense: Sense {
     func start(emit: @escaping @Sendable (Signal) -> Void) {
         self.emit = emit
         let center = NSWorkspace.shared.notificationCenter
-        observers.append(center.addObserver(forName: NSWorkspace.didMountNotification, object: nil, queue: .main) { note in
+        guests = Set((FileManager.default.mountedVolumeURLs(includingResourceValuesForKeys: nil, options: [.skipHiddenVolumes]) ?? [])
+            .filter(Self.isGuest).map(\.standardizedFileURL))
+        observers.append(center.addObserver(forName: NSWorkspace.didMountNotification, object: nil, queue: .main) { [weak self] note in
             guard let url = note.userInfo?[NSWorkspace.volumeURLUserInfoKey] as? URL, Self.isGuest(url) else { return }
+            MainActor.assumeIsolated { _ = self?.guests.insert(url.standardizedFileURL) }
             emit(Signal(.devices, .diskMounted))
         })
         observers.append(center.addObserver(forName: NSWorkspace.willUnmountNotification, object: nil, queue: .main) { [weak self] note in
             guard let url = note.userInfo?[NSWorkspace.volumeURLUserInfoKey] as? URL else { return }
-            MainActor.assumeIsolated { _ = self?.ejecting.insert(url) }
+            MainActor.assumeIsolated { _ = self?.ejecting.insert(url.standardizedFileURL) }
         })
         observers.append(center.addObserver(forName: NSWorkspace.didUnmountNotification, object: nil, queue: .main) { [weak self] note in
             guard let url = note.userInfo?[NSWorkspace.volumeURLUserInfoKey] as? URL else { return }
             MainActor.assumeIsolated {
                 guard let self else { return }
                 // Штатное извлечение присылает willUnmount заранее; выдернутый диск — только didUnmount.
-                if self.ejecting.remove(url) == nil, !url.path.contains("/Volumes/.") {
+                let url = url.standardizedFileURL
+                let wasGuest = self.guests.remove(url) != nil
+                if self.ejecting.remove(url) == nil, wasGuest {
                     emit(Signal(.devices, .diskYanked))
                 }
             }

@@ -67,6 +67,7 @@ final class PowerSense: Sense {
         let isCharged = battery[kIOPSIsChargedKey] as? Bool ?? false
         let isCharging = battery[kIOPSIsChargingKey] as? Bool ?? false
 
+        let plugged = onAC.map { $0 != ac } ?? false
         if let previous = onAC, previous != ac {
             emit(Signal(.power, ac ? .chargerConnected : .chargerDisconnected, value: percent))
             if ac, let watts = Self.adapterWatts(), watts > 0, watts < Self.weakWatts {
@@ -79,7 +80,8 @@ final class PowerSense: Sense {
         paused = nowPaused
         onAC = ac
         // На старте уже полный — не новость; «Сыто» только когда дозарядился при нас.
-        if ac, isCharged, !charged, onACKnown { emit(Signal(.power, .fullyCharged, value: percent)) }
+        // И не в момент подключения: уже полный при подключении — хватит «Ммм…», «Сыто» вдогонку — лишнее.
+        if ac, isCharged, !charged, onACKnown, !plugged { emit(Signal(.power, .fullyCharged, value: percent)) }
         onACKnown = true
         charged = isCharged
 

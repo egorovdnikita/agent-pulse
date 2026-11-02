@@ -34,6 +34,8 @@ public struct Decision: Sendable, Equatable {
     public let line: String?
     public let bubbleDuration: TimeInterval
     public let special: SpecialAction?
+    /// Ответ на твоё действие: облачко вклинивается в ожидание агента и звучит в тихие часы.
+    public var answersUser = false
 }
 
 public struct DirectorSettings: Sendable, Equatable {
@@ -233,10 +235,12 @@ public struct Director: Sendable {
                 exclaimedToday = true
             }
         }
-        return Decision(
+        var decision = Decision(
             reaction: spec.id, tier: spec.tier, behavior: spec.behavior(signal, context),
             line: line, bubbleDuration: spec.bubbleDuration, special: spec.special
         )
+        decision.answersUser = spec.answersUser
+        return decision
     }
 
     private func earlyBy(_ now: Date) -> Double? {

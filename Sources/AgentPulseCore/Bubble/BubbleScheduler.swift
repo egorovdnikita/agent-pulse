@@ -63,6 +63,8 @@ public struct BubbleScheduler: Sendable {
         var note: String? = nil
         /// Агентные реплики встают впереди реплик тела и ритма.
         var agent: Bool
+        /// Ответ на твоё действие (кабель, тычок): вклинивается даже в ожидание и в тихие часы.
+        var answersUser = false
     }
 
     public var tuning: BubbleTuning
@@ -73,6 +75,8 @@ public struct BubbleScheduler: Sendable {
     public private(set) var current: Bubble?
     public private(set) var lastText: String?
     private var queue: [Item] = []
+    /// Облачко ожидания, отложенное на время короткого ответа на твоё действие, — потом возвращается.
+    private var pausedWait: Bubble?
     private var lastAmbientAt: Date = .distantPast
     private var picker = PhrasePicker()
     private var rng = SystemRandomNumberGenerator()
@@ -88,6 +92,7 @@ public struct BubbleScheduler: Sendable {
         let title = category == .rest ? category.title : title ?? category.title
         if trigger.isWait {
             queue.removeAll()
+            pausedWait = nil
             show(Item(trigger: trigger, text: nil, duration: nil, category: category, title: title, agent: true), now: now)
             return
         }
@@ -97,16 +102,28 @@ public struct BubbleScheduler: Sendable {
     /// Реплика каталога реакций (тело, ритм, взаимодействие, приколы, агентные сверх конвейера).
     public mutating func say(
         _ text: String, duration: TimeInterval, category: BubbleCategory = .mood, title: String? = nil, note: String? = nil,
-        agent: Bool = false, now: Date
+        agent: Bool = false, answersUser: Bool = false, now: Date
     ) {
-        enqueue(Item(trigger: .line, text: text, duration: duration, category: category, title: title ?? category.title, note: note, agent: agent), now: now)
+        enqueue(Item(
+            trigger: .line, text: text, duration: duration, category: category, title: title ?? category.title, note: note,
+            agent: agent, answersUser: answersUser
+        ), now: now)
     }
 
+    /// Правила наложения:
+    /// - ожидание тебя вытесняет всё фоновое; ответ на твоё действие вклинивается на время чтения, затем ожидание возвращается;
+    /// - в тишине молчит всё, кроме агентного и ответа на твоё действие (решение о тихих часах принимает Director);
+    /// - агентное встаёт впереди тела и ритма.
     private mutating func enqueue(_ item: Item, now: Date) {
-        if quiet && !item.agent { return }
+        if quiet && !item.agent && !item.answersUser { return }
         if quiet && item.trigger != .line { return }
-        // Пока агент ждёт пользователя, остальные реплики не нужны.
-        if let current, current.trigger.isWait, current.duration == nil { return }
+        if let current, current.trigger.isWait, current.duration == nil {
+            guard item.answersUser else { return }
+            pausedWait = current
+            self.current = nil
+            show(item, now: now)
+            return
+        }
         if item.agent, let firstLine = queue.firstIndex(where: { !$0.agent }) {
             queue.insert(item, at: firstLine)
         } else {
@@ -133,6 +150,7 @@ public struct BubbleScheduler: Sendable {
 
     /// Пользователь отреагировал: облачко ожидания уходит, но не раньше минимального времени показа.
     public mutating func endWait(now: Date) {
+        pausedWait = nil
         guard var bubble = current, bubble.trigger.isWait else { return }
         bubble.duration = 0
         current = bubble
@@ -147,6 +165,12 @@ public struct BubbleScheduler: Sendable {
             let expired = bubble.duration.map { elapsed >= max($0, tuning.minShow) } ?? false
             guard preempted || expired else { return }
             current = nil
+            // Ответ на действие сказан — ожидание возвращается тем же облачком.
+            if let wait = pausedWait {
+                pausedWait = nil
+                current = wait
+                return
+            }
         }
         if !queue.isEmpty {
             show(queue.removeFirst(), now: now)
