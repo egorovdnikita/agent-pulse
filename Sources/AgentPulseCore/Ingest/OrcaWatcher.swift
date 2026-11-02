@@ -15,15 +15,18 @@ public final class OrcaWatcher: @unchecked Sendable {
 
     private let root: String
     private let includeClaude: Bool
+    private let includeCodex: Bool
     private let handler: Handler
     private let queue = DispatchQueue(label: "agentpulse.orca")
     private var last: [String: OrcaStatus.Entry] = [:]
     private var stream: FSEventStreamRef?
 
     /// `includeClaude` — показывать и Claude Code из Orca; нужно, только если хуки Pulse не стоят.
-    public init(root: URL = OrcaWatcher.defaultRoot, includeClaude: Bool, handler: @escaping Handler) {
+    /// `includeCodex` — то же для Codex: его хуки в `~/.codex/hooks.json` тоже могут звать `pulse-hook`.
+    public init(root: URL = OrcaWatcher.defaultRoot, includeClaude: Bool, includeCodex: Bool = true, handler: @escaping Handler) {
         self.root = CoworkWatcher.realPath(root.path(percentEncoded: false))
         self.includeClaude = includeClaude
+        self.includeCodex = includeCodex
         self.handler = handler
     }
 
@@ -79,7 +82,7 @@ public final class OrcaWatcher: @unchecked Sendable {
             let data = FileManager.default.contents(atPath: snapshotPath),
             let snapshot = OrcaStatus.parse(snapshot: data)
         else { return }
-        let events = OrcaStatus.diff(from: last, to: snapshot, includeClaude: includeClaude)
+        let events = OrcaStatus.diff(from: last, to: snapshot, includeClaude: includeClaude, includeCodex: includeCodex)
         last = snapshot
         if !events.isEmpty { handler(events) }
     }

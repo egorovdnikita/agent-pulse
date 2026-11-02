@@ -62,14 +62,17 @@ public enum OrcaStatus {
         return result
     }
 
-    /// События между двумя снимками. Claude Code с хуками Pulse виден подробнее напрямую — тогда его пропускаем.
+    /// События между двумя снимками. Claude Code и Codex с хуками Pulse видны подробнее напрямую — тогда их пропускаем.
     public static func diff(
         from old: [String: Entry],
         to new: [String: Entry],
         includeClaude: Bool,
+        includeCodex: Bool = true,
         now: Date = Date()
     ) -> [AgentEvent] {
-        func skip(_ entry: Entry) -> Bool { !includeClaude && entry.agentType == "claude" }
+        func skip(_ entry: Entry) -> Bool {
+            (!includeClaude && entry.agentType == "claude") || (!includeCodex && entry.agentType == "codex")
+        }
         var events: [AgentEvent] = []
 
         for key in new.keys.sorted() {

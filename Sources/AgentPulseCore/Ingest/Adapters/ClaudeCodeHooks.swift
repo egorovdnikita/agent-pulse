@@ -6,6 +6,16 @@ import Foundation
 /// и следом сырой JSON, который Claude Code передал хуку в stdin.
 public enum ClaudeCodeHooks {
     public static let headerPrefix = "PULSE1"
+    /// Приложение ChatGPT с Codex внутри: оно запускает те же хуки, что Claude Code.
+    public static let chatGPTBundleId = "com.openai.codex"
+
+    /// Хук вызвал Codex, а не Claude Code: запустило приложение ChatGPT, журнал лежит в `~/.codex`,
+    /// или есть `turn_id`, которого у Claude Code нет.
+    static func isCodex(_ object: [String: Any], host: String?) -> Bool {
+        host == chatGPTBundleId
+            || (object["transcript_path"] as? String)?.contains("/.codex/") == true
+            || object["turn_id"] != nil
+    }
 
     public static func parse(_ data: Data, now: Date = Date()) -> AgentEvent? {
         let (host, body) = splitEnvelope(data)
@@ -17,6 +27,7 @@ public enum ClaudeCodeHooks {
 
         let context = (object["cwd"] as? String).flatMap { $0.isEmpty ? nil : URL(fileURLWithPath: $0).lastPathComponent }
         let tool = object["tool_name"] as? String
+        let source: AgentEvent.Source = isCodex(object, host: host) ? .codex : .claudeCode
 
         func event(
             _ kind: AgentEvent.Kind,
@@ -25,7 +36,7 @@ public enum ClaudeCodeHooks {
             isError: Bool = false
         ) -> AgentEvent {
             AgentEvent(
-                source: .claudeCode, sessionId: sessionId, kind: kind, tool: tool, summary: summary,
+                source: source, sessionId: sessionId, kind: kind, tool: tool, summary: summary,
                 context: context, awaitReason: awaitReason, isError: isError, hostBundleId: host, ts: now
             )
         }

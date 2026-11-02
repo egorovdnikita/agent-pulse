@@ -43,6 +43,7 @@ public struct PalWardrobe: Sendable {
         case .claudeCode: return "Clover"
         case .cowork: return "Briefcase"
         case .claudeChat: return "Cloud"
+        case .codex: return "Hexagon"
         case .figmaAI, .figmaMCP, .figmaCompanion: return "Triangle"
         case .orca:
             switch agent {
@@ -57,7 +58,7 @@ public struct PalWardrobe: Sendable {
 
     /// Все боты агентов — для подписи в настройках.
     public static let costumes: [(agent: String, bot: String)] = [
-        ("Claude Code", "Clover"), ("Codex", "Hexagon"), ("Cowork", "Briefcase"), ("Claude Chat", "Cloud"),
+        ("Claude Code", "Clover"), ("ChatGPT и Codex", "Hexagon"), ("Cowork", "Briefcase"), ("Claude Chat", "Cloud"),
         ("Figma", "Triangle"), ("Gemini", "Star"), ("Cursor", "Square"), ("Другие в Orca", "Oval"),
     ]
 

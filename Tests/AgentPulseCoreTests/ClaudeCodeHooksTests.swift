@@ -66,3 +66,31 @@ import Testing
         #expect(ClaudeCodeHooks.parse(data) == nil)
     }
 }
+
+@Suite struct CodexHooksTests {
+    func parse(_ json: String, host: String? = nil) -> AgentEvent? {
+        let header = host.map { "\(ClaudeCodeHooks.headerPrefix) bundle=\($0)\n" } ?? ""
+        return ClaudeCodeHooks.parse(Data((header + json).utf8))
+    }
+
+    @Test func chatGPTAppIsCodex() {
+        let event = parse(#"{"session_id":"a","hook_event_name":"UserPromptSubmit"}"#, host: "com.openai.codex")
+        #expect(event?.source == .codex)
+    }
+
+    @Test func codexTranscriptOrTurnIdIsCodex() {
+        #expect(parse(#"{"session_id":"a","hook_event_name":"Stop","transcript_path":"/Users/x/.codex/sessions/r.jsonl"}"#)?.source == .codex)
+        #expect(parse(#"{"session_id":"a","hook_event_name":"Stop","turn_id":"t1"}"#)?.source == .codex)
+    }
+
+    @Test func claudeStaysClaude() {
+        let event = parse(#"{"session_id":"a","hook_event_name":"Stop","transcript_path":"/Users/x/.claude/projects/p/s.jsonl"}"#)
+        #expect(event?.source == .claudeCode)
+    }
+
+    @Test func codexWearsHexagon() {
+        #expect(PalWardrobe.costume(source: .codex, agent: nil) == "Hexagon")
+        #expect(BubbleCategory.agent(.codex) == .chatgpt)
+        #expect(BubbleCategory.agentTitle(.codex) == "ChatGPT")
+    }
+}

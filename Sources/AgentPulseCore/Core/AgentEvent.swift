@@ -4,6 +4,8 @@ import Foundation
 public struct AgentEvent: Codable, Sendable, Equatable {
     public enum Source: String, Codable, Sendable {
         case claudeCode, cowork, claudeChat, figmaAI, figmaMCP, figmaCompanion, orca
+        /// Codex в приложении ChatGPT (или в терминале): его хуки повторяют формат Claude Code.
+        case codex
 
         public var displayName: String {
             switch self {
@@ -13,6 +15,7 @@ public struct AgentEvent: Codable, Sendable, Equatable {
             case .figmaAI: "Figma AI"
             case .figmaMCP, .figmaCompanion: "Figma"
             case .orca: "Orca"
+            case .codex: "ChatGPT"
             }
         }
     }

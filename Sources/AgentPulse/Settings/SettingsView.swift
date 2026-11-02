@@ -411,6 +411,11 @@ private struct SourcesSettings: View {
                     Text(coworkStatus(model)).font(.caption).foregroundStyle(.secondary)
                 }
             }
+            Section("ChatGPT") {
+                LabeledContent("Хуки Codex", value: Self.codexHooked ? "зовут маскота" + Self.ago(model, .codex) : "не найдены")
+                Text("Приложение ChatGPT перенимает хуки Claude Code: маскот видит его работу и переодевается в Hexagon")
+                    .font(.caption).foregroundStyle(.secondary)
+            }
             Section("Orca") {
                 Toggle(isOn: Binding(get: { model.config.sources.orca }, set: { app.setOrcaEnabled($0) })) {
                     Text("Следить за агентами в Orca")
@@ -485,6 +490,11 @@ private struct SourcesSettings: View {
     }
 
     /// « · 3 мин назад» — когда источник последний раз подавал голос.
+    static var codexHooked: Bool {
+        let url = FileManager.default.homeDirectoryForCurrentUser.appending(path: ".codex/hooks.json")
+        return (try? String(contentsOf: url, encoding: .utf8))?.contains("pulse-hook") ?? false
+    }
+
     static func ago(_ model: PulseModel, _ source: AgentEvent.Source) -> String {
         guard let date = model.lastEventBySource[source] else { return "" }
         return " · " + HumanTime.ago(Date().timeIntervalSince(date))
