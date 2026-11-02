@@ -1,32 +1,75 @@
 import AgentPulseCore
 import SwiftUI
 
-/// Все 13 клипов выбранного бота сразу, по кругу — посмотреть облик целиком.
-/// Подписи — когда маскот играет этот клип (правила — `PalChoreographer`).
+/// Сценарии: клип бота и облачко — как это выглядит на экране в настоящей ситуации.
+/// Реплики берутся из тех же пулов (`Phrases`), заголовки и иконки — из тех же категорий, что у живого маскота.
 struct PalGallery: View {
     let skin: PalSkin
 
-    private static let captions: [PalClip: String] = [
-        .idle: "Покой", .sleeping: "Сон", .thinking: "Думает", .listening: "Ждёт тебя",
-        .reading: "Читает", .searching: "Ищет", .typing: "Запускает", .coding: "Правит код",
-        .designing: "Рисует в Figma", .working: "Прочая работа", .writing: "Пока не используется",
-        .done: "Готово", .error: "Ошибка",
-    ]
-    /// Порядок — как обычно идёт задача: от покоя к итогу.
-    private static let order: [PalClip] = [
-        .idle, .sleeping, .thinking, .reading, .searching, .coding, .designing, .typing, .working,
-        .listening, .done, .error, .writing,
+    struct Scenario: Identifiable {
+        let id: String
+        let clip: PalClip
+        let message: BubbleMessage?
+    }
+
+    /// Реплика-пример: первая из пула.
+    private static func line(_ trigger: BubbleTrigger) -> String {
+        Phrases.pool(for: trigger).first ?? ""
+    }
+
+    private static func agent(_ source: AgentEvent.Source, host: String? = nil, _ trigger: BubbleTrigger) -> BubbleMessage {
+        BubbleMessage(
+            category: BubbleCategory.agent(source, host: host),
+            title: BubbleCategory.agentTitle(source, host: host),
+            text: line(trigger)
+        )
+    }
+
+    private static func plain(_ category: BubbleCategory, _ text: String) -> BubbleMessage {
+        BubbleMessage(category: category, title: category.title, text: text)
+    }
+
+    /// По порядку, как обычно идёт день: задача от начала до итога, потом самочувствие и отдых.
+    static let scenarios: [Scenario] = [
+        Scenario(id: "Ты дал задачу в Orca", clip: .thinking, message: agent(.claudeCode, host: OrcaStatus.hostBundleId, .notice)),
+        Scenario(id: "Думает над ответом", clip: .thinking, message: agent(.claudeCode, .think)),
+        Scenario(id: "Читает файлы", clip: .reading, message: agent(.claudeCode, .workRead)),
+        Scenario(id: "Ищет по проекту", clip: .searching, message: agent(.codex, .workSearch)),
+        Scenario(id: "Правит код", clip: .coding, message: agent(.claudeCode, host: OrcaStatus.hostBundleId, .workEditCode)),
+        Scenario(id: "Рисует в Figma", clip: .designing, message: agent(.figmaMCP, .workEditFigma)),
+        Scenario(id: "Запускает команды", clip: .typing, message: agent(.codex, .workRun)),
+        Scenario(id: "Долгая задача, раз в 15 мин", clip: .working,
+                 message: BubbleMessage(category: .claude, title: "Claude Code", text: "Ещё работаю, уже 14 мин")),
+        Scenario(id: "Просит разрешения — громче всего", clip: .listening, message: agent(.codex, .waitPermission)),
+        Scenario(id: "Ждёт твоего ответа", clip: .listening, message: agent(.claudeCode, host: OrcaStatus.hostBundleId, .waitInput)),
+        Scenario(id: "Задача готова", clip: .done, message: agent(.claudeCode, .done)),
+        Scenario(id: "Не получилось", clip: .error, message: agent(.codex, .error)),
+        Scenario(id: "Наведение курсора в работе", clip: .working,
+                 message: BubbleMessage(category: .orca, title: "Orca", text: "Работаю 12 мин, сделано 8 шагов")),
+        Scenario(id: "Батарея меньше 20%", clip: .idle, message: plain(.battery, "Есть хочу")),
+        Scenario(id: "Ноутбук перегрелся", clip: .idle, message: plain(.wellbeing, "Мне жарко…")),
+        Scenario(id: "Утро, первое появление", clip: .idle, message: plain(.day, "Привет")),
+        Scenario(id: "Все отдыхают — засыпает", clip: .sleeping, message: plain(.rest, line(.fallAsleep))),
+        Scenario(id: "Сон: облачко молчит", clip: .sleeping, message: nil),
     ]
 
     var body: some View {
-        LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 8), count: 4), spacing: 10) {
-            ForEach(Self.order, id: \.self) { clip in
-                VStack(spacing: 2) {
-                    PalClipView(skin: skin, clip: clip)
-                        .frame(width: 88, height: 88)
-                        .background(Color(white: 0.1), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
-                    Text(clip.rawValue).font(.caption.weight(.semibold))
-                    Text(Self.captions[clip] ?? "").font(.caption2).foregroundStyle(.secondary)
+        VStack(spacing: 8) {
+            ForEach(Self.scenarios) { scenario in
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(scenario.id).font(.caption.weight(.semibold)).foregroundStyle(.secondary)
+                    // Хвостик в 8 pt от тела, как на экране: клетка 96, тело — половина, поле по 24 pt.
+                    HStack(spacing: -16) {
+                        Spacer(minLength: 0)
+                        if let message = scenario.message {
+                            BubbleView(message: message, tailOnRight: true)
+                        }
+                        PalClipView(skin: skin, clip: scenario.clip)
+                            .frame(width: 96, height: 96)
+                    }
+                    .padding(.leading, 12)
+                    .frame(maxWidth: .infinity, minHeight: 96)
+                    .background(Color(white: 0.08), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
                 }
             }
         }
