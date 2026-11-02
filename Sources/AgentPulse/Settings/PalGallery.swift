@@ -6,9 +6,14 @@ import SwiftUI
 struct PalGallery: View {
     let skin: PalSkin
 
+    /// Ситуация: состояние маскота, реакция тела (повторяется по кругу) и облачко.
+    /// Движения — настоящий `MascotAnimator`: дыхание, покачивание, прыжки, вздрагивания, как у живого маскота.
     struct Scenario: Identifiable {
         let id: String
-        let clip: PalClip
+        let state: MascotState
+        var target: WorkTarget? = nil
+        var reaction: MascotReaction? = nil
+        var hovered = false
         let message: BubbleMessage?
     }
 
@@ -31,36 +36,40 @@ struct PalGallery: View {
 
     /// По порядку, как обычно идёт день: задача от начала до итога, потом самочувствие и отдых.
     static let scenarios: [Scenario] = [
-        Scenario(id: "Ты дал задачу в Orca", clip: .thinking, message: agent(.claudeCode, host: OrcaStatus.hostBundleId, .notice)),
-        Scenario(id: "Думает над ответом", clip: .thinking, message: agent(.claudeCode, .think)),
-        Scenario(id: "Читает файлы", clip: .reading, message: agent(.claudeCode, .workRead)),
-        Scenario(id: "Ищет по проекту", clip: .searching, message: agent(.codex, .workSearch)),
-        Scenario(id: "Правит код", clip: .coding, message: agent(.claudeCode, host: OrcaStatus.hostBundleId, .workEditCode)),
-        Scenario(id: "Рисует в Figma", clip: .designing, message: agent(.figmaMCP, .workEditFigma)),
-        Scenario(id: "Запускает команды", clip: .typing, message: agent(.codex, .workRun)),
-        Scenario(id: "Долгая задача, раз в 15 мин", clip: .working,
+        Scenario(id: "Ты дал задачу в Orca", state: .think, reaction: .notice,
+                 message: agent(.claudeCode, host: OrcaStatus.hostBundleId, .notice)),
+        Scenario(id: "Думает над ответом", state: .think, message: agent(.claudeCode, .think)),
+        Scenario(id: "Читает файлы", state: .work(.read), target: .code, message: agent(.claudeCode, .workRead)),
+        Scenario(id: "Ищет по проекту", state: .work(.search), target: .code, message: agent(.codex, .workSearch)),
+        Scenario(id: "Правит код", state: .work(.edit), target: .code,
+                 message: agent(.claudeCode, host: OrcaStatus.hostBundleId, .workEditCode)),
+        Scenario(id: "Рисует в Figma", state: .work(.edit), target: .figma, message: agent(.figmaMCP, .workEditFigma)),
+        Scenario(id: "Запускает команды", state: .work(.run), target: .code, message: agent(.codex, .workRun)),
+        Scenario(id: "Долгая задача, раз в 15 мин", state: .work(.general), reaction: .yawn,
                  message: BubbleMessage(category: .claude, title: "Claude Code", text: "Ещё работаю, уже 14 мин")),
-        Scenario(id: "Просит разрешения — громче всего", clip: .listening, message: agent(.codex, .waitPermission)),
-        Scenario(id: "Ждёт твоего ответа", clip: .listening, message: agent(.claudeCode, host: OrcaStatus.hostBundleId, .waitInput)),
-        Scenario(id: "Задача готова", clip: .done, message: agent(.claudeCode, .done)),
-        Scenario(id: "Не получилось", clip: .error, message: agent(.codex, .error)),
-        Scenario(id: "Наведение курсора в работе", clip: .working,
+        Scenario(id: "Просит разрешения — громче всего", state: .waitYou(.permission), message: agent(.codex, .waitPermission)),
+        Scenario(id: "Ждёт твоего ответа", state: .waitYou(.input),
+                 message: agent(.claudeCode, host: OrcaStatus.hostBundleId, .waitInput)),
+        Scenario(id: "Задача готова", state: .idle, reaction: .done, message: agent(.claudeCode, .done)),
+        Scenario(id: "Не получилось", state: .idle, reaction: .error, message: agent(.codex, .error)),
+        Scenario(id: "Наведение курсора в работе", state: .work(.general), hovered: true,
                  message: BubbleMessage(category: .orca, title: "Orca", text: "Работаю 12 мин, сделано 8 шагов")),
-        Scenario(id: "Батарея меньше 20%", clip: .idle, message: plain(.battery, "Есть хочу")),
-        Scenario(id: "Ноутбук перегрелся", clip: .idle, message: plain(.wellbeing, "Мне жарко…")),
-        Scenario(id: "Утро, первое появление", clip: .idle, message: plain(.day, "Привет")),
-        Scenario(id: "Все отдыхают — засыпает", clip: .sleeping, message: plain(.rest, line(.fallAsleep))),
-        Scenario(id: "Сон: облачко молчит", clip: .sleeping, message: nil),
+        Scenario(id: "Батарея меньше 20%", state: .idle, reaction: .slowClose, message: plain(.battery, "Есть хочу")),
+        Scenario(id: "Ноутбук перегрелся", state: .idle, reaction: .fastBlink, message: plain(.wellbeing, "Мне жарко…")),
+        Scenario(id: "Утро, первое появление", state: .idle, reaction: .notice, message: plain(.day, "Привет")),
+        Scenario(id: "Все отдыхают — засыпает", state: .sleep, message: plain(.rest, line(.fallAsleep))),
+        Scenario(id: "Сон: облачко молчит", state: .sleep, message: nil),
     ]
 
     var diameter: Double = 52
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
+        // Ленивый список: живые маскоты есть только у карточек на экране.
+        LazyVStack(alignment: .leading, spacing: 10) {
             ForEach(Self.scenarios) { scenario in
                 VStack(alignment: .leading, spacing: 4) {
                     Text(scenario.id).font(.caption.weight(.semibold)).foregroundStyle(.secondary)
-                    DesktopScene(skin: skin, clip: scenario.clip, message: scenario.message, diameter: diameter)
+                    DesktopScene(skin: skin, scenario: scenario, diameter: diameter)
                 }
             }
         }
@@ -74,9 +83,10 @@ struct PalGallery: View {
 /// сцена 570×255 pt вписывается в ширину карточки целиком, без искажений.
 private struct DesktopScene: View {
     let skin: PalSkin
-    let clip: PalClip
-    let message: BubbleMessage?
+    let scenario: PalGallery.Scenario
     let diameter: Double
+
+    private var message: BubbleMessage? { scenario.message }
 
     static let size = CGSize(width: 570, height: 255)
     static let mascot = CGPoint(x: 511.5, y: 196.75)
@@ -118,8 +128,8 @@ private struct DesktopScene: View {
                 BubbleView(message: message, tailOnRight: true)
                     .frame(width: Self.mascot.x - diameter / 2 - 8, height: Self.mascot.y * 2, alignment: .trailing)
             }
-            PalClipView(skin: skin, clip: clip)
-                .frame(width: diameter * 2, height: diameter * 2)
+            ScenarioMascot(skin: skin, scenario: scenario, diameter: diameter)
+                .frame(width: MascotView.boxSize(diameter), height: MascotView.boxSize(diameter))
                 .position(Self.mascot)
         }
     }
@@ -176,6 +186,67 @@ private struct DesktopScene: View {
 
     private static let orcaIcon: NSImage? = NSWorkspace.shared.urlForApplication(withBundleIdentifier: OrcaStatus.hostBundleId)
         .map { NSWorkspace.shared.icon(forFile: $0.path) }
+}
+
+/// Живой маскот сценария: свой аниматор в нужном состоянии, реакция повторяется по кругу —
+/// те же движения тела (дыхание, покачивание, прыжки, вздрагивания), что у маскота на экране.
+/// Аниматор живёт в самом виде: SwiftUI пересоздаёт описание карточки, а маскот остаётся тем же.
+private struct ScenarioMascot: NSViewRepresentable {
+    let skin: PalSkin
+    let scenario: PalGallery.Scenario
+    let diameter: Double
+
+    func makeNSView(context: Context) -> ScenarioMascotView {
+        ScenarioMascotView(skin: skin, scenario: scenario, diameter: diameter)
+    }
+
+    func updateNSView(_ view: ScenarioMascotView, context: Context) {}
+
+    static func dismantleNSView(_ view: ScenarioMascotView, coordinator: ()) {
+        view.stop()
+    }
+}
+
+@MainActor
+private final class ScenarioMascotView: NSView {
+    private let animator = MascotAnimator()
+    private let mascot: MascotLayerView
+    private var timer: Timer?
+
+    init(skin: PalSkin, scenario: PalGallery.Scenario, diameter: Double) {
+        mascot = MascotLayerView(animator: animator, diameter: diameter)
+        super.init(frame: .zero)
+        mascot.autoresizingMask = [.width, .height]
+        addSubview(mascot)
+
+        animator.skin = skin
+        animator.workTarget = scenario.target
+        animator.hovered = scenario.hovered
+        // Облачко висит — маскот говорит и не спит; «Вздремну» — исключение, как в оверлее.
+        animator.speaking = scenario.message.map { $0.category != .rest } ?? false
+        animator.setState(scenario.state, at: Date.timeIntervalSinceReferenceDate)
+
+        guard let reaction = scenario.reaction else { return }
+        animator.enqueue(reaction)
+        // Итог держит свой клип две петли (4.8 s) — повторяем чуть реже.
+        let period = reaction == .done || reaction == .error ? 6.5 : 4.5
+        timer = Timer.scheduledTimer(withTimeInterval: period, repeats: true) { [weak self] _ in
+            MainActor.assumeIsolated { self?.animator.enqueue(reaction) }
+        }
+    }
+
+    @available(*, unavailable)
+    required init?(coder: NSCoder) { fatalError() }
+
+    override func layout() {
+        super.layout()
+        mascot.frame = bounds
+    }
+
+    func stop() {
+        timer?.invalidate()
+        timer = nil
+    }
 }
 
 /// Один клип в петле. Галерея живёт, только пока открыто окно настроек.
