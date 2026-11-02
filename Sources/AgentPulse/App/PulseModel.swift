@@ -88,6 +88,8 @@ final class PulseModel {
     }
 
     @ObservationIgnored let animator = MascotAnimator()
+    @ObservationIgnored var wardrobe = PalWardrobe()
+    @ObservationIgnored var installedBots: Set<String> = []
     @ObservationIgnored weak var notifier: Notifier?
     /// Курсор над маскотом или облачком — панель должна ловить мышь.
     @ObservationIgnored var onInteractiveChange: ((Bool) -> Void)?
@@ -125,9 +127,20 @@ final class PulseModel {
         applySkin()
     }
 
-    /// Облик Agent Pals, если он выбран и бот установлен целиком; иначе — классический круг.
+    /// Какие боты Agent Pals установлены целиком; перечитывается при смене облика в настройках.
     func applySkin() {
-        animator.skin = PalSkin(config: config.mascot.skin).flatMap { $0.isComplete() ? $0 : nil }
+        installedBots = Set(PalSkin.installed().map(\.bot))
+        updateWardrobe(now: Date())
+    }
+
+    /// Какой бот сейчас на маскоте — правила в `PalWardrobe`: бот дня дома, у каждого агента свой.
+    func updateWardrobe(now: Date) {
+        let bot = wardrobe.update(
+            mode: PalWardrobe.Mode(config: config.mascot.skin), costumes: config.mascot.agentCostumes,
+            installed: installedBots, state: state, source: dominant?.source, agent: dominant?.agent,
+            day: PalWardrobe.dayNumber(now), present: Self.idleSeconds() < 30, at: now.timeIntervalSinceReferenceDate
+        )
+        animator.skin = bot.map(PalSkin.init(bot:))
     }
 
     func start() {
@@ -263,6 +276,7 @@ final class PulseModel {
 
         let target = labOverride ?? MascotStateMapper.state(for: sessions, now: now, sleepAfter: tuning.sleepAfter)
         if case .working(let activity) = dominant?.phase { animator.workTarget = activity.target }
+        updateWardrobe(now: now)
         if target != state {
             // Анти-дребезг: состояние держится минимум minStateHold; ожидание пользователя — сразу.
             if target.isWaiting || now.timeIntervalSince(stateSince) >= tuning.minStateHold {

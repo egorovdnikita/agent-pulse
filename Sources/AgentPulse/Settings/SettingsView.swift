@@ -94,16 +94,28 @@ private struct GeneralSettings: View {
             }
             Section("Облик") {
                 let bots = PalSkin.installed()
+                let mode = PalWardrobe.Mode(config: model.config.mascot.skin)
                 Picker("Облик", selection: Binding(get: { model.config.mascot.skin }, set: { app.setSkin($0) })) {
                     Text("Светящийся круг").tag(PalSkin.classic)
+                    if !bots.isEmpty { Text("Каждый день новый").tag(PalWardrobe.Mode.dailyConfig) }
                     ForEach(bots, id: \.bot) { Text($0.bot).tag($0.configValue) }
                 }
                 if bots.isEmpty {
                     Text("Боты Agent Pals не установлены: scripts/install-agent-pals.sh путь/к/паку.zip")
                         .font(.caption).foregroundStyle(.secondary)
-                }
-                if let skin = PalSkin(config: model.config.mascot.skin), bots.contains(skin) {
-                    DisclosureGroup("Все анимации \(skin.bot)") { PalGallery(skin: skin) }
+                } else if mode != .classic {
+                    if mode == .daily {
+                        Text("Новый бот появляется утром, при тебе. Сегодня — \(model.animator.skin.map(\.bot) ?? "—")")
+                            .font(.caption).foregroundStyle(.secondary)
+                    }
+                    Toggle(isOn: Binding(get: { model.config.mascot.agentCostumes }, set: { app.setAgentCostumes($0) })) {
+                        Text("У каждого агента свой бот")
+                        Text(PalWardrobe.costumes.map { "\($0.agent) — \($0.bot)" }.joined(separator: " · "))
+                            .font(.caption).foregroundStyle(.secondary)
+                    }
+                    if let skin = model.animator.skin, bots.contains(skin) {
+                        DisclosureGroup("Все анимации \(skin.bot)") { PalGallery(skin: skin) }
+                    }
                 }
             }
             Section("Где живёт") {

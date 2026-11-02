@@ -38,15 +38,62 @@ final class PalLayer: CALayer {
     @available(*, unavailable)
     required init?(coder: NSCoder) { fatalError() }
 
-    /// Сменить бота: клипы перечитываются, текущий показывается сразу, без кроссфейда.
+    /// Переодевание: старый бот сжимается и тает, новый выпрыгивает с лёгким перелётом.
+    static let morphOut = 0.16
+    static let morphIn = 0.42
+    private var popNext = false
+
+    /// Сменить бота: клипы перечитываются. Был другой бот — переодевание, первый показ — сразу.
     func use(_ skin: PalSkin?) {
         guard skin != self.skin else { return }
+        let dressed = self.skin != nil && skin != nil
         self.skin = skin
         cache.removeAll()
         clip = nil
-        for layer in [front, back].compactMap({ $0 }) { layer.removeFromSuperlayer() }
-        front = nil
+        back?.removeFromSuperlayer()
         back = nil
+        if let old = front {
+            front = nil
+            if dressed {
+                leave(old)
+            } else {
+                old.removeFromSuperlayer()
+            }
+        }
+        popNext = dressed
+    }
+
+    private func leave(_ old: LottieAnimationLayer) {
+        old.zPosition = 0
+        let shrink = CABasicAnimation(keyPath: "transform.scale")
+        shrink.fromValue = 1
+        shrink.toValue = 0.55
+        let fade = CABasicAnimation(keyPath: "opacity")
+        fade.fromValue = 1
+        fade.toValue = 0
+        let group = CAAnimationGroup()
+        group.animations = [shrink, fade]
+        group.duration = Self.morphOut
+        group.timingFunction = CAMediaTimingFunction(name: .easeIn)
+        CATransaction.begin()
+        CATransaction.setCompletionBlock { old.removeFromSuperlayer() }
+        old.opacity = 0
+        old.add(group, forKey: "leave")
+        CATransaction.commit()
+    }
+
+    private func pop(_ layer: LottieAnimationLayer) {
+        let grow = CAKeyframeAnimation(keyPath: "transform.scale")
+        grow.values = [0.55, 0.55, 1.1, 0.97, 1]
+        grow.keyTimes = [0, 0.3, 0.65, 0.85, 1]
+        let fade = CAKeyframeAnimation(keyPath: "opacity")
+        fade.values = [0, 0, 1, 1]
+        fade.keyTimes = [0, 0.3, 0.5, 1]
+        let group = CAAnimationGroup()
+        group.animations = [grow, fade]
+        group.duration = Self.morphIn
+        group.timingFunction = CAMediaTimingFunction(name: .easeOut)
+        layer.add(group, forKey: "pop")
     }
 
     /// Показать клип: новый слой проявляется поверх старого за `PalChoreographer.crossfade`.
@@ -71,6 +118,11 @@ final class PalLayer: CALayer {
         incoming.opacity = 1
         outgoing?.opacity = 0
         CATransaction.commit()
+        if popNext {
+            popNext = false
+            pop(incoming)
+            return
+        }
         guard animate else { return }
         let fadeIn = CABasicAnimation(keyPath: "opacity")
         fadeIn.fromValue = 0

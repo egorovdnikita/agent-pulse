@@ -120,6 +120,8 @@ public struct PulseConfig: Codable, Sendable, Equatable {
 
     public struct Mascot: Codable, Sendable, Equatable {
         public var skin = "default"
+        /// У каждого агента свой бот Agent Pals (`PalWardrobe`).
+        public var agentCostumes = true
     }
 
     public struct Privacy: Codable, Sendable, Equatable {
