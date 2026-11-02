@@ -8,8 +8,11 @@ import QuartzCore
 /// по-прежнему задаёт процедурная поза — прыжки, тычки, бросок и поглаживание работают как раньше.
 @MainActor
 final class PalLayer: CALayer {
-    /// Доля холста 200×200, которую занимает тело бота (замер по всем 18 ботам: ~49 из 90 px).
-    static let bodyShare = 0.545
+    /// Доля холста 200×200, которую занимает тело бота по ширине (замер Circle: 107 из 200).
+    static let bodyShare = 0.535
+    /// Центр тела в кадре ниже центра холста: 111.5 из 200 у всех 18 ботов (замер по Idle).
+    /// Слой крутится и масштабируется вокруг центра тела, и тело встаёт ровно в центр маскота — на линию хвостика облачка.
+    static let bodyCenterY = 111.5
 
     private var front: LottieAnimationLayer?
     private var back: LottieAnimationLayer?
@@ -89,7 +92,10 @@ final class PalLayer: CALayer {
     /// Клипы рисуются в родном размере холста; под маскота их масштабирует трансформ слоя.
     private func fit(_ layer: LottieAnimationLayer) {
         let rect = CGRect(x: 0, y: 0, width: Self.canvas, height: Self.canvas)
-        if bounds != rect { bounds = rect }
+        if bounds != rect {
+            bounds = rect
+            anchorPoint = CGPoint(x: 0.5, y: Self.bodyCenterY / Self.canvas)
+        }
         layer.frame = rect
         Self.center(layer)
     }

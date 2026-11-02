@@ -102,6 +102,9 @@ private struct GeneralSettings: View {
                     Text("Боты Agent Pals не установлены: scripts/install-agent-pals.sh путь/к/паку.zip")
                         .font(.caption).foregroundStyle(.secondary)
                 }
+                if let skin = PalSkin(config: model.config.mascot.skin), bots.contains(skin) {
+                    DisclosureGroup("Все анимации \(skin.bot)") { PalGallery(skin: skin) }
+                }
             }
             Section("Где живёт") {
                 LabeledContent("Угол экрана") {
