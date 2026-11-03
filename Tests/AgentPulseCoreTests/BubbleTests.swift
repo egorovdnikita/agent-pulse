@@ -184,4 +184,28 @@ import Testing
         scheduler.tick(now: at(12))
         #expect(scheduler.current == nil)
     }
+
+    /// «Глянешь?» не висит вечно: ты за компьютером 8 s при нём — видел, облачко сворачивается.
+    /// Без тебя не сворачивается. Агент всё ещё ждёт — фон молчит и после сворачивания.
+    @Test func waitBubbleFoldsOnceSeen() {
+        let start = Date(timeIntervalSinceReferenceDate: 0)
+        func at(_ s: Double) -> Date { start.addingTimeInterval(s) }
+        var scheduler = BubbleScheduler()
+        scheduler.react(.waitInput, category: .orca, title: "Orca", now: at(0))
+        for t in stride(from: 0.0, through: 30, by: 0.5) { scheduler.noteActivity(active: false, now: at(t)) }
+        #expect(scheduler.current?.trigger == .waitInput)
+        for t in stride(from: 30.5, through: 37, by: 0.5) { scheduler.noteActivity(active: true, now: at(t)) }
+        #expect(scheduler.current?.trigger == .waitInput)
+        for t in stride(from: 37.5, through: 39, by: 0.5) { scheduler.noteActivity(active: true, now: at(t)) }
+        #expect(scheduler.current == nil)
+        #expect(scheduler.waiting)
+        scheduler.say("Где все?", duration: 2.5, now: at(40))
+        #expect(scheduler.current == nil)
+        scheduler.say("Ой, провод", duration: 2.5, answersUser: true, now: at(41))
+        #expect(scheduler.current?.text == "Ой, провод")
+        scheduler.endWait(now: at(50))
+        scheduler.tick(now: at(50))
+        scheduler.say("Где все?", duration: 2.5, now: at(51))
+        #expect(scheduler.current?.text == "Где все?")
+    }
 }

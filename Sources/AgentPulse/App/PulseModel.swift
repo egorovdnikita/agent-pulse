@@ -302,6 +302,7 @@ final class PulseModel {
             category: .agent(dominant?.source, host: dominant?.hostBundleId),
             title: BubbleCategory.agentTitle(dominant?.source, host: dominant?.hostBundleId), heldSince: stateSince, now: now
         )
+        scheduler.noteActivity(active: PresenceSense.idleSeconds < 1.5, now: now)
         scheduler.tick(now: now)
         updateHover()
         updateMirror(now: now)

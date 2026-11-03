@@ -13,6 +13,9 @@ public struct BubbleTuning: Codable, Sendable, Equatable {
     public var step: TimeInterval = 1.2
     public var result: TimeInterval = 4
     public var fallAsleep: TimeInterval = 1.5
+    /// Облачко ожидания сворачивается, когда ты столько секунд за компьютером при нём: значит, видел.
+    /// Ожидание остаётся в позе и глазах, текст — по наведению.
+    public var waitSeen: TimeInterval = 8
 
     public init() {}
 
@@ -77,6 +80,10 @@ public struct BubbleScheduler: Sendable {
     private var queue: [Item] = []
     /// Облачко ожидания, отложенное на время короткого ответа на твоё действие, — потом возвращается.
     private var pausedWait: Bubble?
+    /// Агент ждёт тебя — даже когда облачко уже свернулось, фон молчит.
+    public private(set) var waiting = false
+    private var waitSeenTime: TimeInterval = 0
+    private var lastActivityAt: Date?
     private var lastAmbientAt: Date = .distantPast
     private var picker = PhrasePicker()
     private var rng = SystemRandomNumberGenerator()
@@ -93,6 +100,8 @@ public struct BubbleScheduler: Sendable {
         if trigger.isWait {
             queue.removeAll()
             pausedWait = nil
+            waiting = true
+            waitSeenTime = 0
             show(Item(trigger: trigger, text: nil, duration: nil, category: category, title: title, agent: true), now: now)
             return
         }
@@ -124,6 +133,8 @@ public struct BubbleScheduler: Sendable {
             show(item, now: now)
             return
         }
+        // Облачко ожидания свернулось, но агент всё ещё ждёт: фон по-прежнему молчит.
+        if waiting && !item.agent && !item.answersUser { return }
         if item.agent, let firstLine = queue.firstIndex(where: { !$0.agent }) {
             queue.insert(item, at: firstLine)
         } else {
@@ -151,7 +162,24 @@ public struct BubbleScheduler: Sendable {
     /// Пользователь отреагировал: облачко ожидания уходит, но не раньше минимального времени показа.
     public mutating func endWait(now: Date) {
         pausedWait = nil
+        waiting = false
         guard var bubble = current, bubble.trigger.isWait else { return }
+        bubble.duration = 0
+        current = bubble
+        tick(now: now)
+    }
+
+    /// Ты за компьютером (`active` — был ввод только что). Набралось `waitSeen` секунд при облачке ожидания —
+    /// значит, видел: облачко сворачивается, ожидание остаётся в позе.
+    public mutating func noteActivity(active: Bool, now: Date) {
+        defer { lastActivityAt = now }
+        guard var bubble = current, bubble.trigger.isWait, bubble.duration == nil else {
+            waitSeenTime = 0
+            return
+        }
+        if active, let last = lastActivityAt { waitSeenTime += min(max(now.timeIntervalSince(last), 0), 1) }
+        guard waitSeenTime >= tuning.waitSeen else { return }
+        waitSeenTime = 0
         bubble.duration = 0
         current = bubble
         tick(now: now)
