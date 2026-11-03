@@ -145,6 +145,13 @@ private struct GeneralSettings: View {
                     Text("Сокет недоступен: \(error)").foregroundStyle(.red)
                 }
             }
+            Section("О программе") {
+                Text("Иконки категорий — Solar Icons, 480 Design, лицензия CC BY 4.0. Анимации ботов играет Lottie от Airbnb, лицензия Apache 2.0.")
+                    .font(.caption).foregroundStyle(.secondary)
+                Button("Лицензии") {
+                    if let url = Bundle.main.url(forResource: "Licenses", withExtension: nil) { NSWorkspace.shared.open(url) }
+                }
+            }
         }
         .formStyle(.grouped)
     }

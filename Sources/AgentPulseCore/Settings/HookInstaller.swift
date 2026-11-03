@@ -21,6 +21,81 @@ public enum HookInstaller {
     public static let marker = "pulse-hook"
     public static let timeoutSeconds = 2
 
+    /// Команда хука. Если приложение удалили, `pulse-hook` не найдётся — `|| true` даёт агенту код 0,
+    /// и Claude Code с Codex не показывают ошибку хука на каждом шаге.
+    public static func command(hookPath: String) -> String {
+        "\"\(hookPath)\" 2>/dev/null || true"
+    }
+
+    /// Копии наших хуков у Codex: ChatGPT перенимает хуки Claude Code в `~/.codex/hooks.json`,
+    /// Orca — в домашние папки своих аккаунтов Codex. Тот же формат `{"hooks": {...}}`.
+    public static func codexHookFiles(home: URL = FileManager.default.homeDirectoryForCurrentUser) -> [URL] {
+        var files = [home.appending(path: ".codex/hooks.json")]
+        let accounts = home.appending(path: "Library/Application Support/orca/codex-accounts", directoryHint: .isDirectory)
+        for account in (try? FileManager.default.contentsOfDirectory(at: accounts, includingPropertiesForKeys: nil)) ?? [] {
+            files.append(account.appending(path: "home/hooks.json"))
+        }
+        return files.filter { FileManager.default.fileExists(atPath: $0.path) }
+    }
+
+    /// Наши хуки в копии получают новую команду; чужие хуки, события и порядок не трогаются.
+    public static func rewritingCommands(in settings: [String: Any], command: String) -> [String: Any] {
+        guard var hooks = settings["hooks"] as? [String: Any] else { return settings }
+        for (event, value) in hooks {
+            guard let groups = value as? [[String: Any]] else { continue }
+            hooks[event] = groups.map { group in
+                guard let list = group["hooks"] as? [Any] else { return group }
+                var updated = group
+                updated["hooks"] = list.map { hook -> Any in
+                    guard isOurs(hook), var entry = hook as? [String: Any] else { return hook }
+                    entry["command"] = command
+                    return entry
+                }
+                return updated
+            }
+        }
+        var settings = settings
+        settings["hooks"] = hooks
+        return settings
+    }
+
+    /// Обновить команду в копиях у Codex, где она устарела. Возвращает число изменённых файлов.
+    @discardableResult
+    public static func repairCopies(command: String, files: [URL] = codexHookFiles(), now: Date = Date()) -> Int {
+        var repaired = 0
+        for file in files {
+            let url = file.resolvingSymlinksInPath()
+            guard let current = try? readSettings(url), isInstalled(current), commands(in: current).contains(where: { $0 != command })
+            else { continue }
+            guard (try? backUp(url, now: now)) != nil, (try? write(rewritingCommands(in: current, command: command), to: url)) != nil
+            else { continue }
+            repaired += 1
+        }
+        return repaired
+    }
+
+    /// Снять наши хуки отовсюду: Claude Code и копии у Codex. С бэкапом каждого изменённого файла.
+    @discardableResult
+    public static func uninstallEverywhere(
+        settingsURL: URL = PulsePaths.claudeSettingsURL, copies: [URL] = codexHookFiles(), now: Date = Date()
+    ) throws -> Int {
+        var removed = try uninstall(settingsURL: settingsURL, now: now) == nil ? 0 : 1
+        for file in copies {
+            // Копию, которую не разобрать, пропускаем: Claude Code уже чист, остальное — не повод падать.
+            if case .some(.some) = try? uninstall(settingsURL: file, now: now) { removed += 1 }
+        }
+        return removed
+    }
+
+    static func commands(in settings: [String: Any]) -> [String] {
+        guard let hooks = settings["hooks"] as? [String: Any] else { return [] }
+        return hooks.values.flatMap { value in
+            (value as? [[String: Any]] ?? []).flatMap { group in
+                (group["hooks"] as? [Any] ?? []).filter(isOurs).compactMap { ($0 as? [String: Any])?["command"] as? String }
+            }
+        }
+    }
+
     // MARK: - Чистые преобразования
 
     public static func installing(into settings: [String: Any], command: String) -> [String: Any] {

@@ -19,6 +19,8 @@ cp Resources/AppIcon.icns "$APP/Contents/Resources/AppIcon.icns"
 cp Resources/Scenes/DeskCorner.png "$APP/Contents/Resources/DeskCorner.png"
 cp -R Extensions/Chrome "$APP/Contents/Resources/ChromeExtension"
 cp -R FigmaCompanion "$APP/Contents/Resources/FigmaCompanion"
+# Авторы и лицензии чужих материалов: Solar Icons (CC BY 4.0), Lottie (Apache 2.0).
+cp -R Resources/Licenses "$APP/Contents/Resources/Licenses"
 # Lottie — готовый фреймворк (lottie-spm): исходники lottie-ios без Xcode не собираются.
 mkdir -p "$APP/Contents/Frameworks"
 cp -R "$BIN/Lottie.framework" "$APP/Contents/Frameworks/"

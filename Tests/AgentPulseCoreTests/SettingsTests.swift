@@ -148,3 +148,53 @@ import Testing
         #expect(!BrowserBridgeInstaller.needsUpdate(hookPath: "/old/pulse-hook", applicationSupport: root))
     }
 }
+
+/// Удаление приложения не ломает агентов; копии хуков у Codex чинятся и снимаются вместе с Claude Code.
+@Suite struct HookCopiesTests {
+    let foreign: [String: Any] = ["type": "command", "command": "orca-hook.sh", "timeout": 10]
+
+    func copy(_ command: String) -> [String: Any] {
+        ["hooks": ["PreToolUse": [["hooks": [foreign]], ["matcher": "*", "hooks": [["type": "command", "command": command, "timeout": 2]]]]]]
+    }
+
+    @Test func commandSurvivesMissingApp() throws {
+        let command = HookInstaller.command(hookPath: "/nowhere/Agent Pulse.app/Contents/MacOS/pulse-hook")
+        let process = Process()
+        process.executableURL = URL(fileURLWithPath: "/bin/sh")
+        process.arguments = ["-c", command]
+        process.standardInput = Pipe()
+        try process.run()
+        process.waitUntilExit()
+        #expect(process.terminationStatus == 0)
+        #expect(command.contains(HookInstaller.marker))
+    }
+
+    @Test func rewritesOnlyOurCommand() {
+        let fresh = HookInstaller.command(hookPath: "/Applications/Agent Pulse.app/Contents/MacOS/pulse-hook")
+        let updated = HookInstaller.rewritingCommands(in: copy("\"/old/pulse-hook\""), command: fresh)
+        #expect(HookInstaller.commands(in: updated) == [fresh])
+        let groups = (updated["hooks"] as? [String: Any])?["PreToolUse"] as? [[String: Any]] ?? []
+        #expect(((groups.first?["hooks"] as? [Any])?.first as? [String: Any])?["command"] as? String == "orca-hook.sh")
+    }
+
+    @Test func uninstallsEverywhereWithBackups() throws {
+        let dir = FileManager.default.temporaryDirectory.appending(path: "hooks-\(UUID().uuidString)", directoryHint: .isDirectory)
+        try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: dir) }
+        let claude = dir.appending(path: "settings.json"), codex = dir.appending(path: "hooks.json")
+        let command = HookInstaller.command(hookPath: "/x/pulse-hook")
+        try HookInstaller.write(HookInstaller.installing(into: [:], command: command), to: claude)
+        try HookInstaller.write(copy("\"/old/pulse-hook\""), to: codex)
+
+        #expect(HookInstaller.repairCopies(command: command, files: [codex]) == 1)
+        #expect(HookInstaller.commands(in: try HookInstaller.readSettings(codex)) == [command])
+
+        #expect(try HookInstaller.uninstallEverywhere(settingsURL: claude, copies: [codex]) == 2)
+        #expect(!HookInstaller.isInstalled(try HookInstaller.readSettings(claude)))
+        let left = try HookInstaller.readSettings(codex)
+        #expect(!HookInstaller.isInstalled(left))
+        #expect(HookInstaller.commands(in: left).isEmpty)
+        let backups = try FileManager.default.contentsOfDirectory(atPath: dir.path).filter { $0.hasSuffix(".bak") }
+        #expect(backups.count >= 2)
+    }
+}

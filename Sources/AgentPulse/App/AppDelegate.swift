@@ -533,7 +533,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     }
 
     private var hookCommand: String? {
-        hookPath.map { "\"\($0)\"" }
+        hookPath.map(HookInstaller.command(hookPath:))
     }
 
     /// Хуки и мост браузера ставились с согласия пользователя. Если приложение с тех пор переехало,
@@ -544,6 +544,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         if model.hooksInstalled, HookInstaller.needsUpdate(command: hookCommand) {
             _ = try? HookInstaller.install(command: hookCommand)
         }
+        // Копии у Codex (ChatGPT, Orca) тоже получают новую команду — переезд или удаление приложения их не ломает.
+        HookInstaller.repairCopies(command: hookCommand)
         if model.browserBridgeInstalled {
             if BrowserBridgeInstaller.needsUpdate(hookPath: hookPath) {
                 _ = try? BrowserBridgeInstaller.install(hookPath: hookPath)
@@ -663,9 +665,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         }
     }
 
+    /// Снимает хуки отовсюду: Claude Code и копии у Codex (ChatGPT, Orca). С бэкапами.
     func uninstallHooks() {
         do {
-            try HookInstaller.uninstall()
+            try HookInstaller.uninstallEverywhere()
             model.hooksInstalled = false
             startOrca()
         } catch {

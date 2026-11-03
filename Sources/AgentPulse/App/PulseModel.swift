@@ -343,6 +343,13 @@ final class PulseModel {
             if let bubble { lastMessage = bubble }
             // Говорит во сне — странно: на время облачка просыпается. Кроме «Вздремну».
             animator.speaking = bubble.map { $0.category != .rest } ?? false
+            if isNew, let bubble, bubble.trigger.isWait {
+                // VoiceOver: самое важное — «жду тебя» — зачитывается вслух. Остальное — нет, чтобы не болтать.
+                NSAccessibility.post(element: NSApp as Any, notification: .announcementRequested, userInfo: [
+                    .announcement: "\(bubble.title): \(bubble.text)",
+                    .priority: NSAccessibilityPriorityLevel.high.rawValue,
+                ])
+            }
             if isNew {
                 // Маскот на мгновение смотрит на облачко — связывает реплику с персонажем.
                 animator.glance(towardX: config.display.anchor.isRight ? -1 : 1, at: now.timeIntervalSinceReferenceDate)
