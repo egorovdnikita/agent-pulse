@@ -35,12 +35,22 @@ import Testing
         #expect(record.firstSeen == date(2026, 11, 1))
         // Тот же запуск системы, приложение упало — не внезапное выключение Mac.
         #expect(record.start(bootTime: 1001, osVersion: "26.0", now: date(2026, 11, 2)).isEmpty)
-        // Новая загрузка без штатного выхода.
+        // Новая загрузка без штатного выхода, приложение было живо до самого конца.
+        record.lastAlive = 8900
         #expect(record.start(bootTime: 9000, osVersion: "26.0", now: date(2026, 11, 2)) == [.unexpectedRestart])
+        // Приложение упало задолго до перезагрузки — Mac выключили штатно, молчим.
+        record.lastAlive = 9000
+        #expect(record.start(bootTime: 15000, osVersion: "26.0", now: date(2026, 11, 2)).isEmpty)
         // Штатный выход, перезагрузка с обновлением.
         record.cleanExit = true
         #expect(record.start(bootTime: 20000, osVersion: "26.1", now: date(2026, 11, 3)) == [.systemUpdated])
         #expect(record.firstSeen == date(2026, 11, 1))
+        // Старая запись версии на языке системы — не «обновились».
+        var legacy = LaunchRecord()
+        legacy.osVersion = "Версия 26.6.2 (Выпуск 25G83)"
+        legacy.bootTime = 100
+        #expect(legacy.start(bootTime: 100, osVersion: "26.6.2 25G83", now: date(2026, 11, 3)).isEmpty)
+        #expect(LaunchRecord.systemVersion(OperatingSystemVersion(majorVersion: 26, minorVersion: 6, patchVersion: 2), build: "25G83") == "26.6.2 25G83")
     }
 
     @Test func anniversaries() {
@@ -157,5 +167,50 @@ import Testing
         let kept = FeedbackLog.parse(FeedbackLog.pruned(data, now: now))
         #expect(kept.count == 1)
         #expect(kept.first.map { now.timeIntervalSince($0.at) < 4 * 86_400 } == true)
+    }
+}
+
+/// Кулдауны переживают перезапуск: новый Director с тем же журналом не повторяет «Хочу спать».
+/// «Тесно мне» — не чаще двух раз в день.
+@Suite struct LedgerTests {
+    @Test func cooldownsSurviveRestart() throws {
+        var rng = SystemRandomNumberGenerator()
+        let now = Date(timeIntervalSinceReferenceDate: 815_000_000)
+        var first = Director()
+        first.setMood(Mood())
+        let said = first.handle(Signal(.clock, .uptimeLong, ts: now), now: now, rng: &rng)
+        #expect(said?.reaction == "uptime.long")
+
+        let url = FileManager.default.temporaryDirectory.appending(path: "ledger-\(UUID().uuidString).json")
+        defer { try? FileManager.default.removeItem(at: url) }
+        try first.ledger.save(to: url)
+        var restarted = Director()
+        restarted.ledger = ReactionLedger.load(from: url)
+        let later = now.addingTimeInterval(60)
+        #expect(restarted.handle(Signal(.clock, .uptimeLong, ts: later), now: later, rng: &rng)?.reaction != "uptime.long")
+    }
+
+    @Test func memoryPressureTwiceADay() {
+        var rng = SystemRandomNumberGenerator()
+        var utc = Calendar(identifier: .gregorian)
+        utc.timeZone = TimeZone(identifier: "UTC")!
+        var director = Director(calendar: utc)
+        // 3 ноября, 08:00 UTC — двенадцать часов в пределах одного дня.
+        let start = Date(timeIntervalSince1970: 1_793_692_800)
+        var fired = 0
+        for hour in 0..<12 {
+            let t = start.addingTimeInterval(Double(hour) * 3600)
+            if director.handle(Signal(.memory, .memoryPressure, ts: t), now: t, rng: &rng)?.reaction == "memory.pressure" { fired += 1 }
+        }
+        #expect(fired <= 2)
+    }
+}
+
+@Suite struct TrafficCounterTests {
+    /// Переполнение 32-битного счётчика не теряет замер; новый интерфейс не считается.
+    @Test func countsAcrossWrap() {
+        let old: [String: UInt32] = ["en0": UInt32.max - 999, "en1": 10]
+        let new: [String: UInt32] = ["en0": 1000, "en1": 30, "en5": 500]
+        #expect(TrafficCounter.received(from: old, to: new) == 2000 + 20)
     }
 }

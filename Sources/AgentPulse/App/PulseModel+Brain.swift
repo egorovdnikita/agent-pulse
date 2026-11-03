@@ -36,7 +36,10 @@ extension PulseModel {
         if today != outcome.today { today = outcome.today }
         if week != outcome.week { week = outcome.week }
         handleIdleHide(signal)
+        if signal.kind == .minute || signal.kind == .systemSleep { markAlive(signal.ts) }
         await saveMemoryIfNeeded(signal.ts)
+        // Сказанное переживает перезапуск: кулдауны и дневные лимиты не обнуляются.
+        if outcome.decision != nil { try? outcome.ledger.save() }
 
         if signal.kind != .minute, signal.kind != .agentStep {
             // Журнал решений: `log show --predicate 'subsystem == "io.github.egorovdnikita.agentpulse" && category == "brain"'`.
@@ -153,6 +156,12 @@ extension PulseModel {
     }
 
     /// Штатный выход: следующий запуск не примет его за внезапное выключение.
+    /// Приложение живо: от этой отметки «Ой, всё погасло» отличает погасший Mac от упавшего приложения.
+    func markAlive(_ now: Date) {
+        launch.lastAlive = now.timeIntervalSince1970
+        try? launch.save()
+    }
+
     func markCleanExit() {
         launch.cleanExit = true
         try? launch.save()
@@ -189,11 +198,19 @@ extension PulseModel {
         let opener = item.topic == .design ? leadIn ?? item.topic.leadIns.randomElement() : item.topic.leadIns.randomElement()
         scheduler.say(opener ?? "", duration: 1.6, category: category, now: now)
         scheduler.say(item.teaser, duration: duration, category: category, note: item.shortSource, now: now)
-        try? newsDesk.save()
+        saveNewsDesk()
         simulate(.newsFresh, value: Double(newsDesk.available(now: now).count))
     }
 
-    // MARK: - «Мило» и «бесит»
+    /// Новости (`news.json`, сотни KB) пишутся вне главного потока, по очереди — старый снимок не затрёт новый.
+    private static let newsSaveQueue = DispatchQueue(label: "agentpulse.news-save", qos: .utility)
+
+    func saveNewsDesk() {
+        let desk = newsDesk
+        Self.newsSaveQueue.async { try? desk.save() }
+    }
+
+        // MARK: - «Мило» и «бесит»
 
     static var feedbackURL: URL {
         PulsePaths.supportDirectory.appending(path: "feedback.jsonl")
@@ -207,7 +224,7 @@ extension PulseModel {
         guard let reaction = lastReaction else { return }
         if reaction == Self.newsReaction, let item = currentNews {
             newsDesk.record(verdict == "бесит" ? .disliked : .liked, for: item)
-            try? newsDesk.save()
+            saveNewsDesk()
         }
         let entry: [String: Any] = [
             "ts": ISO8601DateFormatter().string(from: Date()), "reaction": reaction, "verdict": verdict,

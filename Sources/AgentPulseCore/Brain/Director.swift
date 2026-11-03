@@ -81,12 +81,32 @@ public struct Director: Sendable {
     /// Реакции с двумя «бесит» за неделю: только глазами, без облачка (`FeedbackLog`).
     public var mutedReactions: Set<String> = []
 
-    private var lastFired: [String: Date] = [:]
-    private var dailyCount: [String: Int] = [:]
-    private var dayKey = ""
-    private var funToday = 0
-    private var lastFunAt: Date = .distantPast
-    private var exclaimedToday = false
+    /// Кулдауны и дневные лимиты — переживают перезапуск приложения (`ReactionLedger`).
+    public var ledger = ReactionLedger()
+    private var lastFired: [String: Date] {
+        get { ledger.lastFired }
+        set { ledger.lastFired = newValue }
+    }
+    private var dailyCount: [String: Int] {
+        get { ledger.dailyCount }
+        set { ledger.dailyCount = newValue }
+    }
+    private var dayKey: String {
+        get { ledger.dayKey }
+        set { ledger.dayKey = newValue }
+    }
+    private var funToday: Int {
+        get { ledger.funToday }
+        set { ledger.funToday = newValue }
+    }
+    private var lastFunAt: Date {
+        get { ledger.lastFunAt }
+        set { ledger.lastFunAt = newValue }
+    }
+    private var exclaimedToday: Bool {
+        get { ledger.exclaimedToday }
+        set { ledger.exclaimedToday = newValue }
+    }
     private var lastMoodUpdate: Date?
     private var idleSince: Date?
     private var pokeTimes: [Date] = []
@@ -259,9 +279,35 @@ public struct Director: Sendable {
     }
 }
 
+/// Что уже сказано: когда срабатывала каждая реакция и сколько раз сегодня. Без него перезапуск приложения
+/// обнулял бы кулдауны, и «Хочу спать» звучало бы после каждого запуска. Хранится в `reactions.json`.
+public struct ReactionLedger: Codable, Sendable, Equatable {
+    public var lastFired: [String: Date] = [:]
+    public var dailyCount: [String: Int] = [:]
+    public var dayKey = ""
+    public var funToday = 0
+    public var lastFunAt: Date = .distantPast
+    public var exclaimedToday = false
+
+    public init() {}
+
+    public static var defaultURL: URL { PulsePaths.supportDirectory.appending(path: "reactions.json") }
+
+    public static func load(from url: URL = defaultURL) -> ReactionLedger {
+        (try? Data(contentsOf: url)).flatMap { try? JSONDecoder().decode(ReactionLedger.self, from: $0) } ?? ReactionLedger()
+    }
+
+    public func save(to url: URL = defaultURL) throws {
+        try FileManager.default.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
+        try JSONEncoder().encode(self).write(to: url, options: .atomic)
+    }
+}
+
 /// Итог одного сигнала для приложения.
 public struct DirectorOutcome: Sendable {
     public let decision: Decision?
+    /// Что уже сказано — сохранить, если реакция сработала.
+    public let ledger: ReactionLedger
     public let mood: Mood
     /// Тишина сейчас: созвон, полный экран или тихие часы.
     public let quiet: Bool
@@ -287,7 +333,7 @@ public actor DirectorActor {
     public func handle(_ signal: Signal) -> DirectorOutcome {
         let decision = director.handle(signal, now: signal.ts, rng: &rng)
         return DirectorOutcome(
-            decision: decision, mood: director.mood,
+            decision: decision, ledger: director.ledger, mood: director.mood,
             quiet: director.isQuiet || director.isQuietHours(signal.ts),
             newsPending: !director.news.isEmpty, deliveredNews: director.deliveredNews,
             today: director.memory.today(signal.ts),

@@ -107,7 +107,7 @@ final class DownloadSense: Sense {
     static let threshold = 5.0 // MB/s
     static let hold: TimeInterval = 30
     private var timer: Timer?
-    private var last: (Date, UInt64)?
+    private var last: (Date, [String: UInt32])?
     private var fastSince: Date?
     private var sent = false
 
@@ -123,10 +123,10 @@ final class DownloadSense: Sense {
 
     private func check(_ emit: @Sendable (Signal) -> Void) {
         let now = Date()
-        let bytes = Self.receivedBytes()
-        defer { last = (now, bytes) }
-        guard let (then, previous) = last, bytes >= previous else { return }
-        let rate = Double(bytes - previous) / now.timeIntervalSince(then) / 1_000_000
+        let counters = Self.receivedBytes()
+        defer { last = (now, counters) }
+        guard let (then, previous) = last else { return }
+        let rate = Double(TrafficCounter.received(from: previous, to: counters)) / now.timeIntervalSince(then) / 1_000_000
         guard rate >= Self.threshold else {
             fastSince = nil
             sent = false
@@ -140,18 +140,20 @@ final class DownloadSense: Sense {
         }
     }
 
-    /// Принято байт по всем физическим интерфейсам (en*), без петли и туннелей.
-    nonisolated static func receivedBytes() -> UInt64 {
+    /// Принято байт по каждому физическому интерфейсу (en*), без петли и туннелей.
+    /// macOS отдаёт обычным приложениям только 32-битные счётчики — 64-битные доступны лишь системе.
+    nonisolated static func receivedBytes() -> [String: UInt32] {
         var head: UnsafeMutablePointer<ifaddrs>?
-        guard getifaddrs(&head) == 0, let first = head else { return 0 }
+        guard getifaddrs(&head) == 0, let first = head else { return [:] }
         defer { freeifaddrs(head) }
-        var total: UInt64 = 0
+        var counters: [String: UInt32] = [:]
         for pointer in sequence(first: first, next: { $0.pointee.ifa_next }) {
             let entry = pointer.pointee
-            guard entry.ifa_addr?.pointee.sa_family == UInt8(AF_LINK), String(cString: entry.ifa_name).hasPrefix("en"),
+            let name = String(cString: entry.ifa_name)
+            guard entry.ifa_addr?.pointee.sa_family == UInt8(AF_LINK), name.hasPrefix("en"),
                   let data = entry.ifa_data?.assumingMemoryBound(to: if_data.self) else { continue }
-            total += UInt64(data.pointee.ifi_ibytes)
+            counters[name] = data.pointee.ifi_ibytes
         }
-        return total
+        return counters
     }
 }

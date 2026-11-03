@@ -29,23 +29,37 @@ public struct LaunchRecord: Codable, Sendable, Equatable {
     public var osVersion: String?
     /// Первая встреча — для «Месяц вместе», «Год вместе».
     public var firstSeen: Date?
+    /// Последний раз приложение было живо (отметка раз в минуту и при уходе в сон, секунды Unix).
+    public var lastAlive: Double?
+    /// Приложение было живо меньше чем за столько до новой загрузки — значит, погасло вместе с Mac.
+    /// Упало раньше и Mac потом перезагрузили штатно — не «внезапно»: лучше промолчать, чем соврать.
+    public static let aliveWindow: Double = 5 * 60
 
     public init() {}
 
     /// Что сказать на старте. Внезапно — это новая загрузка системы, а прошлый раз закрыться не успел.
     public mutating func start(bootTime: Double, osVersion: String, now: Date) -> [SignalKind] {
         var signals: [SignalKind] = []
-        if let previous = self.bootTime, abs(previous - bootTime) > 5, !cleanExit {
+        if let previous = self.bootTime, abs(previous - bootTime) > 5, !cleanExit,
+           let alive = lastAlive, bootTime - alive < Self.aliveWindow {
             signals.append(.unexpectedRestart)
         }
-        if let previous = self.osVersion, previous != osVersion {
+        // Раньше хранилась строка на языке системы («Версия 26.6.2 (Выпуск 25G83)») — смена языка
+        // выглядела бы как обновление. Теперь — «26.6.2 25G83»; старую запись просто заменяем.
+        if let previous = self.osVersion, !previous.contains("("), previous != osVersion {
             signals.append(.systemUpdated)
         }
         self.bootTime = bootTime
         self.osVersion = osVersion
         if firstSeen == nil { firstSeen = now }
         cleanExit = false
+        lastAlive = now.timeIntervalSince1970
         return signals
+    }
+
+    /// Версия и сборка системы без перевода на язык системы: «26.6.2 25G83».
+    public static func systemVersion(_ version: OperatingSystemVersion, build: String) -> String {
+        "\(version.majorVersion).\(version.minorVersion).\(version.patchVersion) \(build)"
     }
 
     public static var url: URL { PulsePaths.supportDirectory.appending(path: "launch.json") }
@@ -72,6 +86,17 @@ public enum Anniversary {
                 ? ["Год вместе", "Уже год рядом"]
                 : ["\(years) \(HumanTime.plural(years, "год", "года", "лет")) вместе"]
         default: return nil
+        }
+    }
+}
+
+/// Сколько принято между двумя замерами счётчиков интерфейсов. Счётчики 32-битные и на быстрой загрузке
+/// переполняются за минуты: разность по каждому интерфейсу берётся по модулю 2³², так переполнение не теряет замер.
+public enum TrafficCounter {
+    public static func received(from old: [String: UInt32], to new: [String: UInt32]) -> UInt64 {
+        new.reduce(0) { total, item in
+            guard let before = old[item.key] else { return total }
+            return total + UInt64(item.value &- before)
         }
     }
 }

@@ -159,13 +159,15 @@ final class PulseModel {
     func start() {
         // Mac между запусками: выключился внезапно, обновилась система. Сказать, когда всё проснётся.
         let started = launch.start(bootTime: Date().timeIntervalSince1970 - ClockSense.uptime,
-                                   osVersion: ProcessInfo.processInfo.operatingSystemVersionString, now: Date())
+                                   osVersion: LaunchRecord.systemVersion(ProcessInfo.processInfo.operatingSystemVersion, build: Self.osBuild),
+                                   now: Date())
         try? launch.save()
         for (index, kind) in started.enumerated() {
             DispatchQueue.main.asyncAfter(deadline: .now() + 8 + Double(index) * 6) { [weak self] in self?.simulate(kind) }
         }
         var initial = Director(settings: directorSettings)
         initial.memory = DayMemory.load()
+        initial.ledger = ReactionLedger.load()
         initial.mutedReactions = Self.loadMuted()
         mutedReactions = initial.mutedReactions
         director = DirectorActor(initial)
@@ -195,6 +197,15 @@ final class PulseModel {
         timer = Timer.scheduledTimer(withTimeInterval: 0.1, repeats: true) { _ in
             inbox.yield(.tick(Date()))
         }
+    }
+
+    /// Номер сборки macOS («25G83») — тот, что меняется при любом обновлении.
+    static var osBuild: String {
+        var size = 0
+        sysctlbyname("kern.osversion", nil, &size, nil, 0)
+        var buffer = [CChar](repeating: 0, count: max(size, 1))
+        sysctlbyname("kern.osversion", &buffer, &size, nil, 0)
+        return String(cString: buffer)
     }
 
     // MARK: - Производные для UI
@@ -432,7 +443,7 @@ final class PulseModel {
     private func open(_ news: NewsItem, _ url: URL) {
         NSWorkspace.shared.open(url)
         newsDesk.record(.opened, for: news)
-        try? newsDesk.save()
+        saveNewsDesk()
     }
 
     /// Клик по маскоту: новость — открыть статью; в агентном состоянии — переход к источнику; иначе — тычок.
@@ -508,6 +519,11 @@ final class PulseModel {
     /// Что показать при наведении. По порядку: что делаю сейчас; что было без тебя; последнее сообщение;
     /// вечером, если сообщение давнее, — итог дня (в пятницу и выходные — недели); иначе «Я тут».
     private func restingMessage(now: Date) -> BubbleMessage {
+        // Ожидание, которое ты уже видел, маскот не изображает, но при наведении напоминает о нём первым.
+        if let waiting = MascotStateMapper.dominant(sessions), case .awaitingUser = waiting.phase,
+           MascotStateMapper.waitKey(waiting).map({ seenWaits[$0] != nil }) == true {
+            return HoverStory.working(source: waiting.source, host: waiting.hostBundleId, phase: waiting.phase, since: waiting.phaseSince, steps: 0, now: now)
+        }
         if let top = dominant, state != .sleep, state != .idle {
             return HoverStory.working(source: top.source, host: top.hostBundleId, phase: top.phase, since: promptAt[top.id] ?? top.phaseSince, steps: top.timeline.count, now: now)
         }

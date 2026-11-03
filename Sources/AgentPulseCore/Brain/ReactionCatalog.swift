@@ -205,7 +205,9 @@ public enum ReactionCatalog {
         ReactionSpec("lowPower", on: [.lowPowerOn], tier: .body, lines: ["Экономлю", "Берегу силы"]),
         ReactionSpec("thermal.high", on: [.thermalHigh], tier: .body, behavior: .fastBlink, lines: ["Жарко…", "Мне жарко…"]),
         ReactionSpec("thermal.normal", on: [.thermalNormal], tier: .body, behavior: .relax, lines: ["Фух"]),
-        ReactionSpec("memory.pressure", on: [.memoryPressure], tier: .body, behavior: .wobble, lines: ["Тесно мне", "Мне тут тесно…"]),
+        // На Mac с 8 GB память на грани почти всегда: вслух — не чаще раза в 3 ч и дважды в день, остальное — глазами.
+        ReactionSpec("memory.pressure", on: [.memoryPressure], tier: .body, cooldown: 3 * 3600, dailyLimit: 2, behavior: .wobble,
+                     lines: ["Тесно мне", "Мне тут тесно…"]),
         ReactionSpec("disk.low", on: [.diskLow], tier: .body, cooldown: 6 * 3600, behavior: .puff, lines: ["Я лопну"]),
         ReactionSpec("network.lost", on: [.networkLost], tier: .body, cooldown: 10 * 60, behavior: .lookAround, lines: ["Где все?", "Я никого не слышу"]),
         ReactionSpec("network.back", on: [.networkBack], tier: .body, cooldown: 10 * 60, lines: ["Вот вы где", "О, снова всех слышу"]),

@@ -76,3 +76,18 @@ import Testing
         #expect(sessions.count == 1)
     }
 }
+
+/// Временная сессия из снимка Orca уходит, как только пришли хуки того же агента в той же папке.
+@Suite struct OrcaTwinTests {
+    @Test func hookEventReplacesSeededTwin() {
+        let now = Date(timeIntervalSinceReferenceDate: 0)
+        var table = SessionTable()
+        table.apply(AgentEvent(source: .orca, sessionId: "orca:t:p", kind: .toolStarted, tool: "Bash", context: "block",
+                               hostBundleId: OrcaStatus.hostBundleId, agent: "Codex", ts: now))
+        table.apply(AgentEvent(source: .orca, sessionId: "orca:t:q", kind: .toolStarted, tool: "Bash", context: "other",
+                               hostBundleId: OrcaStatus.hostBundleId, agent: "Codex", ts: now))
+        #expect(table.ordered.count == 2)
+        table.apply(AgentEvent(source: .codex, sessionId: "s1", kind: .toolStarted, tool: "Bash", context: "block", ts: now))
+        #expect(Set(table.ordered.map(\.id)) == ["orca:t:q", "s1"])
+    }
+}

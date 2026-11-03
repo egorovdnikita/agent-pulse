@@ -53,8 +53,21 @@ public struct SessionTable: Sendable {
         sessions.values.sorted { $0.lastEventAt > $1.lastEventAt }
     }
 
+    /// Агенты с хуками Pulse, временно взятые из снимка Orca при запуске (`OrcaStatus.seed`).
+    static let hookedAgents: Set<String> = ["Claude Code", "Codex"]
+
     public mutating func apply(_ event: AgentEvent) {
         let id = event.sessionId
+        // Пришли хуки агента — его временная сессия из снимка Orca в той же папке больше не нужна: без двойников в меню.
+        if event.source == .claudeCode || event.source == .codex {
+            let twins = sessions.values.filter {
+                $0.source == .orca && $0.context == event.context && Self.hookedAgents.contains($0.agent ?? "")
+            }
+            for twin in twins {
+                sessions[twin.id] = nil
+                aggregators[twin.id] = nil
+            }
+        }
         if event.kind == .sessionEnded {
             sessions[id] = nil
             aggregators[id] = nil
