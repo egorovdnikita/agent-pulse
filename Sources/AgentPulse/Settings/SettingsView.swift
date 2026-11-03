@@ -96,7 +96,7 @@ private struct GeneralSettings: View {
             Section("Облик") {
                 let bots = PalSkin.installed()
                 let mode = PalWardrobe.Mode(config: model.config.mascot.skin)
-                Picker("Облик", selection: Binding(get: { model.config.mascot.skin }, set: { app.setSkin($0) })) {
+                Picker("Кто на маскоте", selection: Binding(get: { model.config.mascot.skin }, set: { app.setSkin($0) })) {
                     Text("Светящийся круг").tag(PalSkin.classic)
                     if !bots.isEmpty { Text("Меняется сам").tag(PalWardrobe.Mode.shuffleConfig) }
                     ForEach(bots, id: \.bot) { Text($0.bot).tag($0.configValue) }
@@ -282,7 +282,7 @@ private struct CharacterSettings: View {
                         set: { model.config.character.hideAfterMinutes = $0; model.applyCharacter() }
                     ), in: 5...240, step: 5)
                 }
-                Text("Созвон, полный экран и тихие часы — облачко молчит, приколов нет. «Жду тебя» слышно всегда.")
+                Text("Созвон, полный экран и тихие часы — облачко молчит, приколов нет. «Жду тебя» слышно всегда, а в тихие часы — и ответ на твоё действие: кабель, тычок, поглаживание.")
                     .font(.caption).foregroundStyle(.secondary)
             }
             Section("День рождения") {

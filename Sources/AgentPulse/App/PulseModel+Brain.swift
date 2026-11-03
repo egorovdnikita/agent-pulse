@@ -165,6 +165,21 @@ extension PulseModel {
     func markCleanExit() {
         launch.cleanExit = true
         try? launch.save()
+        saveBrainNow()
+    }
+
+    /// Выход: память дня и сказанное пишутся сразу, а не ждут десятиминутной отметки.
+    /// Мозг живёт в своём акторе — ждём его не дольше секунды, чтобы не задержать выход.
+    private func saveBrainNow() {
+        let director = director
+        let done = DispatchSemaphore(value: 0)
+        Task.detached {
+            let snapshot = await director.snapshot
+            try? snapshot.memory.save()
+            try? snapshot.ledger.save()
+            done.signal()
+        }
+        _ = done.wait(timeout: .now() + 1)
     }
 
     func resetMemory() {

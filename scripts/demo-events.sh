@@ -4,9 +4,14 @@
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
-HOOK="${1:-build/Agent Pulse.app/Contents/MacOS/pulse-hook}"
-[[ -x "$HOOK" ]] || HOOK=.build/debug/pulse-hook
-[[ -x "$HOOK" ]] || { echo "pulse-hook не найден: соберите scripts/bundle.sh" >&2; exit 1; }
+# Установленное приложение (install.sh убирает сборку из build/), затем свежая сборка, затем отладочная.
+HOOK="${1:-}"
+for candidate in "/Applications/Agent Pulse.app/Contents/MacOS/pulse-hook" "$HOME/Applications/Agent Pulse.app/Contents/MacOS/pulse-hook" \
+    "build/Agent Pulse.app/Contents/MacOS/pulse-hook" .build/debug/pulse-hook; do
+    [[ -n "$HOOK" ]] && break
+    [[ -x "$candidate" ]] && HOOK="$candidate"
+done
+[[ -x "${HOOK:-}" ]] || { echo "pulse-hook не найден: поставьте приложение scripts/install.sh" >&2; exit 1; }
 
 SESSION="demo-$$"
 CWD="$PWD"

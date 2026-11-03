@@ -12,8 +12,13 @@ APP="$TARGET/Agent Pulse.app"
 # Старое имя бандла без пробела — убрать, чтобы не было двух копий.
 rm -rf "$TARGET/AgentPulse.app"
 
-pkill -x AgentPulse 2>/dev/null || true
-sleep 0.5
+# Мягкий выход: приложение успевает сохранить итог дня и отметить штатный выход. Не закрылось — принудительно.
+if pgrep -x AgentPulse >/dev/null; then
+  osascript -e 'tell application id "io.github.egorovdnikita.agentpulse" to quit' >/dev/null 2>&1 || true
+  for _ in 1 2 3 4 5 6 7 8 9 10; do pgrep -x AgentPulse >/dev/null || break; sleep 0.3; done
+  pkill -x AgentPulse 2>/dev/null || true
+  sleep 0.3
+fi
 rm -rf "$APP"
 ditto "build/Agent Pulse.app" "$APP"
 # Сборку из build/ убираем: иначе Spotlight и Launchpad показывают её второй копией приложения.

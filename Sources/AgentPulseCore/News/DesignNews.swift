@@ -251,6 +251,9 @@ public enum NewsGist {
         value = value.replacingOccurrences(of: "TL;DR.", with: "")
         value = value.replacingOccurrences(of: "[\u{FE0F}\u{200D}\u{200B}]", with: "", options: .regularExpression)
         value = value.replacingOccurrences(of: "« ", with: "«").replacingOccurrences(of: " »", with: "»")
+        // «ё» там, где без неё слово одно и то же («еще» → «ещё»); спорные пары вроде «все/всё» не трогаем.
+        value = value.replacingOccurrences(of: "(?<![\\p{L}])еще(?![\\p{L}])", with: "ещё", options: .regularExpression)
+        value = value.replacingOccurrences(of: "(?<![\\p{L}])Еще(?![\\p{L}])", with: "Ещё", options: .regularExpression)
         return value.replacingOccurrences(of: "\\s+", with: " ", options: .regularExpression).trimmingCharacters(in: .whitespaces)
     }
 

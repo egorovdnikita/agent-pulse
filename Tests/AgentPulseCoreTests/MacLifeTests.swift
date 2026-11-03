@@ -214,3 +214,12 @@ import Testing
         #expect(TrafficCounter.received(from: old, to: new) == 2000 + 20)
     }
 }
+
+@Suite struct NewsYoTests {
+    /// «еще» → «ещё» только целым словом: «вещество» и «Ещенко» не трогаются.
+    @Test func restoresYoInEshche() {
+        #expect(NewsGist.clean("Перекусы оказались еще вреднее") == "Перекусы оказались ещё вреднее")
+        #expect(NewsGist.clean("Еще одно вещество") == "Ещё одно вещество")
+        #expect(NewsGist.clean("Ещенко и еще") == "Ещенко и ещё")
+    }
+}

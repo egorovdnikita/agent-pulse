@@ -73,8 +73,12 @@ public final class CoworkWatcher: @unchecked Sendable {
     private func handle(_ paths: [String]) {
         var events: [AgentEvent] = []
         for path in Set(paths) where path.hasSuffix("/" + Self.journalName) {
+            // Сессию удалили — её курсор больше не нужен: иначе курсоры копятся с каждой сессией.
+            guard FileManager.default.fileExists(atPath: path) else {
+                tailer.forget(path)
+                continue
+            }
             if !tailer.isTracking(path) {
-                guard FileManager.default.fileExists(atPath: path) else { continue }
                 // Журнал новой сессии читаем целиком, старый (просто не попался при старте) — с конца.
                 let created = (try? FileManager.default.attributesOfItem(atPath: path)[.creationDate] as? Date) ?? .distantPast
                 if created >= startedAt { tailer.track(path) } else { tailer.prime(path) }
