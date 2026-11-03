@@ -23,6 +23,26 @@ public enum MascotStateMapper {
         }
     }
 
+    /// Ожидание, которое ты уже видел, — ключ «сессия + начало ожидания». Новое ожидание той же сессии — новый ключ.
+    public static func waitKey(_ session: SessionInfo) -> String? {
+        guard case .awaitingUser = session.phase else { return nil }
+        return "\(session.id)|\(session.phaseSince.timeIntervalSinceReferenceDate)"
+    }
+
+    /// Увиденное ожидание уступает: работает другой агент — маскот работает, иначе обычный покой.
+    /// Сессия по-прежнему ждёт (меню, наведение), но маскот больше не смотрит на тебя.
+    /// `seen` — когда увидено: от этого момента считается пауза до сна, а не от начала ожидания.
+    public static func demotingSeen(_ sessions: [SessionInfo], seen: [String: Date]) -> [SessionInfo] {
+        guard !seen.isEmpty else { return sessions }
+        return sessions.map { session in
+            guard let key = waitKey(session), let seenAt = seen[key] else { return session }
+            var calm = session
+            calm.phase = .idle
+            calm.lastEventAt = max(calm.lastEventAt, seenAt)
+            return calm
+        }
+    }
+
     public static func state(for sessions: [SessionInfo], now: Date, sleepAfter: TimeInterval) -> MascotState {
         guard let top = dominant(sessions) else { return .sleep }
         switch top.phase {

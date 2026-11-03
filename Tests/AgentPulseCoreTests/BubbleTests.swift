@@ -209,3 +209,31 @@ import Testing
         #expect(scheduler.current?.text == "Где все?")
     }
 }
+
+/// Увиденное ожидание уступает: другой агент работает — маскот работает, иначе покой.
+/// Новое ожидание той же сессии снова на тебя.
+@Suite struct SeenWaitTests {
+    @Test func seenWaitYieldsToWorkOrIdle() {
+        let now = Date(timeIntervalSinceReferenceDate: 1000)
+        var waiting = SessionInfo(id: "a", source: .claudeCode, at: now)
+        waiting.set(.awaitingUser(reason: .input, message: ""), at: now)
+        var working = SessionInfo(id: "b", source: .codex, at: now)
+        working.set(.working(Activity(tool: "Bash", kind: .run, target: .code, text: "")), at: now)
+
+        #expect(MascotStateMapper.state(for: [waiting, working], now: now, sleepAfter: 60) == .waitYou(.input))
+        let seen = [MascotStateMapper.waitKey(waiting)!: now]
+        let calm = MascotStateMapper.demotingSeen([waiting, working], seen: seen)
+        #expect(MascotStateMapper.state(for: calm, now: now, sleepAfter: 60) == .work(.run))
+        #expect(MascotStateMapper.state(for: MascotStateMapper.demotingSeen([waiting], seen: seen), now: now, sleepAfter: 60) == .idle)
+        // Ждал давно, увидел только что — покой, а не сразу сон.
+        var old = SessionInfo(id: "c", source: .claudeCode, at: now.addingTimeInterval(-600))
+        old.set(.awaitingUser(reason: .input, message: ""), at: now.addingTimeInterval(-600))
+        let oldSeen = MascotStateMapper.demotingSeen([old], seen: [MascotStateMapper.waitKey(old)!: now])
+        #expect(MascotStateMapper.state(for: oldSeen, now: now.addingTimeInterval(10), sleepAfter: 60) == .idle)
+
+        var again = waiting
+        again.set(.working(Activity(tool: "Read", kind: .read, target: .code, text: "")), at: now.addingTimeInterval(5))
+        again.set(.awaitingUser(reason: .input, message: ""), at: now.addingTimeInterval(9))
+        #expect(MascotStateMapper.state(for: MascotStateMapper.demotingSeen([again], seen: seen), now: now, sleepAfter: 60) == .waitYou(.input))
+    }
+}

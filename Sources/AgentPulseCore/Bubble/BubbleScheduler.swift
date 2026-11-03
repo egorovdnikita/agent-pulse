@@ -171,18 +171,21 @@ public struct BubbleScheduler: Sendable {
 
     /// Ты за компьютером (`active` — был ввод только что). Набралось `waitSeen` секунд при облачке ожидания —
     /// значит, видел: облачко сворачивается, ожидание остаётся в позе.
-    public mutating func noteActivity(active: Bool, now: Date) {
+    /// Возвращает `true`, когда ожидание только что увидено.
+    @discardableResult
+    public mutating func noteActivity(active: Bool, now: Date) -> Bool {
         defer { lastActivityAt = now }
         guard var bubble = current, bubble.trigger.isWait, bubble.duration == nil else {
             waitSeenTime = 0
-            return
+            return false
         }
         if active, let last = lastActivityAt { waitSeenTime += min(max(now.timeIntervalSince(last), 0), 1) }
-        guard waitSeenTime >= tuning.waitSeen else { return }
+        guard waitSeenTime >= tuning.waitSeen else { return false }
         waitSeenTime = 0
         bubble.duration = 0
         current = bubble
         tick(now: now)
+        return true
     }
 
     public mutating func tick(now: Date) {

@@ -22,6 +22,12 @@ enum PulseInput: Sendable {
 @Observable
 final class PulseModel {
     private(set) var sessions: [SessionInfo] = []
+    /// Ожидания, которые ты уже видел (`MascotStateMapper.waitKey`): маскот им больше не служит.
+    private var seenWaits: [String: Date] = [:]
+    /// Сессии глазами маскота: увиденное ожидание уступает работе других агентов или покою.
+    var mascotSessions: [SessionInfo] {
+        MascotStateMapper.demotingSeen(sessions, seen: seenWaits)
+    }
     private(set) var state: MascotState = .sleep
     private(set) var bubble: Bubble?
     /// При наведении — последнее сообщение (или итог дня), с тем, когда оно было.
@@ -188,7 +194,7 @@ final class PulseModel {
     // MARK: - Производные для UI
 
     var dominant: SessionInfo? {
-        MascotStateMapper.dominant(sessions)
+        MascotStateMapper.dominant(mascotSessions)
     }
 
     /// Сессии, где агент что-то делает или ждёт: их больше одной — на маскоте счётчик.
@@ -286,7 +292,10 @@ final class PulseModel {
     private func update(now: Date) {
         animator.reduceMotion = labReduceMotion || NSWorkspace.shared.accessibilityDisplayShouldReduceMotion
 
-        let target = labOverride ?? MascotStateMapper.state(for: sessions, now: now, sleepAfter: tuning.sleepAfter)
+        // Увиденные ожидания забываются, когда сессия перестала ждать.
+        let waitingKeys = Set(sessions.compactMap(MascotStateMapper.waitKey))
+        if seenWaits.keys.contains(where: { !waitingKeys.contains($0) }) { seenWaits = seenWaits.filter { waitingKeys.contains($0.key) } }
+        let target = labOverride ?? MascotStateMapper.state(for: mascotSessions, now: now, sleepAfter: tuning.sleepAfter)
         if case .working(let activity) = dominant?.phase { animator.workTarget = activity.target }
         updateWardrobe(now: now)
         if target != state {
@@ -302,7 +311,10 @@ final class PulseModel {
             category: .agent(dominant?.source, host: dominant?.hostBundleId),
             title: BubbleCategory.agentTitle(dominant?.source, host: dominant?.hostBundleId), heldSince: stateSince, now: now
         )
-        scheduler.noteActivity(active: PresenceSense.idleSeconds < 1.5, now: now)
+        if scheduler.noteActivity(active: PresenceSense.idleSeconds < 1.5, now: now) {
+            for key in waitingKeys { seenWaits[key] = now }
+            Self.brainLog.notice("wait seen → \(MascotStateMapper.state(for: self.mascotSessions, now: now, sleepAfter: self.tuning.sleepAfter).logName, privacy: .public)")
+        }
         scheduler.tick(now: now)
         updateHover()
         updateMirror(now: now)
@@ -323,6 +335,8 @@ final class PulseModel {
 
     private func transition(to target: MascotState, now: Date) {
         let previous = state
+        let summary = sessions.map { "\($0.source.rawValue):\($0.phase.logName)" }.joined(separator: ",")
+        Self.brainLog.notice("state \(previous.logName, privacy: .public) → \(target.logName, privacy: .public) [\(summary, privacy: .public)]")
         if previous.isWaiting && !target.isWaiting {
             scheduler.endWait(now: now)
         }
@@ -543,5 +557,30 @@ final class PulseModel {
             let app = NSRunningApplication.runningApplications(withBundleIdentifier: bundleId).first
         else { return }
         app.activate()
+    }
+}
+
+/// Короткие имена для журнала: только вид фазы, без текста сообщений.
+extension MascotState {
+    var logName: String {
+        switch self {
+        case .waitYou: "wait"
+        case .work: "work"
+        default: String(describing: self)
+        }
+    }
+}
+
+extension Phase {
+    var logName: String {
+        switch self {
+        case .idle: "idle"
+        case .received: "received"
+        case .thinking: "thinking"
+        case .working: "working"
+        case .awaitingUser: "awaiting"
+        case .done: "done"
+        case .failed: "failed"
+        }
     }
 }
