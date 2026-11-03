@@ -30,7 +30,7 @@ import Testing
         #expect(activity.text == "Запускает тесты")
 
         table.apply(try event(Fixtures.notificationPermission, at: 3))
-        #expect(phase(table) == .awaitingUser(reason: .permission, message: "Claude needs your permission to use Bash"))
+        #expect(phase(table) == .awaitingUser(reason: .permission, message: ""))
 
         table.apply(try event(Fixtures.postToolOk, at: 10))
         #expect(phase(table) == .thinking)

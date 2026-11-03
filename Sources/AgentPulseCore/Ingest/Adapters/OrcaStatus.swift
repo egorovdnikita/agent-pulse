@@ -120,6 +120,36 @@ public enum OrcaStatus {
         return events
     }
 
+    /// Запуск Pulse посреди работы: агенты, которые сейчас работают, — сразу «работает», а не сон до их следующего события.
+    /// Агенты с хуками Pulse (`provisional`) показываются из снимка временно: их подробности придут хуками,
+    /// а временная сессия закроется, как только панель в Orca перестанет работать (`settle`).
+    public static func seed(
+        _ snapshot: [String: Entry], includeClaude: Bool, includeCodex: Bool = true, now: Date = Date()
+    ) -> (events: [AgentEvent], provisional: Set<String>) {
+        var events: [AgentEvent] = []
+        var provisional: Set<String> = []
+        for key in snapshot.keys.sorted() {
+            guard let entry = snapshot[key], entry.state == .working else { continue }
+            let hooked = (!includeClaude && entry.agentType == "claude") || (!includeCodex && entry.agentType == "codex")
+            if hooked { provisional.insert(key) }
+            events.append(AgentEvent(
+                source: .orca, sessionId: sessionId(key), kind: .toolStarted, tool: entry.toolName,
+                context: entry.cwd.flatMap { $0.isEmpty ? nil : URL(fileURLWithPath: $0).lastPathComponent },
+                hostBundleId: hostBundleId, agent: agentName(entry.agentType), ts: now
+            ))
+        }
+        return (events, provisional)
+    }
+
+    /// Временные сессии из `seed`, чья панель больше не работает, закрываются.
+    public static func settle(_ provisional: inout Set<String>, snapshot: [String: Entry], now: Date = Date()) -> [AgentEvent] {
+        let finished = provisional.filter { snapshot[$0]?.state != .working }
+        provisional.subtract(finished)
+        return finished.sorted().map {
+            AgentEvent(source: .orca, sessionId: sessionId($0), kind: .sessionEnded, hostBundleId: hostBundleId, ts: now)
+        }
+    }
+
     static func sessionId(_ paneKey: String) -> String { "orca:" + paneKey }
 
     /// Тип агента Orca → имя, как его называют люди.

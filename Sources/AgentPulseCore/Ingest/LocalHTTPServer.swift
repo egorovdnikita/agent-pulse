@@ -3,11 +3,14 @@ import Network
 
 /// Крошечный HTTP-сервер только на loopback — для плагина Figma: из песочницы плагина доступен лишь `localhost`.
 /// Одно соединение = один запрос. Соединения не с loopback-адреса сбрасываются.
+/// Из браузера принимается только origin `null` (iframe плагина Figma): обычный сайт не может подделать событие.
 public final class LocalHTTPServer: @unchecked Sendable {
     public struct Request: Sendable {
         public var method: String
         public var path: String
         public var body: Data
+        /// Заголовок `Origin`, если браузер его прислал.
+        public var origin: String? = nil
     }
 
     public struct Response: Sendable {
@@ -23,7 +26,7 @@ public final class LocalHTTPServer: @unchecked Sendable {
     public typealias Handler = @Sendable (Request) -> Response
 
     public static let defaultPort: UInt16 = 47811
-    public static let maxBodyBytes = 8 << 20
+    public static let maxBodyBytes = 4 << 20
 
     private let port: UInt16
     private let handler: Handler
@@ -82,6 +85,8 @@ public final class LocalHTTPServer: @unchecked Sendable {
                 return
             }
             switch parse(buffer) {
+            case .complete(let request) where !allows(origin: request.origin):
+                respond(connection, Response(status: 403))
             case .complete(let request):
                 respond(connection, handler(request))
             case .incomplete where !isComplete:
@@ -90,6 +95,11 @@ public final class LocalHTTPServer: @unchecked Sendable {
                 respond(connection, Response(status: 400))
             }
         }
+    }
+
+    /// Без `Origin` — не браузер (локальный процесс); `null` — песочница плагина Figma. Остальные сайты — нет.
+    static func allows(origin: String?) -> Bool {
+        origin == nil || origin == "null"
     }
 
     enum Parsed {
@@ -105,26 +115,31 @@ public final class LocalHTTPServer: @unchecked Sendable {
         let requestLine = lines.first?.split(separator: " ") ?? []
         guard requestLine.count >= 2 else { return .invalid }
         var length = 0
+        var origin: String?
         for line in lines.dropFirst() {
             let parts = line.split(separator: ":", maxSplits: 1)
-            if parts.count == 2, parts[0].trimmingCharacters(in: .whitespaces).lowercased() == "content-length" {
-                length = Int(parts[1].trimmingCharacters(in: .whitespaces)) ?? 0
+            guard parts.count == 2 else { continue }
+            let value = parts[1].trimmingCharacters(in: .whitespaces)
+            switch parts[0].trimmingCharacters(in: .whitespaces).lowercased() {
+            case "content-length": length = Int(value) ?? -1
+            case "origin": origin = value
+            default: break
             }
         }
         guard length >= 0, length <= maxBodyBytes else { return .invalid }
         let bodyStart = headerEnd.upperBound
         guard data.count - (bodyStart - data.startIndex) >= length else { return .incomplete }
         let body = Data(data[bodyStart..<(bodyStart + length)])
-        return .complete(Request(method: String(requestLine[0]), path: String(requestLine[1]), body: body))
+        return .complete(Request(method: String(requestLine[0]), path: String(requestLine[1]), body: body, origin: origin))
     }
 
     private static func respond(_ connection: NWConnection, _ response: Response) {
         let reason = response.status < 300 ? "OK" : "Error"
-        // Плагин Figma живёт в iframe с origin `null` — без CORS браузерный fetch не пройдёт.
+        // Плагин Figma живёт в iframe с origin `null` — разрешён только он, не любой сайт.
         let head = """
             HTTP/1.1 \(response.status) \(reason)\r
             Content-Type: application/json\r
-            Access-Control-Allow-Origin: *\r
+            Access-Control-Allow-Origin: null\r
             Access-Control-Allow-Methods: POST, OPTIONS\r
             Access-Control-Allow-Headers: Content-Type\r
             Content-Length: \(response.body.count)\r

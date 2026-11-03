@@ -217,13 +217,8 @@ extension PulseModel {
         data.append(0x0A)
         let url = Self.feedbackURL
         try? FileManager.default.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
-        if let handle = try? FileHandle(forWritingTo: url) {
-            handle.seekToEndOfFile()
-            handle.write(data)
-            try? handle.close()
-        } else {
-            try? data.write(to: url)
-        }
+        let previous = (try? Data(contentsOf: url)).map { FeedbackLog.pruned($0, now: Date()) } ?? Data()
+        try? (previous + data).write(to: url, options: .atomic)
         feedbackToday[verdict, default: 0] += 1
         let muted = Self.loadMuted()
         if muted != mutedReactions {

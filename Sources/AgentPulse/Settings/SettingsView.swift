@@ -20,6 +20,7 @@ enum SettingsNavigation {
 }
 
 /// Одно окно вместо «Характера» и Mascot Lab: всё, что не нужно каждый день, живёт здесь, а не в меню.
+@MainActor
 enum SettingsWindow {
     static let size = CGSize(width: 580, height: 660)
 

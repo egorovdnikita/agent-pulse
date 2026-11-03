@@ -387,7 +387,7 @@ final class KeyboardSense: Sense {
 
     func start(emit: @escaping @Sendable (Signal) -> Void) {
         on = CGEventSource.flagsState(.combinedSessionState).contains(.maskAlphaShift)
-        timer = Timer.scheduledTimer(withTimeInterval: 2, repeats: true) { [weak self] _ in
+        timer = Timer.scheduledTimer(withTimeInterval: 5, repeats: true) { [weak self] _ in
             MainActor.assumeIsolated {
                 guard let self else { return }
                 let now = CGEventSource.flagsState(.combinedSessionState).contains(.maskAlphaShift)

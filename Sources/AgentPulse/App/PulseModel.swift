@@ -24,6 +24,8 @@ final class PulseModel {
     private(set) var sessions: [SessionInfo] = []
     /// Ожидания, которые ты уже видел (`MascotStateMapper.waitKey`): маскот им больше не служит.
     private var seenWaits: [String: Date] = [:]
+    /// Последний полный тик мозга: спрятанным тикает реже.
+    private var lastTickAt: Date = .distantPast
     /// Сессии глазами маскота: увиденное ожидание уступает работе других агентов или покою.
     var mascotSessions: [SessionInfo] {
         MascotStateMapper.demotingSeen(sessions, seen: seenWaits)
@@ -179,6 +181,10 @@ final class PulseModel {
                 case .signal(let signal):
                     await self.handleSignal(signal)
                 case .tick(let now):
+                    // Маскот спрятан (полный экран, простой) — курсор и облачко не нужны, мозг тикает раз в секунду.
+                    // Во сне — как обычно: тряска курсора и поглаживание ловятся только на частых замерах.
+                    if self.overlayOccluded, now.timeIntervalSince(self.lastTickAt) < 1 { continue }
+                    self.lastTickAt = now
                     let sessions = await self.store.tick(now: now)
                     if sessions != self.sessions { self.sessions = sessions }
                     self.update(now: now)
@@ -263,8 +269,10 @@ final class PulseModel {
         let awaitId = "await-\(event.sessionId)"
         let origin = BubbleCategory.origin(event.source, agent: event.agent, host: event.hostBundleId)
         let title = [origin, event.context].compactMap(\.self).joined(separator: " · ")
+        // Маскота видно — он скажет сам; уведомление только когда его не видно (полный экран, спрятан).
+        let mascotHidden = overlayOccluded
         switch event.kind {
-        case .awaitingUser where config.events.awaitingUser.notification:
+        case .awaitingUser where config.events.awaitingUser.notification && mascotHidden:
             let fallback = event.awaitReason == .permission ? "Мне нужно твоё разрешение" : "Я жду тебя"
             notifier.post(
                 id: awaitId, title: title, body: event.summary ?? fallback,
@@ -272,9 +280,7 @@ final class PulseModel {
             )
         case .stopped:
             notifier.remove(id: awaitId)
-            // Если терминал с агентом и так перед глазами — не дублируем.
-            let hostIsFront = event.hostBundleId != nil && NSWorkspace.shared.frontmostApplication?.bundleIdentifier == event.hostBundleId
-            if config.events.done.notification && !hostIsFront {
+            if config.events.done.notification && mascotHidden {
                 notifier.post(
                     id: "done-\(event.sessionId)", title: title, body: "Готово, проверь",
                     sound: config.events.done.sound != "none", host: event.hostBundleId

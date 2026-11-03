@@ -2,7 +2,7 @@ import CoreServices
 import Foundation
 
 /// Следит за снимком агентов Orca через FSEvents и превращает смену снимка в события (`OrcaStatus.diff`).
-/// При старте только запоминает текущий снимок — прошлое не проигрывается.
+/// При старте прошлое не проигрывается: из снимка берутся только агенты, которые работают прямо сейчас (`OrcaStatus.seed`).
 public final class OrcaWatcher: @unchecked Sendable {
     public typealias Handler = @Sendable ([AgentEvent]) -> Void
 
@@ -19,6 +19,8 @@ public final class OrcaWatcher: @unchecked Sendable {
     private let handler: Handler
     private let queue = DispatchQueue(label: "agentpulse.orca")
     private var last: [String: OrcaStatus.Entry] = [:]
+    /// Временные сессии агентов с хуками Pulse, взятые из снимка при старте.
+    private var provisional: Set<String> = []
     private var stream: FSEventStreamRef?
 
     /// `includeClaude` — показывать и Claude Code из Orca; нужно, только если хуки Pulse не стоят.
@@ -42,7 +44,15 @@ public final class OrcaWatcher: @unchecked Sendable {
         guard FileManager.default.fileExists(atPath: root) else { return false }
         if let data = FileManager.default.contents(atPath: snapshotPath) {
             guard let snapshot = OrcaStatus.parse(snapshot: data) else { return false }
-            queue.sync { last = snapshot }
+            let seed = OrcaStatus.seed(snapshot, includeClaude: includeClaude, includeCodex: includeCodex)
+            queue.sync {
+                last = snapshot
+                provisional = seed.provisional
+            }
+            if !seed.events.isEmpty {
+                let handler = handler
+                queue.async { handler(seed.events) }
+            }
         }
 
         let callback: FSEventStreamCallback = { _, info, count, paths, _, _ in
@@ -83,6 +93,7 @@ public final class OrcaWatcher: @unchecked Sendable {
             let snapshot = OrcaStatus.parse(snapshot: data)
         else { return }
         let events = OrcaStatus.diff(from: last, to: snapshot, includeClaude: includeClaude, includeCodex: includeCodex)
+            + OrcaStatus.settle(&provisional, snapshot: snapshot)
         last = snapshot
         if !events.isEmpty { handler(events) }
     }

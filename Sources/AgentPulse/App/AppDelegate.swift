@@ -506,7 +506,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         let hide = coveredStreak >= 2
         guard hide != fullScreenHidden else { return }
         fullScreenHidden = hide
-        Self.log.notice("fullscreen \(hide ? "on" : "off", privacy: .public): front=\(NSWorkspace.shared.frontmostApplication?.bundleIdentifier ?? "?", privacy: .public)")
+        // Без имени приложения: маскот не знает, чем ты занят.
+        Self.log.notice("fullscreen \(hide ? "on" : "off", privacy: .public)")
         updatePanelVisibility()
     }
 

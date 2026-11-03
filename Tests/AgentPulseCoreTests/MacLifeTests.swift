@@ -144,3 +144,18 @@ import Testing
         }
     }
 }
+
+/// Лог «мило / бесит» не растёт вечно: старше 30 дней и битые строки уходят.
+@Suite struct FeedbackRetentionTests {
+    @Test func prunesOldLines() {
+        let now = Date(timeIntervalSince1970: 1_800_000_000)
+        let iso = ISO8601DateFormatter()
+        func line(_ daysAgo: Double) -> String {
+            #"{"reaction":"fun.sneeze","ts":"\#(iso.string(from: now.addingTimeInterval(-daysAgo * 86_400)))","verdict":"бесит"}"#
+        }
+        let data = Data((line(40) + "\n" + "мусор\n" + line(3) + "\n").utf8)
+        let kept = FeedbackLog.parse(FeedbackLog.pruned(data, now: now))
+        #expect(kept.count == 1)
+        #expect(kept.first.map { now.timeIntervalSince($0.at) < 4 * 86_400 } == true)
+    }
+}

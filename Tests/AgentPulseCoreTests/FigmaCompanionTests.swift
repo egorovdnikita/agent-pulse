@@ -74,7 +74,21 @@ import Testing
         let (data, response) = try await URLSession.shared.data(for: request)
         let http = try #require(response as? HTTPURLResponse)
         #expect(http.statusCode == 200)
-        #expect(http.value(forHTTPHeaderField: "Access-Control-Allow-Origin") == "*")
+        #expect(http.value(forHTTPHeaderField: "Access-Control-Allow-Origin") == "null")
         #expect(String(decoding: data, as: UTF8.self) == #"{"echo":7}"#)
+
+        // Обычный сайт из браузера не может подделать событие Figma.
+        request.setValue("https://evil.example.com", forHTTPHeaderField: "Origin")
+        let (_, rejected) = try await URLSession.shared.data(for: request)
+        #expect((rejected as? HTTPURLResponse)?.statusCode == 403)
+    }
+
+    @Test func onlyFigmaSandboxOrigin() {
+        #expect(LocalHTTPServer.allows(origin: nil))
+        #expect(LocalHTTPServer.allows(origin: "null"))
+        #expect(!LocalHTTPServer.allows(origin: "https://example.com"))
+        let raw = Data("POST /figma HTTP/1.1\r\nOrigin: https://example.com\r\nContent-Length: 0\r\n\r\n".utf8)
+        guard case .complete(let request) = LocalHTTPServer.parse(raw) else { Issue.record("ожидали запрос"); return }
+        #expect(request.origin == "https://example.com")
     }
 }

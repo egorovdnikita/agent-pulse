@@ -58,7 +58,9 @@ public enum ClaudeCodeHooks {
         case "Notification":
             let message = object["message"] as? String ?? ""
             guard let reason = awaitReason(type: object["notification_type"] as? String, message: message) else { return nil }
-            return event(.awaitingUser, summary: message.isEmpty ? nil : message, awaitReason: reason)
+            // Текст уведомления — английская техническая строка агента («Claude needs your permission to use Bash»):
+            // не показываем, вместо неё мягкое «Я жду тебя» / «Мне нужно твоё разрешение».
+            return event(.awaitingUser, awaitReason: reason)
         case "PermissionRequest":
             let input = object["tool_input"] as? [String: Any] ?? [:]
             let what = Humanizer.describe(tool: tool ?? "unknown", input: input).text

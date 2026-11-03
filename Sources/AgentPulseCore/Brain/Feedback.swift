@@ -35,6 +35,24 @@ public enum FeedbackLog {
         }
     }
 
+    /// Лог хранится 30 дней, как память дня: старые строки (и битые) отбрасываются при каждой записи.
+    public static let retention: TimeInterval = 30 * 86_400
+
+    public static func pruned(_ data: Data, now: Date) -> Data {
+        let iso = ISO8601DateFormatter()
+        var kept = Data()
+        for line in data.split(separator: 0x0A) {
+            guard
+                let object = try? JSONSerialization.jsonObject(with: Data(line)) as? [String: Any],
+                let ts = (object["ts"] as? String).flatMap(iso.date(from:)),
+                now.timeIntervalSince(ts) < retention
+            else { continue }
+            kept.append(contentsOf: line)
+            kept.append(0x0A)
+        }
+        return kept
+    }
+
     /// Реакции, которые за последнюю неделю набрали два «бесит». Агентные не глушатся никогда:
     /// «ждёт тебя» важнее любого раздражения.
     public static func muted(_ entries: [Entry], now: Date) -> Set<String> {

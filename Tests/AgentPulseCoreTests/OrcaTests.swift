@@ -163,3 +163,55 @@ enum OrcaFixtures {
         #expect(task.summary(now: now).hasPrefix("Claude Code в Orca · agent-pulse"))
     }
 }
+
+/// Pulse запустили посреди работы: работающие агенты видны сразу; агенты с хуками — временно, до конца работы панели.
+@Suite struct OrcaSeedTests {
+    typealias F = OrcaFixtures
+
+    @Test func seedsWorkingAgentsOnly() {
+        let snapshot = F.parsed([
+            "a:1": F.entry(agent: "codex", state: "working", tool: "exec_command"),
+            "b:2": F.entry(agent: "claude", state: "working", tool: "Bash"),
+            "c:3": F.entry(agent: "opencode", state: "done"),
+            "d:4": F.entry(agent: "codex", state: "waiting"),
+        ])
+        let seed = OrcaStatus.seed(snapshot, includeClaude: false, includeCodex: true)
+        #expect(seed.events.map(\.sessionId) == ["orca:a:1", "orca:b:2"])
+        #expect(seed.events.allSatisfy { $0.kind == .toolStarted })
+        #expect(seed.provisional == ["b:2"])
+
+        var provisional = seed.provisional
+        let still = OrcaStatus.settle(&provisional, snapshot: snapshot)
+        #expect(still.isEmpty)
+        let done = OrcaStatus.settle(&provisional, snapshot: F.parsed(["b:2": F.entry(agent: "claude", state: "done")]))
+        #expect(done.map(\.kind) == [.sessionEnded])
+        #expect(done.map(\.sessionId) == ["orca:b:2"])
+        #expect(provisional.isEmpty)
+    }
+}
+
+/// Фазы из времени: «думает» после паузы, итог гаснет, брошенная сессия уходит в покой.
+@Suite struct PhaseClockTests {
+    @Test func advancesByTime() {
+        let clock = PhaseClock()
+        let start = Date(timeIntervalSinceReferenceDate: 0)
+        var session = SessionInfo(id: "s", source: .claudeCode, phase: .received, at: start)
+        clock.advance(&session, now: start.addingTimeInterval(0.5))
+        #expect(session.phase == .received)
+        clock.advance(&session, now: start.addingTimeInterval(1))
+        #expect(session.phase == .thinking)
+
+        session.set(.done(summary: ""), at: start)
+        clock.advance(&session, now: start.addingTimeInterval(5))
+        #expect(session.phase == .done(summary: ""))
+        clock.advance(&session, now: start.addingTimeInterval(6))
+        #expect(session.phase == .idle)
+
+        var abandoned = SessionInfo(id: "w", source: .codex, at: start)
+        abandoned.set(.working(Activity(tool: "Bash", kind: .run, target: .code, text: "")), at: start)
+        clock.advance(&abandoned, now: start.addingTimeInterval(29 * 60))
+        #expect(abandoned.phase != .idle)
+        clock.advance(&abandoned, now: start.addingTimeInterval(30 * 60))
+        #expect(abandoned.phase == .idle)
+    }
+}

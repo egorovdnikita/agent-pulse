@@ -39,7 +39,7 @@
 | Обновления | Sparkle | Developer ID + нотаризация, не App Store |
 | Тесты | Swift Testing, виртуальные часы для Director | — |
 
-Целевые ресурсы: CPU в покое ~0%, RAM < 60 MB, в `sleep` рендер ≤ 15 fps, при скрытой панели — 0 кадров.
+Целевые ресурсы: CPU в покое ~0%, RAM < 60 MB, в `sleep` рендер ≤ 15 fps, при скрытой панели — 0 кадров и мозг раз в секунду. Локальный порт плагина Figma отвечает только запросам без `Origin` или с `Origin: null` (песочница плагина) — сайт в браузере событие не подделает.
 
 Позиция по умолчанию **[решение]**: правый нижний угол дисплея с Dock, на уровне Dock. В полноэкранном режиме (видео, презентация, игра) маскота не видно **[решение]**: панель без `fullScreenAuxiliary`, и вдобавок раз в 0.5 s и при смене рабочего стола проверяется, нет ли на экране маскота окна размером с весь экран у приложения, с которым ты сейчас работаешь (только слой, размеры и pid окон, без названий), и строка меню на этом экране скрыта (на обычном рабочем столе она видна всегда), — если так две проверки подряд (~1 s, чтобы не путать с переходом между рабочими столами), панель убирается; панель, показанная во время перехода между столами, может прилипнуть к одному столу — поэтому при каждом показе она заново объявляет себя окном «на всех столах», а после смены стола, если её тут нет (и это не полноэкранный стол), возвращается сама (`panel rejoin` в журнале): окно убирается и выкладывается заново, а если и это не помогло — панель пересоздаётся (`panel rebuild`; `--rebuild-panel` — проверить вручную). Одного переобъявления мало: после полноэкранного Chrome оно срабатывало 12 раз подряд впустую; каждое «спрятался/появился» с причиной пишется в системный журнал (`log show --predicate 'subsystem == "io.github.egorovdnikita.agentpulse"'`); пока её не видно, кадры не рисуются.
 
@@ -48,57 +48,30 @@
 Анатомия существа: органы чувств → мозг → тело и голос.
 
 ```
-Pulse/
-  App/
-    PulseApp.swift              # menu bar app, жизненный цикл
-    OverlayPanel.swift          # NSPanel, мультимонитор, позиция на монитор
-  Senses/                       # органы чувств: каждый = один файл, реализует Sense
-    Sense.swift                 # протокол + Signal
-    PowerSense.swift            # батарея, зарядка, Low Power Mode
-    ThermalSense.swift          # ProcessInfo.thermalState
-    MemorySense.swift           # memory pressure
-    DiskSense.swift             # свободное место
-    NetworkSense.swift          # NWPathMonitor
-    DisplaySense.swift          # подключение/отключение мониторов, сон экранов
-    SleepWakeSense.swift        # сон/пробуждение системы, блокировка экрана
-    PresenceSense.swift         # простой пользователя (secondsSinceLastEventType)
-    SpaceSense.swift            # переключения рабочих столов
-    ClockSense.swift            # время суток, день недели, даты, uptime
-    AppearanceSense.swift       # тёмная/светлая тема
-    AudioSense.swift            # наушники, громкость, mute
-    QuietSense.swift            # микрофон/камера заняты, полноэкранный режим
-    KeyboardSense.swift         # Caps Lock (CGEventSource.flagsState, без разрешений)
-    AgentSense.swift            # события агентов из сокета
-    Experimental/
-      LidAngleSense.swift       # угол крышки, неофициальный HID, за флагом
-  Brain/
-    Mood.swift                  # вектор настроения с затуханием
-    Memory.swift                # память дня и привычек, SQLite
-    Director.swift              # сигнал → реакция: приоритет, бюджет, кулдауны, тишина
-    ReactionCatalog.swift       # декларативный каталог всех реакций
-    Budget.swift                # дневные лимиты по уровням
-  Body/
-    MascotView.swift            # Canvas: тело, свечение, тень, глаза
-    MascotModel.swift           # поза: gaze, eyeScaleY, eyeShape, body, glow
-    GazeEngine.swift            # саккады, фиксации, слежение за курсором
-    BlinkEngine.swift           # моргание
-    Physics.swift               # перетаскивание, бросок, отскок от краёв
-    Baseline.swift              # Mood → базовые параметры движения
-    Behaviors/                  # одна структура на поведение
-  Voice/
-    BubbleView.swift
-    BubbleScheduler.swift       # очередь, мин. время показа, троттлинг
-    Phrases.xcstrings           # пулы реплик (String Catalog)
-    PhrasePicker.swift          # выбор по настроению, без повтора подряд
-  Interaction/
-    Touch.swift                 # hover, поглаживание, тычки, drag, бросок, клик → источник
-  Settings/
-    SettingsStore.swift
-    HookInstaller.swift         # установка хуков Claude Code с бэкапом settings.json
-  Lab/
-    MascotLab.swift             # слайдеры всех таймингов, ручной запуск поведений
-    SignalSimulator.swift       # подделка любого сигнала: «батарея 5%», «пятница 23:00»
-CLI/pulse-hook/                 # stdin JSON → socket, < 50 ms, всегда exit 0
+Sources/
+  AgentPulseCore/               # ядро без UI, всё покрыто тестами
+    Core/                       # AgentEvent, SessionStore, Phase, PhaseClock (фазы из времени), Humanizer, Aggregator
+    Ingest/                     # SocketServer (хуки), OrcaWatcher, CoworkWatcher, LocalHTTPServer (плагин Figma)
+      Adapters/                 # ClaudeCodeHooks, OrcaStatus, CoworkAudit, BrowserBridge, FigmaCompanion, ChatWindowSignals
+    Brain/                      # Signal, Director (+ DirectorActor), ReactionCatalog, Mood, DayMemory, Baseline, Feedback, MacLife
+    Bubble/                     # BubbleScheduler (очередь, наложения), Phrases, PhrasePicker, BubbleCategory, HoverStory, Introduction
+    Mascot/                     # MascotState, MascotStateMapper, MascotTuning, PalChoreographer, PalWardrobe, PalSkin
+    News/                       # DesignNews: ленты, суть, вкус
+    Settings/                   # PulseConfig, HookInstaller, BrowserBridgeInstaller
+  AgentPulse/                   # menu bar app
+    App/                        # AgentPulseApp, AppDelegate (панель, полный экран, меню), PulseModel (+Brain, +Intro)
+    Overlay/                    # OverlayPanel (NSPanel), PillView, MirrorView (зеркало Figma)
+    Mascot/                     # MascotView (слои CA), MascotAnimator, MascotModel, Gaze/BlinkEngine, PalLayer, Behaviors/
+    Bubble/                     # BubbleView, SolarIcons
+    Senses/                     # Sense (протокол + регистрация), PowerSense, SystemSenses (тепло, память, диск, сеть, мониторы,
+                                #   сон, присутствие, часы, тема, Caps Lock…), AudioSense, QuietSense, DeviceSense, NewsSense,
+                                #   LidAngleSense (эксперимент)
+    Interaction/                # Haptics (мурчание трекпада)
+    Ingest/                     # ChatWindowWatcher (Accessibility, opt-in)
+    Notify/                     # Notifier (системные уведомления, когда маскота не видно)
+    Settings/                   # SettingsView, PalGallery (сценарии облика)
+    MascotLab/                  # MascotLabView: состояния, SignalSimulator, реакции вручную, слайдеры MascotTuning
+  pulse-hook/                   # stdin JSON → socket, < 50 ms, всегда exit 0
 ```
 
 ### Контракты
@@ -424,7 +397,7 @@ struct ReactionSpec {
 |---|---|---|---|
 | Claude Code (CLI, IDE, вкладка Code в Claude desktop) | Hooks → `pulse-hook` → сокет | Всё: запрос, каждый инструмент, разрешение, итог | **Готово** (MVP) |
 | ChatGPT (Codex в приложении ChatGPT, `com.openai.codex`) **[решение]** | Те же хуки → `pulse-hook`: ChatGPT перенимает хуки Claude Code в `~/.codex/hooks.json`. Отличается от Claude Code по приложению-хозяину `com.openai.codex`, пути журнала в `~/.codex/` или полю `turn_id` | Запрос, инструменты, разрешение, итог — как у Claude Code | **Сделано**: источник `codex`, в облачке значок и заголовок ChatGPT. Если хуки Codex зовут `pulse-hook`, Codex из Orca не дублируется. Реальный payload Codex не снят — проверено подставным событием |
-| Агенты в Orca (Codex, OpenCode, Gemini, Cursor…) | Снимок `~/Library/Application Support/orca/agent-hooks/last-status.json` (FSEvents): Orca сама ставит хуки своим агентам и переписывает файл, одна запись на панель; события — разница соседних снимков (`OrcaStatus`) | `working` → работает (имя инструмента), `blocked` → ждёт разрешения, `waiting` → ждёт ответа, `done` → итог (`outcome: failure` → ошибка). Текст промпта, ответа и аргументы не читаются | **Сделано** **[решение]**. Формат внутренний (`version: 2`), при другой версии источник «не найден». Claude Code из Orca берётся отсюда, только если хуки Pulse не стоят. В меню и уведомлениях — «Codex в Orca · проект»; облачко любого агента в Orca, включая Claude Code, — заголовок Orca с её значком; клик открывает Orca |
+| Агенты в Orca (Codex, OpenCode, Gemini, Cursor…) | Снимок `~/Library/Application Support/orca/agent-hooks/last-status.json` (FSEvents): Orca сама ставит хуки своим агентам и переписывает файл, одна запись на панель; события — разница соседних снимков (`OrcaStatus`) | `working` → работает (имя инструмента), `blocked` → ждёт разрешения, `waiting` → ждёт ответа, `done` → итог (`outcome: failure` → ошибка). Текст промпта, ответа и аргументы не читаются | **Сделано** **[решение]**. Формат внутренний (`version: 2`), при другой версии источник «не найден». Claude Code из Orca берётся отсюда, только если хуки Pulse не стоят. Pulse запустили посреди работы — агенты, которые сейчас работают, видны сразу из снимка (`OrcaStatus.seed`); агенты с хуками Pulse — временной сессией, пока их панель в Orca работает. В меню и уведомлениях — «Codex в Orca · проект»; облачко любого агента в Orca, включая Claude Code, — заголовок Orca с её значком; клик открывает Orca |
 | Claude Cowork | Хвост `~/Library/Application Support/Claude/local-agent-mode-sessions/**/audit.jsonl` (FSEvents) | Всё: `user` → запрос, `assistant.tool_use` → инструмент, `permission_request` → ждёт, `result` → итог (`is_error`) | **Сделано**. Формат внутренний (поток Agent SDK) → адаптер версионируется, при незнакомом формате молча выключается |
 | Claude Chat: вызовы MCP (в т.ч. Figma-коннектор) | Строки `[MCP] tool_approval_gate` в `~/Library/Logs/Claude/claude.ai-web.log` (`toolName`, `approvalRequired`); локальные MCP — через MCP-прокси | Только вызовы инструментов и запрос одобрения | Под вопросом: лог неофициальный, пишется ли он сразу — не проверено |
 | Claude Chat в браузере (claude.ai) | Расширение Chrome: content script следит за состоянием генерации (кнопка «Стоп», диалог одобрения) → native messaging → сокет | Генерирует / готово / ждёт одобрения | **Сделано** (`Extensions/Chrome`, мост — `pulse-hook` в режиме native messaging). Зависит от DOM claude.ai — селекторы изолированы в `content.js` |
@@ -457,7 +430,7 @@ struct ReactionSpec {
 - `pulse-hook` отвечает < 50 ms и не может замедлить или сломать агента; при недоступном сокете молча `exit 0`.
 - Ни один `Sense` не опрашивает чаще раза в 5 s, если есть событийная альтернатива — используется она.
 - Физика броска не уводит маскота за пределы видимых областей экранов; позиция хранится на монитор (анкер + отступ), при отключении монитора маскот возвращается на основной.
-- Если на экране маскота что-то развёрнуто на весь экран, маскота не видно **[решение]** — он не мешает смотреть и показывать; «ждёт тебя» в это время доходит системным уведомлением. Во время показа экрана — прячется.
+- Если на экране маскота что-то развёрнуто на весь экран, маскота не видно **[решение]** — он не мешает смотреть и показывать; «ждёт тебя» и «готово» в это время доходят системным уведомлением; пока маскота видно, уведомлений нет — он скажет сам, и текст агента (английские строки Claude Code) в уведомление не попадает **[решение]**. Во время показа экрана — прячется.
 - Неофициальные датчики (угол крышки) — только в `Experimental`, за флагом, с graceful fallback.
 
 ## Статус реализации
@@ -484,12 +457,12 @@ struct ReactionSpec {
 Характер не проверяется юнит-тестами — проверяется жизнью.
 
 1. После R1 — неделя на своём ноутбуке. В меню две кнопки: «мило» и «бесит» для последней реакции. Лог локальный.
-2. Цель: ≤ 1 «бесит» в день и ≥ 3 «мило». Реакция с двумя «бесит» за неделю переписывается, уходит в глаза без облачка или удаляется. Глаза без облачка — автоматически **[решение]** (`FeedbackLog`): по логу за 7 дней такая реакция молчит; оценка новости идёт во вкус новостей, а не сюда; агентные не глушатся никогда; в меню видно, сколько реакций молчит.
+2. Цель: ≤ 1 «бесит» в день и ≥ 3 «мило». Лог `feedback.jsonl` хранится 30 дней. Реакция с двумя «бесит» за неделю переписывается, уходит в глаза без облачка или удаляется. Глаза без облачка — автоматически **[решение]** (`FeedbackLog`): по логу за 7 дней такая реакция молчит; оценка новости идёт во вкус новостей, а не сюда; агентные не глушатся никогда; в меню видно, сколько реакций молчит.
 3. Проверка на чужом человеке: дать ноутбук коллеге на час, не объясняя. Если через час он не понял, что значит взгляд прямо на него и «Можно?», — `wait_you` недостаточно ясен.
 
 ## Соглашения по коду
 
-- Swift 6 strict concurrency. `Director`, `Mood`, `Memory` — акторы; рендер и модель тела — `@MainActor`.
+- Swift 6 strict concurrency. `Director`, `Mood`, `DayMemory` — значимые типы; общий доступ к мозгу — через `DirectorActor`; рендер, модель тела и органы чувств — `@MainActor`.
 - Senses не знают про тело и голос; тело не знает про сигналы. Связь только через `Director` и `ReactionCatalog`.
 - Новый орган чувств = один файл в `Senses/` + регистрация. Новая реакция = одна запись в каталоге.
 - Все числа пластики — в `MascotTuning`, все пороги и кулдауны — в `ReactionCatalog`. Магических чисел в поведении нет.
