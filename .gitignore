@@ -7,3 +7,9 @@ xcuserdata/
 DerivedData/
 *.xcodeproj
 /.playwright-mcp
+.env*
+!.env.example
+node_modules
+dist
+.vercel
+.wrangler

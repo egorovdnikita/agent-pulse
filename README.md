@@ -18,7 +18,7 @@
 
 Замер на MacBook M2: процессор 0.7–2.6%, память 31–44 MB.
 
-## Сборка
+## Запуск
 
 Нужны macOS 14+ и Swift 6 (хватает Command Line Tools, Xcode не обязателен).
 
@@ -26,17 +26,11 @@
 scripts/install.sh --login   # сборка → "/Applications/Agent Pulse.app", запуск при входе
 ```
 
-`scripts/bundle.sh` только собирает `build/Agent Pulse.app`. Подпись — локальным сертификатом «Agent Pulse Local Signing», если он есть в связке ключей (иначе ad-hoc). Отладка состояний: `open "/Applications/Agent Pulse.app" --args --state sleep` (`idle`, `think`, `wait`).
+В меню-баре появится значок; хуки Claude Code ставятся из его меню. Маскот без настоящего агента: `scripts/demo-events.sh`. Тесты: `scripts/test.sh`. Подключение Chrome, Figma, Agent Pals и удаление — в [docs/setup.md](docs/setup.md).
 
-В меню-баре появится значок. «Установить хуки Claude Code…» добавит хуки в `~/.claude/settings.json` (с бэкапом рядом). Чужие хуки не трогаются; удаление возвращает файл к исходному виду.
+## Стек
 
-Claude в браузере: в меню «Подключить Claude в браузере…», затем `chrome://extensions` → «Режим разработчика» → «Загрузить распакованное» → открывшаяся папка `~/Library/Application Support/AgentPulse/ChromeExtension`.
-
-Figma: меню → «Figma: показать плагин-компаньон», затем в Figma desktop: Plugins → Development → Import plugin from manifest… → выбрать `manifest.json`. Запускать плагин в файле, за которым нужно следить.
-
-Agent Pals: `scripts/install-agent-pals.sh путь/к/паку.zip`, затем «Настройки → Основное → Облик».
-
-Посмотреть маскота без настоящего агента: `scripts/demo-events.sh`. Тесты: `scripts/test.sh`.
+Swift 6 · SwiftUI · AppKit · Core Animation · Lottie · Swift Testing
 
 ## Устройство
 
@@ -53,18 +47,13 @@ Tests/              Swift Testing
 
 Органы чувств не знают про тело и голос, тело не знает про сигналы — связь только через `Director` и `ReactionCatalog`. Новый источник агентов = один адаптер, новая реакция = одна запись в каталоге.
 
-## Приватность
+## Документация
 
-Текст промптов и ответов не читается и не логируется. Сокет доступен только владельцу (`0600`), локальный порт для плагина Figma принимает запросы только с этой машины и только от плагина. Память — агрегаты за 30 дней. Единственный сетевой доступ — загрузка публичных новостных лент (выключается в меню «Новости»). Screen Recording и Input Monitoring не нужны; Accessibility — только по желанию, для чата в Claude desktop.
-
-## Удаление
-
-1. В меню маскота: «Настройки → Источники → Удалить хуки». Хуки снимутся из `~/.claude/settings.json` и из копий у Codex (`~/.codex/hooks.json`, аккаунты Codex в Orca), рядом останутся резервные копии `*.agentpulse-*.bak`.
-2. «Подключить Claude в браузере» → «Отключить», затем удалить расширение в `chrome://extensions`.
-3. Выйти из Agent Pulse и перетащить `/Applications/Agent Pulse.app` в Корзину.
-4. Данные маскота (память дня, новости, оценки) — папка `~/Library/Application Support/AgentPulse`, её можно удалить.
-
-Если приложение удалили, не сняв хуки, агенты не сломаются: команда хука сама завершается без ошибки, когда `pulse-hook` не найден.
+- [Паспорт проекта](CLAUDE.md)
+- [Установка, подключение и удаление](docs/setup.md)
+- [Приватность](docs/privacy.md)
+- [Журнал аудитов](docs/AUDIT_LOG.md)
+- [Чужие материалы и лицензии](Resources/Licenses/README.md)
 
 ## Лицензия
 
