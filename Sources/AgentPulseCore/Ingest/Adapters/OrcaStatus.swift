@@ -26,6 +26,9 @@ public enum OrcaStatus {
         /// Для `done`: `success`, `failure`, `cancellation`…
         public var outcome: String?
         public var interrupted: Bool
+        public var providerSessionId: String? = nil
+
+        var sessionId: String { providerSessionId ?? OrcaStatus.sessionId(paneKey) }
 
         /// Смена любого из этих полей — событие; остальное (время, текст) не важно.
         var step: [String?] { [state.rawValue, promptId, toolUseId] }
@@ -56,7 +59,8 @@ public enum OrcaStatus {
                 toolName: payload["toolName"] as? String,
                 cwd: (entry["providerSession"] as? [String: Any])?["cwd"] as? String,
                 outcome: (payload["mainAgent"] as? [String: Any])?["outcome"] as? String,
-                interrupted: payload["interrupted"] as? Bool == true
+                interrupted: payload["interrupted"] as? Bool == true,
+                providerSessionId: ((entry["providerSession"] as? [String: Any])?["id"] as? String).flatMap { $0.isEmpty ? nil : $0 }
             )
         }
         return result
@@ -82,7 +86,7 @@ public enum OrcaStatus {
 
             func event(_ kind: AgentEvent.Kind, summary: String? = nil, awaitReason: AgentEvent.AwaitReason? = nil) -> AgentEvent {
                 AgentEvent(
-                    source: .orca, sessionId: sessionId(key), kind: kind, tool: entry.toolName, summary: summary,
+                    source: .orca, sessionId: entry.sessionId, kind: kind, tool: entry.toolName, summary: summary,
                     context: entry.cwd.flatMap { $0.isEmpty ? nil : URL(fileURLWithPath: $0).lastPathComponent },
                     awaitReason: awaitReason, hostBundleId: hostBundleId, agent: agentName(entry.agentType), ts: now
                 )
@@ -115,7 +119,7 @@ public enum OrcaStatus {
 
         for key in old.keys.sorted() where new[key] == nil {
             guard let entry = old[key], !skip(entry) else { continue }
-            events.append(AgentEvent(source: .orca, sessionId: sessionId(key), kind: .sessionEnded, hostBundleId: hostBundleId, ts: now))
+            events.append(AgentEvent(source: .orca, sessionId: entry.sessionId, kind: .sessionEnded, hostBundleId: hostBundleId, ts: now))
         }
         return events
     }
@@ -133,7 +137,7 @@ public enum OrcaStatus {
             let hooked = (!includeClaude && entry.agentType == "claude") || (!includeCodex && entry.agentType == "codex")
             if hooked { provisional.insert(key) }
             events.append(AgentEvent(
-                source: .orca, sessionId: sessionId(key), kind: .toolStarted, tool: entry.toolName,
+                source: .orca, sessionId: entry.sessionId, kind: .toolStarted, tool: entry.toolName,
                 context: entry.cwd.flatMap { $0.isEmpty ? nil : URL(fileURLWithPath: $0).lastPathComponent },
                 hostBundleId: hostBundleId, agent: agentName(entry.agentType), ts: now
             ))
@@ -142,11 +146,11 @@ public enum OrcaStatus {
     }
 
     /// Временные сессии из `seed`, чья панель больше не работает, закрываются.
-    public static func settle(_ provisional: inout Set<String>, snapshot: [String: Entry], now: Date = Date()) -> [AgentEvent] {
+    public static func settle(_ provisional: inout Set<String>, snapshot: [String: Entry], previous: [String: Entry] = [:], now: Date = Date()) -> [AgentEvent] {
         let finished = provisional.filter { snapshot[$0]?.state != .working }
         provisional.subtract(finished)
         return finished.sorted().map {
-            AgentEvent(source: .orca, sessionId: sessionId($0), kind: .sessionEnded, hostBundleId: hostBundleId, ts: now)
+            AgentEvent(source: .orca, sessionId: (snapshot[$0] ?? previous[$0])?.sessionId ?? sessionId($0), kind: .sessionEnded, hostBundleId: hostBundleId, ts: now)
         }
     }
 

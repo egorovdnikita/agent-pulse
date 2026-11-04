@@ -198,9 +198,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
             return
         }
         let inbox = model.inbox
-        let codexHooks = FileManager.default.homeDirectoryForCurrentUser.appending(path: ".codex/hooks.json")
-        let codexHooked = (try? String(contentsOf: codexHooks, encoding: .utf8))?.contains("pulse-hook") ?? false
-        let watcher = OrcaWatcher(includeClaude: !model.hooksInstalled, includeCodex: !codexHooked) { events in
+        // Установленный хук не означает, что текущий агент его загрузил.
+        // Каналы объединяются по providerSession.id в OrcaStatus.
+        let watcher = OrcaWatcher(includeClaude: true, includeCodex: true) { events in
             for event in events { inbox.yield(.event(event)) }
         }
         model.orcaWatching = watcher.start()

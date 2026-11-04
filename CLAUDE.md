@@ -35,7 +35,7 @@
 | Маскот | Процедурная поза + отрисовка слоями Core Animation **[решение]**: покой и сон — повторяющиеся CA-анимации без кадров на CPU, активные состояния — display link 30 fps | Персонаж геометрический, поведение процедурное; SwiftUI `Canvas` упирался в 5–8% CPU в покое |
 | Облик **[решение]** | Agent Pals (Lottie, UI8): 18 ботов × 13 клипов, `lottie-spm` (готовый фреймворк — исходники lottie-ios без Xcode не собираются), движок Core Animation | Клипы крутит рендер-сервер, CPU в покое не растёт; пак платный — в репозиторий не кладётся |
 | Хранение | JSON в Application Support для настроек и памяти (агрегаты, 30 дней) | Только локально; без внешних зависимостей |
-| Агенты | Claude Code hooks → `pulse-hook` → Unix socket; Cowork — журнал `audit.jsonl`; Codex, OpenCode и другие в Orca — снимок `last-status.json` **[решение]**; claude.ai и Figma Make — расширение Chrome; Figma AI — плагин-компаньон; чат в Claude desktop — Accessibility по opt-in **[решение]** | Только наблюдение, см. «Каналы агентов» |
+| Агенты | Claude Code hooks → `pulse-hook` → Unix socket; Cowork — журнал `audit.jsonl`; Claude Code, Codex, OpenCode и другие в Orca — снимок `last-status.json` **[решение]**; claude.ai и Figma Make — расширение Chrome; Figma AI — плагин-компаньон; чат в Claude desktop — Accessibility по opt-in **[решение]** | Только наблюдение, см. «Каналы агентов» |
 | Обновления | Sparkle | Developer ID + нотаризация, не App Store |
 | Тесты | Swift Testing, виртуальные часы для Director | — |
 

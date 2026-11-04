@@ -93,7 +93,7 @@ public final class OrcaWatcher: @unchecked Sendable {
             let snapshot = OrcaStatus.parse(snapshot: data)
         else { return }
         let events = OrcaStatus.diff(from: last, to: snapshot, includeClaude: includeClaude, includeCodex: includeCodex)
-            + OrcaStatus.settle(&provisional, snapshot: snapshot)
+            + OrcaStatus.settle(&provisional, snapshot: snapshot, previous: last)
         last = snapshot
         if !events.isEmpty { handler(events) }
     }

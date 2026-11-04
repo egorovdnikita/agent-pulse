@@ -30,7 +30,7 @@ enum OrcaFixtures {
         var entry: [String: Any] = [
             "paneKey": pane, "source": agent, "agentPresence": ["agent": agent],
             "tabId": "tab-1", "worktreeId": "w::/Users/me/Projects/agent-pulse", "hookEventName": "PostToolUse",
-            "providerSession": ["key": "session_id", "id": "s1", "cwd": "/Users/me/Projects/agent-pulse"],
+            "providerSession": ["key": "session_id", "cwd": "/Users/me/Projects/agent-pulse"],
             "payload": payload,
         ]
         if let prompt { entry["providerPromptId"] = prompt }
@@ -213,5 +213,27 @@ enum OrcaFixtures {
         #expect(abandoned.phase != .idle)
         clock.advance(&abandoned, now: start.addingTimeInterval(30 * 60))
         #expect(abandoned.phase == .idle)
+    }
+}
+
+@Suite struct OrcaHookFallbackTests {
+    @Test func snapshotAndHookShareSessionWithoutLosingHistory() throws {
+        var entry = OrcaFixtures.entry(agent: "codex", state: "working", tool: "Bash", toolUse: "t1")
+        entry["providerSession"] = ["id": "live-session", "cwd": "/Users/me/Projects/example"]
+        let snapshot = OrcaFixtures.parsed([OrcaFixtures.pane: entry])
+        let events = OrcaStatus.diff(from: [:], to: snapshot, includeClaude: true)
+        #expect(events.allSatisfy { $0.sessionId == "live-session" })
+        var table = SessionTable()
+        for event in events { table.apply(event) }
+        #expect(MascotStateMapper.state(for: table.ordered, now: Date(), sleepAfter: 60) != .sleep)
+        table.apply(AgentEvent(source: .codex, sessionId: "live-session", kind: .toolFinished, context: "example"))
+        #expect(table.ordered.count == 1)
+        #expect(!table.ordered[0].timeline.isEmpty)
+        entry["payload"] = ["agentType": "codex", "state": "done"]
+        for event in OrcaStatus.diff(from: snapshot, to: OrcaFixtures.parsed([OrcaFixtures.pane: entry]), includeClaude: true) { table.apply(event) }
+        #expect(table.ordered.count == 1)
+        if case .done = table.ordered[0].phase {} else { Issue.record("Ожидалось завершение") }
+        let removed = OrcaStatus.diff(from: snapshot, to: [:], includeClaude: true)
+        #expect(removed.first?.sessionId == "live-session")
     }
 }

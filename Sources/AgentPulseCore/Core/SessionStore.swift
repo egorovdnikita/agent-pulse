@@ -61,7 +61,7 @@ public struct SessionTable: Sendable {
         // Пришли хуки агента — его временная сессия из снимка Orca в той же папке больше не нужна: без двойников в меню.
         if event.source == .claudeCode || event.source == .codex {
             let twins = sessions.values.filter {
-                $0.source == .orca && $0.context == event.context && Self.hookedAgents.contains($0.agent ?? "")
+                $0.id.hasPrefix("orca:") && $0.source == .orca && $0.context == event.context && Self.hookedAgents.contains($0.agent ?? "")
             }
             for twin in twins {
                 sessions[twin.id] = nil
