@@ -28,18 +28,37 @@ public struct CapsuleRing: Sendable, Equatable, Identifiable {
     }
 }
 
+/// Кнопка в капсуле.
+public enum CapsuleAction: Sendable, Equatable {
+    case join(URL)
+}
+
 /// Что модуль кладёт в свёрнутую капсулу.
 public struct CapsuleContent: Sendable, Equatable {
     public var rings: [CapsuleRing]
+    /// Строка, видная и без наведения: встреча, трек, файлы.
+    public var text: String?
+    /// Хвост строки, который не обрезается: обратный отсчёт важнее названия.
+    public var tail: String?
+    /// Иконка Solar.
+    public var icon: String?
+    public var action: CapsuleAction?
     /// Подпись при наведении, одна строка.
     public var label: String
     /// Чьё кольцо стоит рядом с подписью: на два кольца и текст 220 pt не хватает.
     public var labelService: LimitService?
 
-    public init(rings: [CapsuleRing], label: String, labelService: LimitService? = nil) {
+    public init(
+        rings: [CapsuleRing], label: String, labelService: LimitService? = nil, text: String? = nil, tail: String? = nil,
+        icon: String? = nil, action: CapsuleAction? = nil
+    ) {
+        self.tail = tail
         self.rings = rings
         self.label = label
         self.labelService = labelService
+        self.text = text
+        self.icon = icon
+        self.action = action
     }
 }
 
@@ -47,8 +66,16 @@ public struct CapsuleContent: Sendable, Equatable {
 public protocol ConsoleModule: Sendable {
     var id: ConsoleModuleID { get }
     var title: String { get }
+    /// Цвет модуля — только как акцент: точка-индикатор.
+    var accent: UInt32 { get }
     /// nil — модулю сейчас нечего показать.
     func priority(now: Date) -> ConsolePriority?
     func capsule(now: Date) -> CapsuleContent
     mutating func tick(now: Date) -> [ToolSignal]
+    /// Модулю нужна тишина маскота прямо сейчас.
+    func wantsQuiet(now: Date) -> Bool
+}
+
+extension ConsoleModule {
+    public func wantsQuiet(now: Date) -> Bool { false }
 }

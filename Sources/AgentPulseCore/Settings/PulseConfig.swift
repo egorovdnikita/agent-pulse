@@ -21,6 +21,12 @@ public struct PulseConfig: Codable, Sendable, Equatable {
     public struct Console: Codable, Sendable, Equatable {
         public var enabled = true
         public var limits = true
+        /// Календарь просит разрешение при включении, поэтому выключен, пока ты сам не включишь.
+        public var calendar = false
+        public var shelf = true
+        public var music = true
+        /// Новые снимки экрана попадают на полку.
+        public var shelfScreenshots = false
         /// Глобальная клавиша раскрытия: буква вместе с ⌃⌥; пусто — без клавиши.
         public var hotkey = "x"
         /// Путь к `codex`; пусто — найти самому.

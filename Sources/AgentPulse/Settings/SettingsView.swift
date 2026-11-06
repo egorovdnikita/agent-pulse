@@ -148,7 +148,7 @@ private struct GeneralSettings: View {
                 }
             }
             Section("О программе") {
-                Text("Иконки категорий — Solar Icons, 480 Design, лицензия CC BY 4.0. Анимации ботов играет Lottie от Airbnb, лицензия Apache 2.0.")
+                Text("Иконки категорий — Solar Icons, 480 Design, лицензия CC BY 4.0. Анимации ботов играет Lottie от Airbnb, лицензия Apache 2.0. «Музыка» работает через mediaremote-adapter, Jonas van den Berg, лицензия BSD-3.")
                     .font(.caption).foregroundStyle(.secondary)
                 Button("Лицензии") {
                     if let url = Bundle.main.url(forResource: "Licenses", withExtension: nil) { NSWorkspace.shared.open(url) }
@@ -418,6 +418,29 @@ private struct ConsoleSettings: View {
             Section("Модули") {
                 Toggle("Лимиты", isOn: Binding(get: { settings.limits }, set: { app.setLimitsEnabled($0) }))
                     .disabled(!settings.enabled)
+                Toggle(isOn: Binding(get: { settings.calendar }, set: { app.setCalendarEnabled($0) })) {
+                    Text("Календарь")
+                    Text("Спросит доступ к Календарям. Только чтение. Идущий звонок включает тишину маскота")
+                        .font(.caption).foregroundStyle(.secondary)
+                }
+                .disabled(!settings.enabled)
+                Toggle("Полка", isOn: Binding(get: { settings.shelf }, set: { app.setShelfEnabled($0) }))
+                    .disabled(!settings.enabled)
+                if settings.shelf {
+                    Toggle(isOn: Binding(get: { settings.shelfScreenshots }, set: { app.setShelfScreenshots($0) })) {
+                        Text("Новые снимки экрана — на полку")
+                        Text("Хранятся только ссылки на файлы, выход из приложения очищает полку")
+                            .font(.caption).foregroundStyle(.secondary)
+                    }
+                    .disabled(!settings.enabled)
+                }
+                Toggle(isOn: Binding(get: { settings.music }, set: { app.setMusicEnabled($0) })) {
+                    Text("Музыка")
+                    if model.console.media.availability == .unavailable {
+                        Text("Недоступно на этой системе").font(.caption).foregroundStyle(.secondary)
+                    }
+                }
+                .disabled(!settings.enabled)
             }
             Section("Лимиты Claude") {
                 LabeledContent("Statusline", value: model.statuslineInstalled ? "подключена" : "не подключена")

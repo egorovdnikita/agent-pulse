@@ -4,6 +4,7 @@ import Foundation
 public struct LimitsModule: ConsoleModule {
     public let id = ConsoleModuleID.limits
     public let title = "Лимиты"
+    public let accent: UInt32 = 0x34C759
     public var book = LimitsBook()
 
     public init() {}

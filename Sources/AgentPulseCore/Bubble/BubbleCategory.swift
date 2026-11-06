@@ -166,6 +166,7 @@ public enum BubbleCategory: String, Sendable, CaseIterable, Codable {
         case "poke", "stroke", "flyby", "drag", "thrown", "dropped", "spaces", "cursorShake", "carried", "anniversary": return .together
         case "fun": return .mood
         case "limit": return .wellbeing
+        case "shelf": return .together
         case "sleep", "nodOff", "screensaver": return .rest
         default: return .day
         }

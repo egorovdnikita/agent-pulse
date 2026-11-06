@@ -147,7 +147,7 @@ public struct ReactionSpec: Sendable {
 public enum ReactionCatalog {
     static let present: Set<SignalKind> = [.userBack, .systemWake, .screenUnlocked, .minute, .stroke, .poke, .dragged]
 
-    public static let all: [ReactionSpec] = agents + body + limits + rhythm + interaction + news + fun
+    public static let all: [ReactionSpec] = agents + body + limits + consoleEvents + rhythm + interaction + news + fun
 
     // MARK: - Агенты (сверх основного конвейера состояний)
 
@@ -198,6 +198,18 @@ public enum ReactionCatalog {
                          lines: ["Снова есть силы", "Можно дальше"]),
         ]
     }
+
+    // MARK: - События Пульта
+
+    static let consoleEvents: [ReactionSpec] = [
+        // «Раз на встречу» вместо «раз в день»: Пульт шлёт сигнал один раз на событие.
+        ReactionSpec("meeting.soon", on: [.meetingSoon], tier: .rhythm, cooldown: 60, dailyLimit: 50,
+                     behavior: .lookAround, lines: ["Скоро встреча", "Встреча уже близко"]),
+        // Очки, как у Капы, нельзя: у маскота нет аксессуаров.
+        ReactionSpec("meeting.free", on: [.dayFree], tier: .rhythm, behavior: .dreamSmile),
+        ReactionSpec("shelf.eat", on: [.fileEaten], tier: .interaction, cooldown: 1, behavior: .relax,
+                     lines: ["Ням, положу", "Ням, на полку"], bubble: 1.5),
+    ]
 
     // MARK: - Тело ноутбука
 

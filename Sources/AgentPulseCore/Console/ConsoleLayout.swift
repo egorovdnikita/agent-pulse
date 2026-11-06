@@ -46,7 +46,7 @@ public enum ConsoleLayout {
     public static let expandedMaxWidth = 360.0
     public static let expandedMinWidth = 280.0
     /// Вкладка над капсулой; вместе с ней и зазором — не выше 320 pt.
-    public static let expandedHeight = 256.0
+    public static let expandedHeight = 280.0
     public static let expandedGap = 8.0
 
     /// Сколько места между углом экрана и Dock. nil Dock — оценка не удалась.

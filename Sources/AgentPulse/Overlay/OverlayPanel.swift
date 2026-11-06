@@ -33,6 +33,10 @@ final class OverlayPanel: NSPanel {
             self?.ignoresMouseEvents = !interactive
         }
         let host = FirstMouseHostingView(rootView: PillView(model: model, app: app))
+        // Файл на маскота: что за файл, мозг не знает, ссылка сразу уходит на полку Пульта.
+        host.registerForDraggedTypes([.fileURL])
+        host.acceptsFiles = { [weak model] in model?.console.shelfEnabled == true && model?.cursorOverMascot == true }
+        host.onDrop = { [weak model] urls in model?.feedMascot(urls) }
         // Размер панели задаём сами. Иначе хост пересчитывает размеры окна на каждом кадре анимации —
         // это был главный расход CPU в простое.
         host.sizingOptions = []
@@ -394,7 +398,25 @@ final class OverlayPanel: NSPanel {
 
 /// Клик по маскоту срабатывает с первого раза, без предварительной активации окна.
 final class FirstMouseHostingView<Content: View>: NSHostingView<Content> {
+    var acceptsFiles: (() -> Bool)?
+    var onDrop: (([URL]) -> Void)?
+
     override func acceptsFirstMouse(for event: NSEvent?) -> Bool { true }
+
+    override func draggingEntered(_ sender: any NSDraggingInfo) -> NSDragOperation {
+        draggingUpdated(sender)
+    }
+
+    override func draggingUpdated(_ sender: any NSDraggingInfo) -> NSDragOperation {
+        acceptsFiles?() == true ? .copy : []
+    }
+
+    override func performDragOperation(_ sender: any NSDraggingInfo) -> Bool {
+        guard acceptsFiles?() == true else { return false }
+        let urls = DroppedFiles.urls(sender)
+        onDrop?(urls)
+        return !urls.isEmpty
+    }
 }
 
 extension OverlayPanel {

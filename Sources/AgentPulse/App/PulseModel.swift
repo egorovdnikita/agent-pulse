@@ -157,9 +157,12 @@ final class PulseModel {
         let inbox = inbox
         console.enabled = config.console.enabled
         console.limitsEnabled = config.console.limits
+        console.calendarEnabled = config.console.calendar
+        console.shelfEnabled = config.console.shelf
+        console.musicEnabled = config.console.music
         console.onSignal = { [weak self] signal, now in
-            inbox.yield(.signal(signal.signal(at: now)))
-            self?.notifyLimit(signal)
+            if let brain = signal.signal(at: now) { inbox.yield(.signal(brain)) }
+            self?.notifyConsole(signal)
         }
         console.onLeaderChange = { [weak self] in
             // Только в покое: взгляд не перебивает wait_you и работу агента. Пульт — в углу напротив маскота.
@@ -168,10 +171,31 @@ final class PulseModel {
         }
     }
 
-    /// Лимит «критично» — одно уведомление за пересечение, и только когда маскота не видно.
-    private func notifyLimit(_ signal: ToolSignal) {
-        guard case .limitCritical(let service) = signal, overlayOccluded else { return }
-        notifier?.post(id: "limit-\(service.rawValue)", title: "Лимиты", body: "\(service.title): лимит почти исчерпан", sound: false, host: nil)
+    /// В полном экране Пульта не видно: встреча через минуту и лимит «критично» приходят уведомлением, как «ждёт тебя».
+    private func notifyConsole(_ signal: ToolSignal) {
+        guard overlayOccluded else { return }
+        switch signal {
+        case .limitCritical(let service):
+            notifier?.post(id: "limit-\(service.rawValue)", title: "Лимиты", body: "\(service.title): лимит почти исчерпан", sound: false, host: nil)
+        case .meetingLastCall:
+            notifier?.post(id: "meeting", title: "Календарь", body: "Встреча через минуту", sound: false, host: nil)
+        default:
+            break
+        }
+    }
+
+    /// Курсор над телом маскота: файл принимается только здесь, а не на всей панели с облачком.
+    var cursorOverMascot: Bool {
+        guard let center = animator.screenCenter else { return false }
+        let mouse = NSEvent.mouseLocation
+        return hypot(mouse.x - center.x, mouse.y - center.y) <= config.display.mascotSize / 2 + 8
+    }
+
+    /// Съел файл и передал на полку. Мозг получает только сигнал, без имени и пути.
+    func feedMascot(_ urls: [URL]) {
+        guard !urls.isEmpty else { return }
+        inbox.yield(.signal(Signal(.console, .fileEaten)))
+        console.addToShelf(urls)
     }
 
     /// Какие боты Agent Pals установлены целиком; перечитывается при смене облика в настройках.

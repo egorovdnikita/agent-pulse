@@ -28,5 +28,15 @@
 	<true/>
 	<key>NSHighResolutionCapable</key>
 	<true/>
+	<key>NSCalendarsFullAccessUsageDescription</key>
+	<string>Пульт показывает следующую встречу и кнопку входа в звонок. Только чтение: события не меняются и никуда не уходят.</string>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>Микрофон нужен диктовке и суфлёру. Аудио не сохраняется и никуда не уходит.</string>
+	<key>NSSpeechRecognitionUsageDescription</key>
+	<string>Суфлёр следует за голосом. Распознавание идёт на устройстве, аудио никуда не уходит.</string>
+	<key>NSAppleEventsUsageDescription</key>
+	<string>Пульт управляет «Музыкой» и Spotify, когда другой способ недоступен.</string>
+	<key>NSDesktopFolderUsageDescription</key>
+	<string>Полка берёт новые снимки экрана из этой папки, если ты включил эту опцию.</string>
 </dict>
 </plist>

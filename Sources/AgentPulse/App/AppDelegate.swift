@@ -14,6 +14,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     private var codexTimer: Timer?
     private var codexFetchedAt = Date.distantPast
     private var codexFetching = false
+    private let calendarProvider = CalendarProvider()
+    private let screenshots = ScreenshotWatcher()
+    private var mediaSense: MediaPlayerSense?
     private var server: SocketServer?
     private var cowork: CoworkWatcher?
     private var orca: OrcaWatcher?
@@ -168,6 +171,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         orca?.stop()
         companion?.stop()
         chatWindow?.stop()
+        mediaSense?.stop()
+        screenshots.stop()
         senses.forEach { $0.stop() }
         model.markCleanExit()
     }
@@ -280,6 +285,29 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
             MainActor.assumeIsolated { self?.refreshCodex(force: true) }
         }
         refreshCodex(force: true)
+        console.onJoin = { url in NSWorkspace.shared.open(url) }
+        console.onMediaCommand = { [weak self] in self?.mediaSense?.send($0) }
+        console.onSeek = { [weak self] in self?.mediaSense?.seek(to: $0) }
+        console.onVolume = { [weak console] value in
+            SystemVolume.set(value)
+            console?.volume = value
+        }
+        console.onConnectMusic = { [weak self] in self?.startScriptMedia() }
+        if model.config.console.calendar { startCalendar() }
+        startMedia()
+        startScreenshots()
+        // Отладка: `--shelf-demo путь` — положить файл на полку, как бросок.
+        if let index = CommandLine.arguments.firstIndex(of: "--shelf-demo"), index + 1 < CommandLine.arguments.count {
+            console.addToShelf([URL(fileURLWithPath: CommandLine.arguments[index + 1])])
+        }
+        // Отладка: `--meeting-demo минут [ссылка]` — подставная встреча через столько минут.
+        if let index = CommandLine.arguments.firstIndex(of: "--meeting-demo"), index + 1 < CommandLine.arguments.count {
+            let minutes = Double(CommandLine.arguments[index + 1]) ?? 8
+            let link = index + 2 < CommandLine.arguments.count ? URL(string: CommandLine.arguments[index + 2]).flatMap(MeetingLinks.classify) : nil
+            let start = Date().addingTimeInterval(minutes * 60)
+            console.calendarEnabled = true
+            console.updateCalendar([MeetingEvent(id: "demo", title: "Синк", start: start, end: start.addingTimeInterval(1800), link: link)])
+        }
         // Отладка: `--limits-demo [critical]` — подставные лимиты, `--console-open` — сразу раскрыть.
         let arguments = CommandLine.arguments
         if let index = arguments.firstIndex(of: "--limits-demo") {
@@ -296,6 +324,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         }
         if arguments.contains("--console-open") {
             DispatchQueue.main.asyncAfter(deadline: .now() + 1) { console.setExpanded(true) }
+        }
+        // Отладка: `--console-tab media` — сразу открыть вкладку.
+        if let index = arguments.firstIndex(of: "--console-tab"), index + 1 < arguments.count,
+           let tab = ConsoleModuleID(rawValue: arguments[index + 1]) {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 3) {
+                console.setExpanded(true)
+                console.tab = tab
+            }
         }
     }
 
@@ -350,6 +386,97 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         try? model.config.save()
         model.console.limitsEnabled = on
         if on { refreshCodex(force: true) }
+    }
+
+    // MARK: - Календарь, музыка, снимки
+
+    /// Календарь спрашивает разрешение при включении; отказали — модуль скрыт.
+    func setCalendarEnabled(_ on: Bool) {
+        if !on {
+            model.config.console.calendar = false
+            try? model.config.save()
+            model.console.calendarEnabled = false
+            calendarProvider.stop()
+            return
+        }
+        Task { [weak self] in
+            guard let self else { return }
+            NSApp.activate()
+            let granted = await self.calendarProvider.requestAccess()
+            guard granted else {
+                self.showAlert("Нет доступа к календарю", "Системные настройки → Конфиденциальность и безопасность → Календари → включите Agent Pulse.")
+                return
+            }
+            self.model.config.console.calendar = true
+            try? self.model.config.save()
+            self.model.console.calendarEnabled = true
+            self.startCalendar()
+        }
+    }
+
+    private func startCalendar() {
+        guard CalendarProvider.authorized else {
+            model.console.calendarEnabled = false
+            return
+        }
+        calendarProvider.start { [weak self] events in self?.model.console.updateCalendar(events) }
+    }
+
+    func setShelfEnabled(_ on: Bool) {
+        model.config.console.shelf = on
+        try? model.config.save()
+        model.console.shelfEnabled = on
+        if !on { model.console.clearShelf() }
+        startScreenshots()
+    }
+
+    func setShelfScreenshots(_ on: Bool) {
+        model.config.console.shelfScreenshots = on
+        try? model.config.save()
+        startScreenshots()
+    }
+
+    private func startScreenshots() {
+        screenshots.stop()
+        guard model.config.console.shelf, model.config.console.shelfScreenshots else { return }
+        screenshots.start { [weak self] urls in self?.model.console.addToShelf(urls) }
+    }
+
+    func setMusicEnabled(_ on: Bool) {
+        model.config.console.music = on
+        try? model.config.save()
+        model.console.musicEnabled = on
+        startMedia()
+    }
+
+    /// Сначала MediaRemote: он видит любой плеер. Не работает — честно «недоступно», а запасной путь по кнопке.
+    private func startMedia() {
+        mediaSense?.stop()
+        mediaSense = nil
+        let console = model.console
+        console.updateMedia(.nothing)
+        guard model.config.console.music else { return }
+        console.volume = SystemVolume.get()
+        guard let sense = AdapterMediaSense() else {
+            console.setMediaAvailability(.unavailable)
+            return
+        }
+        mediaSense = sense
+        sense.start(onUpdate: { update in
+            console.updateMedia(update)
+            console.volume = SystemVolume.get()
+        }, onFailure: { [weak self] in
+            self?.mediaSense = nil
+            console.setMediaAvailability(.unavailable)
+        })
+    }
+
+    /// AppleScript для «Музыки» и Spotify: разрешение Automation спросит сама macOS.
+    private func startScriptMedia() {
+        let console = model.console
+        let sense = ScriptMediaSense()
+        mediaSense = sense
+        sense.start(onUpdate: { console.updateMedia($0) }, onFailure: {})
     }
 
     func setConsoleHotKey(_ letter: String) {

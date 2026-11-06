@@ -53,7 +53,7 @@ private struct CapsuleBody: View {
     let model: ConsoleModel
 
     var body: some View {
-        let accent = model.alert.map { Color(hex: $0.color) }
+        let accent = model.dropTargeted ? Color.white.opacity(0.7) : model.alert.map { Color(hex: $0.color) }
         HStack(spacing: ConsoleLook.labelGap) {
             if model.showsDot {
                 Image(nsImage: SolarIcons.image("tuning-2") ?? NSImage())
@@ -62,17 +62,51 @@ private struct CapsuleBody: View {
                     .foregroundStyle(.white)
                     .opacity(0.4)
             } else if let capsule = model.capsule {
-                HStack(spacing: ConsoleLook.ringGap) {
-                    ForEach(model.visibleRings) { ring in
-                        LimitRing(fraction: ring.fraction, color: ring.zone.color(ring.service), dimmed: ring.stale)
+                if !capsule.rings.isEmpty {
+                    HStack(spacing: ConsoleLook.ringGap) {
+                        ForEach(model.visibleRings) { ring in
+                            LimitRing(fraction: ring.fraction, color: ring.zone.color(ring.service), dimmed: ring.stale)
+                        }
                     }
+                } else if let image = model.leaderImage {
+                    Image(nsImage: image).resizable().scaledToFill()
+                        .frame(width: ConsoleLook.ring, height: ConsoleLook.ring)
+                        .clipShape(RoundedRectangle(cornerRadius: 4, style: .continuous))
+                } else if let icon = capsule.icon {
+                    Image(nsImage: SolarIcons.image(icon) ?? NSImage()).resizable()
+                        .frame(width: 16, height: 16).foregroundStyle(.white)
                 }
-                if model.showsLabel {
-                    Text(capsule.label)
+                if let text = model.capsuleText {
+                    HStack(spacing: 4) {
+                        Text(text)
+                            .font(Font(ConsoleLook.labelFont))
+                            .foregroundStyle(.white)
+                            .lineLimit(1)
+                            .truncationMode(.tail)
+                        if let tail = capsule.tail {
+                            Text(tail)
+                                .font(Font(ConsoleLook.labelFont))
+                                .foregroundStyle(.white.opacity(0.75))
+                                .lineLimit(1)
+                                .fixedSize()
+                        }
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .transition(.opacity)
+                }
+                if case .join(let url) = capsule.action {
+                    Button("Войти") { model.onJoin?(url) }
+                        .buttonStyle(.plain)
                         .font(Font(ConsoleLook.labelFont))
-                        .foregroundStyle(.white)
-                        .lineLimit(1)
-                        .transition(.opacity)
+                        .foregroundStyle(Color(hex: 0xFF9F0A))
+                        .frame(width: ConsoleLook.joinWidth)
+                }
+                if !model.indicators.isEmpty {
+                    HStack(spacing: 4) {
+                        ForEach(Array(model.indicators.enumerated()), id: \.offset) { _, color in
+                            Circle().fill(Color(hex: color)).frame(width: ConsoleLook.dot, height: ConsoleLook.dot)
+                        }
+                    }
                 }
             }
         }
@@ -82,9 +116,8 @@ private struct CapsuleBody: View {
         .clipShape(Capsule())
         .overlay { if let accent { Capsule().strokeBorder(accent, lineWidth: 1.5) } }
         .contentShape(Capsule())
-        .accessibilityElement(children: .ignore)
+        .accessibilityElement(children: .contain)
         .accessibilityLabel(model.capsule?.label ?? "Пульт")
-        .accessibilityAddTraits(.isButton)
         .onTapGesture { model.toggle() }
     }
 }
@@ -141,10 +174,20 @@ private struct ExpandedBody: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Text(model.limits.title)
-                .font(.system(size: 13, weight: .semibold, design: .rounded))
-                .foregroundStyle(.white)
-            LimitsTab(model: model)
+            HStack(spacing: 14) {
+                ForEach(model.tabs, id: \.id) { tab in
+                    Button(tab.title) { model.tab = tab.id }
+                        .buttonStyle(.plain)
+                        .font(.system(size: 13, weight: .semibold, design: .rounded))
+                        .foregroundStyle(.white.opacity(model.tab == tab.id ? 1 : 0.5))
+                }
+            }
+            switch model.tab {
+            case .calendar: CalendarTab(model: model)
+            case .shelf: ShelfTab(model: model)
+            case .media: MediaTab(model: model)
+            default: LimitsTab(model: model)
+            }
             Spacer(minLength: 0)
         }
         .padding(16)

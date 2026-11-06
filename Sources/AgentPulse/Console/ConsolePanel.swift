@@ -5,6 +5,24 @@ import SwiftUI
 /// Вид Пульта: сообщает о курсоре и принимает первый клик, не активируя приложение.
 private final class ConsoleHostingView<Content: View>: NSHostingView<Content> {
     var onHover: ((Bool) -> Void)?
+    var onDropTarget: ((Bool) -> Void)?
+    var onDrop: (([URL]) -> Void)?
+    var acceptsFiles: (() -> Bool)?
+
+    override func draggingEntered(_ sender: any NSDraggingInfo) -> NSDragOperation {
+        guard acceptsFiles?() == true, !DroppedFiles.urls(sender).isEmpty else { return [] }
+        onDropTarget?(true)
+        return .copy
+    }
+
+    override func draggingExited(_ sender: (any NSDraggingInfo)?) { onDropTarget?(false) }
+
+    override func performDragOperation(_ sender: any NSDraggingInfo) -> Bool {
+        onDropTarget?(false)
+        let urls = DroppedFiles.urls(sender)
+        onDrop?(urls)
+        return !urls.isEmpty
+    }
 
     override func acceptsFirstMouse(for event: NSEvent?) -> Bool { true }
 
@@ -48,6 +66,10 @@ final class ConsolePanel: NSPanel {
         let host = ConsoleHostingView(rootView: ConsoleRootView(model: model))
         host.sizingOptions = []
         host.onHover = { [weak model] inside in model?.setHover(inside) }
+        host.registerForDraggedTypes([.fileURL])
+        host.acceptsFiles = { [weak model] in model?.shelfEnabled == true }
+        host.onDropTarget = { [weak model] on in model?.dropTargeted = on }
+        host.onDrop = { [weak model] urls in model?.addToShelf(urls) }
         contentView = host
     }
 
@@ -121,6 +143,14 @@ final class ConsolePanel: NSPanel {
     func rejoinAllSpaces() {
         collectionBehavior = []
         collectionBehavior = OverlayPanel.spaceBehavior
+    }
+}
+
+/// Брошенные файлы. Пути читаются только при броске: ты дал файл явно.
+enum DroppedFiles {
+    static func urls(_ info: any NSDraggingInfo) -> [URL] {
+        let options: [NSPasteboard.ReadingOptionKey: Any] = [.urlReadingFileURLsOnly: true]
+        return info.draggingPasteboard.readObjects(forClasses: [NSURL.self], options: options) as? [URL] ?? []
     }
 }
 
