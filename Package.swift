@@ -8,6 +8,7 @@ let package = Package(
     products: [
         .executable(name: "AgentPulse", targets: ["AgentPulse"]),
         .executable(name: "pulse-hook", targets: ["pulse-hook"]),
+        .executable(name: "pulse-statusline", targets: ["pulse-statusline"]),
     ],
     dependencies: [
         // Облик Agent Pals: Lottie на движке Core Animation — анимации крутит рендер-сервер, без кадров на CPU.
@@ -23,6 +24,8 @@ let package = Package(
         ),
         // Хук Claude Code: stdin → unix-сокет. Только Darwin, без Foundation — быстрый старт.
         .executableTarget(name: "pulse-hook"),
+        // Обёртка statusline Claude Code: копия лимитов в сокет, затем исходная команда пользователя.
+        .executableTarget(name: "pulse-statusline"),
         .testTarget(name: "AgentPulseCoreTests", dependencies: ["AgentPulseCore"]),
     ]
 )

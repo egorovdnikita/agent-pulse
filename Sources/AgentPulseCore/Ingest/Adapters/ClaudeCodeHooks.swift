@@ -8,6 +8,8 @@ public enum ClaudeCodeHooks {
     public static let headerPrefix = "PULSE1"
     /// Приложение ChatGPT с Codex внутри: оно запускает те же хуки, что Claude Code.
     public static let chatGPTBundleId = "com.openai.codex"
+    /// Значение `error` в `StopFailure`, когда агент упёрся в лимит.
+    static let rateLimitError = "rate_limit"
 
     /// Хук вызвал Codex, а не Claude Code: запустило приложение ChatGPT, журнал лежит в `~/.codex`,
     /// или есть `turn_id`, которого у Claude Code нет.
@@ -70,7 +72,9 @@ public enum ClaudeCodeHooks {
         case "Stop":
             return event(.stopped)
         case "StopFailure":
-            return event(.error, summary: object["error"] as? String)
+            // Лимит — не ошибка: агент отдыхает до сброса. Признак берётся из события, без догадок по снимку лимитов.
+            let error = object["error"] as? String
+            return error == rateLimitError ? event(.rateLimited) : event(.error, summary: error)
         case "SessionEnd":
             return event(.sessionEnded)
         default:

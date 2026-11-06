@@ -27,8 +27,22 @@ public struct PulseEnvelope: Sendable, Equatable {
     }
 }
 
+/// Что пришло в сокет: события агента или снимок лимитов.
+public enum IngestMessage: Sendable, Equatable {
+    case events([AgentEvent])
+    case limits(LimitSnapshot)
+}
+
 /// Маршрутизатор: сообщение из сокета → адаптер нужного источника.
 public enum Ingest {
+    public static func route(_ data: Data, now: Date = Date()) -> IngestMessage {
+        let envelope = PulseEnvelope(data)
+        if envelope.channel == ClaudeStatusline.channel {
+            return ClaudeStatusline.parse(envelope.body, now: now).map(IngestMessage.limits) ?? .events([])
+        }
+        return .events(parse(data, now: now))
+    }
+
     public static func parse(_ data: Data, now: Date = Date()) -> [AgentEvent] {
         let envelope = PulseEnvelope(data)
         switch envelope.channel {

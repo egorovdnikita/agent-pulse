@@ -10,6 +10,8 @@ public enum SenseID: String, Sendable, Codable, CaseIterable {
     case devices
     /// Сам Mac между запусками: внезапная перезагрузка, новая версия системы.
     case system
+    /// Пульт: только обезличенные сигналы (`ToolSignal`).
+    case console
 }
 
 /// Что заметил орган чувств. Только системные сигналы: ни окон, ни приложений, ни содержимого.
@@ -63,6 +65,8 @@ public enum SignalKind: String, Sendable, Codable, CaseIterable {
     case lidClosing
     // Есть свежие новости дизайна (value — сколько)
     case newsFresh
+    // Пульт, value — сервис (`LimitService.signalValue`): лимит на исходе, почти кончился, агент встал, снова есть силы
+    case limitLow, limitCritical, limitResting, limitRestored
 }
 
 extension SignalKind {
@@ -90,6 +94,7 @@ extension SignalKind {
         case .agentWaitingLong, .agentErrorStreak, .agentStep, .agentDone, .agentError: .agents
         case .lidAngle, .lidClosing: .lidAngle
         case .newsFresh: .news
+        case .limitLow, .limitCritical, .limitResting, .limitRestored: .console
         }
     }
 }

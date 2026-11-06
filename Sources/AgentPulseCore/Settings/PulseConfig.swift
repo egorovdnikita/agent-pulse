@@ -11,10 +11,23 @@ public struct PulseConfig: Codable, Sendable, Equatable {
     public var privacy = Privacy()
     public var senses = Senses()
     public var character = Character()
+    public var console = Console()
     /// Маскот уже представился (`Introduction`).
     public var introduced = false
 
     public init() {}
+
+    /// Пульт: выключен целиком — маскот работает как раньше.
+    public struct Console: Codable, Sendable, Equatable {
+        public var enabled = true
+        public var limits = true
+        /// Глобальная клавиша раскрытия: буква вместе с ⌃⌥; пусто — без клавиши.
+        public var hotkey = "x"
+        /// Путь к `codex`; пусто — найти самому.
+        public var codexPath: String?
+        /// Папка аккаунта Codex (`CODEX_HOME`); пусто — `~/.codex`.
+        public var codexHome: String?
+    }
 
     /// Какие органы чувств включены.
     public struct Senses: Codable, Sendable, Equatable {

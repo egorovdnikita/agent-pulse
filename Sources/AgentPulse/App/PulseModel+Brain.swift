@@ -58,8 +58,14 @@ extension PulseModel {
             // Агентная реакция — значком и именем приложения, где работал агент (Claude, Orca).
             let host = lastTask?.hostBundleId
             let reacted = BubbleCategory.forReaction(decision.reaction)
-            let category = reacted == .claude ? BubbleCategory.agent(lastTask?.source, host: host) : reacted
-            let title = reacted == .claude ? BubbleCategory.agentTitle(lastTask?.source, host: host) : nil
+            var category = reacted == .claude ? BubbleCategory.agent(lastTask?.source, host: host) : reacted
+            var title = reacted == .claude ? BubbleCategory.agentTitle(lastTask?.source, host: host) : nil
+            if signal.sense == .console {
+                // Реплика про лимит: заголовок — сервис, чьи силы кончаются, а не тот, кто работал последним.
+                let service = LimitService(signalValue: signal.value)
+                category = BubbleCategory.limit(service)
+                title = service.title
+            }
             scheduler.say(
                 line, duration: decision.bubbleDuration, category: category, title: title,
                 agent: decision.tier == .agent, answersUser: decision.answersUser, now: signal.ts

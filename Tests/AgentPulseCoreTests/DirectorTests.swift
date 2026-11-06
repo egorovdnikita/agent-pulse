@@ -37,6 +37,36 @@ struct ZeroRNG: RandomNumberGenerator {
     // Среда, 14 октября 2026.
     var wednesday: Date { date(2026, 10, 14, 10) }
 
+    @Test func limitReactionsSpeakForTheirService() {
+        var rng = FixedRNG()
+        var d = director()
+        let low = d.handle(ToolSignal.limitLow(.codex).signal(at: wednesday), now: wednesday, rng: &rng)
+        #expect(low?.reaction == "limit.low.codex")
+        #expect(low?.tier == .body)
+        #expect(["Сил всё меньше", "Скоро передышка"].contains(low?.line ?? ""))
+        // Кулдаун у каждого сервиса свой, повтор того же сервиса молчит.
+        #expect(d.handle(ToolSignal.limitLow(.claude).signal(at: wednesday), now: wednesday, rng: &rng)?.reaction == "limit.low.claude")
+        #expect(d.handle(ToolSignal.limitLow(.codex).signal(at: wednesday), now: wednesday, rng: &rng) == nil)
+        let rest = d.handle(ToolSignal.limitResting(.claude).signal(at: wednesday), now: wednesday, rng: &rng)
+        #expect(["Отдыхаем", "Перерыв до сброса"].contains(rest?.line ?? ""))
+        #expect(rest?.behavior == nil)
+        #expect(d.handle(ToolSignal.limitRestored(.claude).signal(at: wednesday), now: wednesday, rng: &rng)?.behavior == .stretch)
+    }
+
+    @Test func simulatorWithoutValueMeansClaude() {
+        var rng = FixedRNG()
+        var d = director()
+        #expect(d.handle(Signal(.console, .limitCritical), now: wednesday, rng: &rng)?.reaction == "limit.critical.claude")
+    }
+
+    @Test func limitReactionIsSilentInQuiet() {
+        var rng = FixedRNG()
+        var d = director()
+        _ = d.handle(Signal(.quiet, .quietOn), now: wednesday, rng: &rng)
+        let reaction = d.handle(ToolSignal.limitCritical(.claude).signal(at: wednesday), now: wednesday, rng: &rng)
+        #expect(reaction?.line == nil)
+    }
+
     @Test func greetingOncePerDayWithVariants() {
         var rng = FixedRNG()
         var d = director()

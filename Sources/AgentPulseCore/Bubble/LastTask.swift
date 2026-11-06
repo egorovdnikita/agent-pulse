@@ -38,7 +38,7 @@ public struct LastTask: Sendable, Equatable {
         guard let session else { return previous }
         let status: Status
         switch session.phase {
-        case .received, .thinking, .working: status = .active(session.phase.text)
+        case .received, .thinking, .working, .resting: status = .active(session.phase.text)
         case .awaitingUser: status = .waiting
         case .done: status = .done
         case .failed: status = .failed

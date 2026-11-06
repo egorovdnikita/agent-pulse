@@ -33,6 +33,8 @@ public enum Phase: Sendable, Equatable {
     case awaitingUser(reason: AgentEvent.AwaitReason, message: String)
     case done(summary: String)
     case failed(String)
+    /// Упёрся в лимит и отдыхает до сброса. Действует только на свою сессию.
+    case resting
 
     /// Строка для меню и тултипа. В облачко не попадает.
     public var text: String {
@@ -45,6 +47,7 @@ public enum Phase: Sendable, Equatable {
             message.isEmpty ? (reason == .permission ? "Ждёт разрешения" : "Ждёт тебя") : message
         case .done(let summary): summary
         case .failed(let message): message
+        case .resting: "Отдыхает до сброса"
         }
     }
 }

@@ -3,7 +3,7 @@ import Foundation
 /// Единственное место, где код знает о связи событий и анимации.
 /// Behaviors не знают про источники и инструменты.
 public enum MascotStateMapper {
-    /// Приоритет при нескольких сессиях: wait_you > error > done > work > think > idle.
+    /// Приоритет при нескольких сессиях: wait_you > error > done > work > think > отдых > idle.
     public static func rank(_ phase: Phase) -> Int {
         switch phase {
         case .awaitingUser: 6
@@ -11,7 +11,8 @@ public enum MascotStateMapper {
         case .done: 4
         case .working: 3
         case .received, .thinking: 2
-        case .idle: 1
+        case .resting: 1
+        case .idle: 0
         }
     }
 
@@ -52,6 +53,9 @@ public enum MascotStateMapper {
             return .work(workMode(activity.kind))
         case .received, .thinking:
             return .think
+        case .resting:
+            // Самая важная сессия отдыхает — значит, другие не заняты и не ждут: засыпает сразу.
+            return .sleep
         case .idle, .done, .failed:
             // Итог показывается реакцией; само состояние — idle, а после паузы — сон.
             let last = sessions.map(\.lastEventAt).max() ?? .distantPast

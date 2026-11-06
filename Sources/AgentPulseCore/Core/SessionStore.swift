@@ -108,7 +108,10 @@ public struct SessionTable: Sendable {
         case .stopped:
             session.set(.done(summary: event.summary ?? "Готово"), at: event.ts)
         case .error:
-            session.set(.failed(event.summary ?? "Ошибка"), at: event.ts)
+            // Тот же останов из снимка Orca — итог `failure`: упёршийся в лимит агент не становится ошибкой.
+            if session.phase != .resting { session.set(.failed(event.summary ?? "Ошибка"), at: event.ts) }
+        case .rateLimited:
+            session.set(.resting, at: event.ts)
         case .sessionEnded:
             break
         }

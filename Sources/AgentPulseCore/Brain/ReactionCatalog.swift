@@ -147,7 +147,7 @@ public struct ReactionSpec: Sendable {
 public enum ReactionCatalog {
     static let present: Set<SignalKind> = [.userBack, .systemWake, .screenUnlocked, .minute, .stroke, .poke, .dragged]
 
-    public static let all: [ReactionSpec] = agents + body + rhythm + interaction + news + fun
+    public static let all: [ReactionSpec] = agents + body + limits + rhythm + interaction + news + fun
 
     // MARK: - Агенты (сверх основного конвейера состояний)
 
@@ -180,6 +180,24 @@ public enum ReactionCatalog {
         ReactionSpec("agent.longTask", on: [.agentStep], tier: .agent, cooldown: 3 * 60,
                      when: { signal, _ in (signal.value ?? 0) > 10 * 60 }, behavior: .yawn),
     ]
+
+    // MARK: - Лимиты агентов
+
+    /// Уровень body: кулдаун, болтливость и «бесит» работают. Реплики без цифр: время сброса живёт в Пульте,
+    /// сервис показывает заголовок облачка. У каждого сервиса свой кулдаун.
+    static let limits: [ReactionSpec] = LimitService.allCases.flatMap { service -> [ReactionSpec] in
+        let mine: ReactionSpec.Condition = { signal, _ in LimitService(signalValue: signal.value) == service }
+        return [
+            ReactionSpec("limit.low.\(service.rawValue)", on: [.limitLow], tier: .body, when: mine, behavior: .slowClose,
+                         lines: ["Сил всё меньше", "Скоро передышка"]),
+            ReactionSpec("limit.critical.\(service.rawValue)", on: [.limitCritical], tier: .body, when: mine, behavior: .lookDown,
+                         lines: ["Сил почти нет", "Совсем на исходе"]),
+            ReactionSpec("limit.resting.\(service.rawValue)", on: [.limitResting], tier: .body, when: mine,
+                         lines: ["Отдыхаем", "Перерыв до сброса"]),
+            ReactionSpec("limit.restored.\(service.rawValue)", on: [.limitRestored], tier: .body, when: mine, behavior: .stretch,
+                         lines: ["Снова есть силы", "Можно дальше"]),
+        ]
+    }
 
     // MARK: - Тело ноутбука
 

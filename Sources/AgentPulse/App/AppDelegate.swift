@@ -9,6 +9,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     let model = PulseModel()
     private let notifier = Notifier()
     private(set) var panel: OverlayPanel?
+    private(set) var consolePanel: ConsolePanel?
+    private let consoleHotKey = ConsoleHotKey(id: 1)
+    private var codexTimer: Timer?
+    private var codexFetchedAt = Date.distantPast
+    private var codexFetching = false
     private var server: SocketServer?
     private var cowork: CoworkWatcher?
     private var orca: OrcaWatcher?
@@ -33,6 +38,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         notifier.requestAuthorization()
         model.notifier = notifier
         model.hooksInstalled = HookInstaller.isInstalled()
+        model.statuslineInstalled = StatuslineInstaller.isInstalled()
+        model.statuslineBroken = StatuslineInstaller.originalIsBroken()
         model.browserBridgeInstalled = BrowserBridgeInstaller.isInstalled()
         model.launchAtLogin = SMAppService.mainApp.status == .enabled
         // `install.sh --login`: перерегистрировать, даже если включено, — после переезда бандла
@@ -56,12 +63,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         let panel = OverlayPanel(app: self)
         panel.orderFrontRegardless()
         self.panel = panel
+        startConsole()
 
         // Панель переезжает на монитор с курсором; на её экране что-то развернули на весь экран — прячемся.
         // Опрос дешёвый и не требует никаких прав: только размеры окон, без названий и содержимого.
         screenTimer = Timer.scheduledTimer(withTimeInterval: 0.5, repeats: true) { [weak self] _ in
             MainActor.assumeIsolated {
                 self?.panel?.followActiveScreen()
+                self?.followConsoleScreen()
                 self?.pollFullScreen()
             }
         }
@@ -76,7 +85,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         NotificationCenter.default.addObserver(
             forName: NSApplication.didChangeScreenParametersNotification, object: nil, queue: .main
         ) { [weak self] _ in
-            MainActor.assumeIsolated { self?.panel?.reposition() }
+            MainActor.assumeIsolated {
+                self?.panel?.reposition()
+                self?.placeConsole()
+            }
         }
 
         startServer()
@@ -164,8 +176,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         let inbox = model.inbox
         let server = SocketServer(path: PulsePaths.socketPath) { data in
             // Разбор — прямо здесь, вне главного потока; время события — момент приёма.
-            for event in Ingest.parse(data) {
-                inbox.yield(.event(event))
+            switch Ingest.route(data) {
+            case .events(let events):
+                for event in events { inbox.yield(.event(event)) }
+            case .limits(let snapshot):
+                inbox.yield(.limits(snapshot))
             }
         }
         do {
@@ -237,6 +252,180 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
             companion = server
         } catch {
             model.companionError = "\(error)"
+        }
+    }
+
+    // MARK: - Пульт
+
+    private func startConsole() {
+        let console = model.console
+        let panel = ConsolePanel(model: console)
+        consolePanel = panel
+        var wasExpanded = false
+        console.onLayoutChange = { [weak self] in
+            guard let self else { return }
+            self.placeConsole()
+            if console.expanded != wasExpanded {
+                wasExpanded = console.expanded
+                panel.expandedChanged(overFullScreen: self.fullScreenHidden)
+                self.updateConsoleVisibility()
+            }
+        }
+        placeConsole()
+        updateConsoleVisibility()
+        applyConsoleHotKey()
+        model.onCodexActivity = { [weak self] in self?.refreshCodex(force: false) }
+        // Раз в 5 мин: процесс живёт только на время запроса.
+        codexTimer = Timer.scheduledTimer(withTimeInterval: 5 * 60, repeats: true) { [weak self] _ in
+            MainActor.assumeIsolated { self?.refreshCodex(force: true) }
+        }
+        refreshCodex(force: true)
+        // Отладка: `--limits-demo [critical]` — подставные лимиты, `--console-open` — сразу раскрыть.
+        let arguments = CommandLine.arguments
+        if let index = arguments.firstIndex(of: "--limits-demo") {
+            let critical = index + 1 < arguments.count && arguments[index + 1] == "critical"
+            let now = Date()
+            let reset = now.addingTimeInterval(2 * 3600 + 14 * 60)
+            console.ingest(LimitSnapshot(service: .claude, windows: [
+                LimitWindow(kind: .fiveHour, usedPercent: critical ? 96 : 76, resetsAt: reset),
+                LimitWindow(kind: .week, usedPercent: 41, resetsAt: now.addingTimeInterval(4 * 86_400)),
+            ], at: now))
+        }
+        if arguments.contains("--console-hover") {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 1) { console.setHover(true) }
+        }
+        if arguments.contains("--console-open") {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 1) { console.setExpanded(true) }
+        }
+    }
+
+    private var consoleScreen: NSScreen? {
+        panel?.screen ?? NSScreen.main
+    }
+
+    private var placedConsoleScreen: NSScreen?
+
+    /// Пульт живёт на экране маскота.
+    private func placeConsole() {
+        guard let consolePanel, let screen = consoleScreen else { return }
+        placedConsoleScreen = screen
+        consolePanel.place(on: screen, anchor: model.config.display.anchor)
+    }
+
+    private func followConsoleScreen() {
+        if consoleScreen != placedConsoleScreen { placeConsole() }
+    }
+
+    /// В полном экране Пульт скрыт, но раскрытый клавишей показывается поверх него.
+    func updateConsoleVisibility() {
+        guard let consolePanel else { return }
+        let console = model.console
+        let show = console.enabled && (!fullScreenHidden || console.expanded)
+        if show, !consolePanel.isVisible {
+            consolePanel.rejoinAllSpaces()
+            consolePanel.orderFrontRegardless()
+        }
+        if !show, consolePanel.isVisible { consolePanel.orderOut(nil) }
+    }
+
+    func applyConsoleHotKey() {
+        let enabled = model.config.console.enabled
+        let registered = consoleHotKey.set(letter: enabled ? model.config.console.hotkey : "") { [weak self] in
+            self?.model.console.toggle()
+        }
+        if !registered { Self.log.notice("hotkey занята") }
+    }
+
+    func setConsoleEnabled(_ on: Bool) {
+        model.config.console.enabled = on
+        try? model.config.save()
+        model.console.enabled = on
+        if !on { model.console.setExpanded(false) }
+        updateConsoleVisibility()
+        applyConsoleHotKey()
+    }
+
+    func setLimitsEnabled(_ on: Bool) {
+        model.config.console.limits = on
+        try? model.config.save()
+        model.console.limitsEnabled = on
+        if on { refreshCodex(force: true) }
+    }
+
+    func setConsoleHotKey(_ letter: String) {
+        model.config.console.hotkey = letter
+        try? model.config.save()
+        applyConsoleHotKey()
+    }
+
+    func setCodexPath(_ path: String) {
+        model.config.console.codexPath = path.isEmpty ? nil : path
+        try? model.config.save()
+        refreshCodex(force: true)
+    }
+
+    func setCodexHome(_ home: String) {
+        model.config.console.codexHome = home.isEmpty ? nil : home
+        try? model.config.save()
+        refreshCodex(force: true)
+    }
+
+    /// Лимиты Codex: раз в 5 мин и после его событий, но не чаще раза в минуту.
+    private func refreshCodex(force: Bool) {
+        let settings = model.config.console
+        guard settings.enabled, settings.limits, !codexFetching else { return }
+        guard force || Date().timeIntervalSince(codexFetchedAt) >= 60 else { return }
+        guard let codex = CodexAppServer.locate(configured: settings.codexPath) else {
+            model.codexStatus = "codex не найден"
+            return
+        }
+        codexFetching = true
+        codexFetchedAt = Date()
+        let inbox = model.inbox
+        Task { [weak self] in
+            let snapshot = await CodexAppServer.fetch(codex: codex, home: settings.codexHome)
+            if let snapshot { inbox.yield(.limits(snapshot)) }
+            self?.codexFetching = false
+            self?.model.codexStatus = snapshot == nil ? "нет данных: нужен codex login" : "работает"
+        }
+    }
+
+    private var statuslinePath: String? {
+        guard let executable = Bundle.main.executableURL else { return nil }
+        let wrapper = executable.deletingLastPathComponent().appending(path: StatuslineInstaller.marker)
+        return FileManager.default.isExecutableFile(atPath: wrapper.path) ? wrapper.path(percentEncoded: false) : nil
+    }
+
+    func installStatusline() {
+        guard let path = statuslinePath else {
+            showAlert("Не найден pulse-statusline", "Он должен лежать рядом с приложением. Соберите проект скриптом scripts/bundle.sh.")
+            return
+        }
+        let alert = NSAlert()
+        alert.messageText = "Подключить лимиты Claude?"
+        alert.informativeText = """
+            Agent Pulse обернёт команду statusLine в ~/.claude/settings.json. Ваша строка продолжит работать как раньше:             ей передаётся тот же ввод, её вывод не меняется. Рядом будет создана резервная копия файла,             отключение вернёт исходную команду.
+
+            Pulse берёт только проценты и время сброса. Ничего не уходит с машины.
+            """
+        alert.addButton(withTitle: "Подключить")
+        alert.addButton(withTitle: "Отмена")
+        NSApp.activate()
+        guard alert.runModal() == .alertFirstButtonReturn else { return }
+        do {
+            try StatuslineInstaller.install(wrapperPath: path)
+            model.statuslineInstalled = true
+        } catch {
+            showAlert("Лимиты не подключены", "\(error)")
+        }
+    }
+
+    func uninstallStatusline() {
+        do {
+            try StatuslineInstaller.uninstall()
+            model.statuslineInstalled = false
+        } catch {
+            showAlert("Обёртка не снята", "\(error)")
         }
     }
 
@@ -450,12 +639,20 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
             self.panel?.orderOut(nil)
             self.panel?.rejoinAllSpaces()
             self.panel?.orderFrontRegardless()
+            self.rejoinConsole()
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) { [weak self] in
                 guard let self, self.panelStuck else { return }
                 Self.log.notice("panel rebuild: выкладка не помогла — пересоздаю панель")
                 self.rebuildPanel()
             }
         }
+    }
+
+    private func rejoinConsole() {
+        guard let consolePanel, consolePanel.isVisible, !consolePanel.isOnActiveSpace else { return }
+        consolePanel.orderOut(nil)
+        consolePanel.rejoinAllSpaces()
+        consolePanel.orderFrontRegardless()
     }
 
     /// Панель видима, но на текущем обычном рабочем столе её нет.
@@ -509,12 +706,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         // Без имени приложения: маскот не знает, чем ты занят.
         Self.log.notice("fullscreen \(hide ? "on" : "off", privacy: .public)")
         updatePanelVisibility()
+        updateConsoleVisibility()
     }
 
     func setAnchor(_ anchor: PulseConfig.Display.Anchor) {
         model.config.display.anchor = anchor
         try? model.config.save()
         panel?.reposition()
+        placeConsole()
     }
 
     func setScreen(_ screen: String) {
@@ -544,6 +743,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         if model.hooksInstalled, HookInstaller.needsUpdate(command: hookCommand) {
             _ = try? HookInstaller.install(command: hookCommand)
         }
+        if model.statuslineInstalled, let statuslinePath { StatuslineInstaller.repair(wrapperPath: statuslinePath) }
         // Копии у Codex (ChatGPT, Orca) тоже получают новую команду — переезд или удаление приложения их не ломает.
         HookInstaller.repairCopies(command: hookCommand)
         if model.browserBridgeInstalled {

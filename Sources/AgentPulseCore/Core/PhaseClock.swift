@@ -8,6 +8,9 @@ public struct PhaseClock: Sendable {
     /// Сессия без событий так долго считается брошенной (агента убили без `SessionEnd`).
     public var staleAfter: TimeInterval = 30 * 60
 
+    /// Отдых не висит вечно: новое окно открывается через пять часов, агент мог и не вернуться.
+    public var restingHold: TimeInterval = 5 * 60 * 60
+
     public init() {}
 
     public func advance(_ session: inout SessionInfo, now: Date) {
@@ -17,6 +20,8 @@ public struct PhaseClock: Sendable {
             session.set(.thinking, at: now)
         case .done, .failed:
             if age >= resultHold { session.set(.idle, at: now) }
+        case .resting:
+            if age >= restingHold { session.set(.idle, at: now) }
         case .thinking, .working:
             if now.timeIntervalSince(session.lastEventAt) >= staleAfter { session.set(.idle, at: now) }
         default:

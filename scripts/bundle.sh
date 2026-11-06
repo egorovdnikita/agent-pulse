@@ -12,7 +12,7 @@ BIN="$(swift build "${SWIFT_FLAGS[@]}" -c "$CONFIG" --show-bin-path)"
 APP="build/Agent Pulse.app"
 rm -rf "$APP"
 mkdir -p "$APP/Contents/MacOS"
-cp "$BIN/AgentPulse" "$BIN/pulse-hook" "$APP/Contents/MacOS/"
+cp "$BIN/AgentPulse" "$BIN/pulse-hook" "$BIN/pulse-statusline" "$APP/Contents/MacOS/"
 cp Resources/Info.plist "$APP/Contents/Info.plist"
 mkdir -p "$APP/Contents/Resources"
 cp Resources/AppIcon.icns "$APP/Contents/Resources/AppIcon.icns"
@@ -36,6 +36,7 @@ if [[ -z "${AGENT_PULSE_SIGN_IDENTITY:-}" ]] && security find-identity -p codesi
 fi
 IDENTITY="${AGENT_PULSE_SIGN_IDENTITY:--}"
 codesign --force --sign "$IDENTITY" "$APP/Contents/MacOS/pulse-hook"
+codesign --force --sign "$IDENTITY" "$APP/Contents/MacOS/pulse-statusline"
 codesign --force --sign "$IDENTITY" "$APP/Contents/Frameworks/Lottie.framework"
 codesign --force --sign "$IDENTITY" "$APP"
 

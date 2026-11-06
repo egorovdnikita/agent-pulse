@@ -101,6 +101,14 @@ public enum BubbleCategory: String, Sendable, CaseIterable, Codable {
         }
     }
 
+    /// Реплика про лимит: сервис показывает заголовок облачка.
+    public static func limit(_ service: LimitService) -> BubbleCategory {
+        switch service {
+        case .claude: .claude
+        case .codex: .chatgpt
+        }
+    }
+
     /// Заголовок агентной реплики — приложение, в котором идёт работа.
     public static func agentTitle(_ source: AgentEvent.Source?, host: String? = nil) -> String {
         if host == OrcaStatus.hostBundleId { return "Orca" }
@@ -157,6 +165,7 @@ public enum BubbleCategory: String, Sendable, CaseIterable, Codable {
         case "newYear", "birthday", "aprilFools": return .holiday
         case "poke", "stroke", "flyby", "drag", "thrown", "dropped", "spaces", "cursorShake", "carried", "anniversary": return .together
         case "fun": return .mood
+        case "limit": return .wellbeing
         case "sleep", "nodOff", "screensaver": return .rest
         default: return .day
         }

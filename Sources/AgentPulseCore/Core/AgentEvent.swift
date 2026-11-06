@@ -22,6 +22,8 @@ public struct AgentEvent: Codable, Sendable, Equatable {
 
     public enum Kind: String, Codable, Sendable {
         case promptSubmitted, toolStarted, toolFinished, awaitingUser, subtaskDone, stopped, sessionEnded, error
+        /// Агент упёрся в лимит и встал. Это не ошибка.
+        case rateLimited
     }
 
     /// Почему агент ждёт пользователя: от этого зависит реплика и текст уведомления.

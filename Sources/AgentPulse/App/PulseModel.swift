@@ -14,6 +14,7 @@ enum PulseInput: Sendable {
     case event(AgentEvent)
     case signal(Signal)
     case tick(Date)
+    case limits(LimitSnapshot)
 }
 
 /// Связывает ядро с UI: события → `SessionStore` → состояние маскота, облачко, уведомления.
@@ -41,6 +42,12 @@ final class PulseModel {
     /// Панель закрыта целиком (полноэкранный рабочий стол) — кадры маскота на паузе.
     var overlayOccluded = false
     var hooksInstalled = false
+    /// Обёртка statusline стоит: Пульт получает лимиты Claude.
+    var statuslineInstalled = false
+    /// Исходная команда в обёртке ссылается на скрипт, которого больше нет.
+    var statuslineBroken = false
+    /// Что с лимитами Codex: для настроек.
+    var codexStatus: String?
     /// Следим ли за журналами Cowork (nil — выключено в настройках).
     var coworkWatching: Bool?
     /// Следим ли за агентами в Orca (nil — выключено в настройках).
@@ -95,6 +102,9 @@ final class PulseModel {
         }
     }
 
+    @ObservationIgnored let console = ConsoleModel()
+    /// Агент Codex что-то закончил — лимиты могли измениться.
+    @ObservationIgnored var onCodexActivity: (() -> Void)?
     @ObservationIgnored let animator = MascotAnimator()
     @ObservationIgnored var wardrobe = PalWardrobe()
     @ObservationIgnored var installedBots: Set<String> = []
@@ -139,6 +149,29 @@ final class PulseModel {
         animator.tuning = tuning
         animator.setState(.sleep, at: Date.timeIntervalSinceReferenceDate)
         applySkin()
+        connectConsole()
+    }
+
+    /// Пульт отдаёт маскоту только обезличенные сигналы. Маскот говорит, Пульт показывает.
+    private func connectConsole() {
+        let inbox = inbox
+        console.enabled = config.console.enabled
+        console.limitsEnabled = config.console.limits
+        console.onSignal = { [weak self] signal, now in
+            inbox.yield(.signal(signal.signal(at: now)))
+            self?.notifyLimit(signal)
+        }
+        console.onLeaderChange = { [weak self] in
+            // Только в покое: взгляд не перебивает wait_you и работу агента. Пульт — в углу напротив маскота.
+            guard let self, self.state == .idle else { return }
+            self.animator.glance(towardX: self.config.display.anchor.isRight ? -1 : 1, at: Date.timeIntervalSinceReferenceDate)
+        }
+    }
+
+    /// Лимит «критично» — одно уведомление за пересечение, и только когда маскота не видно.
+    private func notifyLimit(_ signal: ToolSignal) {
+        guard case .limitCritical(let service) = signal, overlayOccluded else { return }
+        notifier?.post(id: "limit-\(service.rawValue)", title: "Лимиты", body: "\(service.title): лимит почти исчерпан", sound: false, host: nil)
     }
 
     /// Какие боты Agent Pals установлены целиком; перечитывается при смене облика в настройках.
@@ -182,6 +215,8 @@ final class PulseModel {
                     self.handle(event, sessions: sessions)
                 case .signal(let signal):
                     await self.handleSignal(signal)
+                case .limits(let snapshot):
+                    self.console.ingest(snapshot)
                 case .tick(let now):
                     // Маскот спрятан (полный экран, простой) — курсор и облачко не нужны, мозг тикает раз в секунду.
                     // Во сне — как обычно: тряска курсора и поглаживание ловятся только на частых замерах.
@@ -254,6 +289,8 @@ final class PulseModel {
         if sessions != self.sessions { self.sessions = sessions }
         lastTask = LastTask.updated(lastTask, event: event, session: sessions.first { $0.id == event.sessionId })
         feedAgentSignals(event)
+        if event.kind == .rateLimited, let service = LimitService(source: event.source) { console.markResting(service) }
+        if event.kind == .stopped, event.source == .codex || event.agent == "Codex" { onCodexActivity?() }
 
         if let reaction = MascotStateMapper.reaction(for: event), MascotStateMapper.dominant(sessions)?.id == event.sessionId {
             let host = sessions.first { $0.id == event.sessionId }?.hostBundleId ?? event.hostBundleId
@@ -297,7 +334,7 @@ final class PulseModel {
                     sound: config.events.done.sound != "none", host: event.hostBundleId
                 )
             }
-        case .promptSubmitted, .toolStarted, .toolFinished, .sessionEnded:
+        case .promptSubmitted, .toolStarted, .toolFinished, .sessionEnded, .rateLimited:
             notifier.remove(id: awaitId)
         default:
             break
@@ -333,6 +370,7 @@ final class PulseModel {
             Self.brainLog.notice("wait seen → \(MascotStateMapper.state(for: self.mascotSessions, now: now, sleepAfter: self.tuning.sleepAfter).logName, privacy: .public)")
         }
         scheduler.tick(now: now)
+        console.tick(now: now, agentWaiting: state.isWaiting, inputActive: PresenceSense.idleSeconds < 1.5)
         updateHover()
         updateMirror(now: now)
         updateAgentBusy(now: now)
@@ -610,6 +648,7 @@ extension Phase {
         case .awaitingUser: "awaiting"
         case .done: "done"
         case .failed: "failed"
+        case .resting: "resting"
         }
     }
 }

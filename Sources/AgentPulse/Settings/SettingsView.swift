@@ -5,12 +5,13 @@ import SwiftUI
 /// Вкладки окна «Настройки».
 enum SettingsNavigation {
     enum Tab: String, CaseIterable {
-        case general, character, news, sources, lab
+        case general, character, console, news, sources, lab
 
         var title: String {
             switch self {
             case .general: "Основное"
             case .character: "Характер"
+            case .console: "Пульт"
             case .news: "Новости"
             case .sources: "Источники"
             case .lab: "Лаборатория"
@@ -22,7 +23,7 @@ enum SettingsNavigation {
 /// Одно окно вместо «Характера» и Mascot Lab: всё, что не нужно каждый день, живёт здесь, а не в меню.
 @MainActor
 enum SettingsWindow {
-    static let size = CGSize(width: 580, height: 660)
+    static let size = CGSize(width: 660, height: 660)
 
     @ViewBuilder
     static func content(_ tab: SettingsNavigation.Tab, app: AppDelegate) -> some View {
@@ -30,6 +31,7 @@ enum SettingsWindow {
             switch tab {
             case .general: GeneralSettings(app: app)
             case .character: CharacterSettings(app: app)
+            case .console: ConsoleSettings(app: app)
             case .news: NewsSettings(app: app)
             case .sources: SourcesSettings(app: app)
             case .lab: MascotLabView(model: app.model)
@@ -385,6 +387,63 @@ private struct NewsSettings: View {
             .disabled(!on)
             Section {
                 Text("Только публичные ленты и открытые Telegram-каналы, без данных о тебе. Показанное помнится на этом Mac.")
+                    .font(.caption).foregroundStyle(.secondary)
+            }
+        }
+        .formStyle(.grouped)
+    }
+}
+
+// MARK: - Пульт
+
+private struct ConsoleSettings: View {
+    let app: AppDelegate
+
+    var body: some View {
+        let model = app.model
+        let settings = model.config.console
+        Form {
+            Section {
+                Toggle(isOn: Binding(get: { settings.enabled }, set: { app.setConsoleEnabled($0) })) {
+                    Text("Показывать Пульт")
+                    Text("Виджет в углу напротив маскота. Выключен — маскот работает как раньше")
+                        .font(.caption).foregroundStyle(.secondary)
+                }
+                Picker("Клавиша раскрытия", selection: Binding(get: { settings.hotkey }, set: { app.setConsoleHotKey($0) })) {
+                    ForEach(ConsoleHotKey.letters, id: \.self) { Text("⌃⌥\($0.uppercased())").tag($0) }
+                    Text("Нет").tag("")
+                }
+                .disabled(!settings.enabled)
+            }
+            Section("Модули") {
+                Toggle("Лимиты", isOn: Binding(get: { settings.limits }, set: { app.setLimitsEnabled($0) }))
+                    .disabled(!settings.enabled)
+            }
+            Section("Лимиты Claude") {
+                LabeledContent("Statusline", value: model.statuslineInstalled ? "подключена" : "не подключена")
+                if model.statuslineBroken {
+                    Text("Исходная команда ссылается на скрипт Orca, которого больше нет. Отключите и подключите снова")
+                        .font(.caption).foregroundStyle(.secondary)
+                }
+                if model.statuslineInstalled {
+                    Button("Отключить") { app.uninstallStatusline() }
+                } else {
+                    Button("Подключить…") { app.installStatusline() }
+                }
+                Text("Данные приходят только с подпиской Pro или Max и после первого ответа в сессии")
+                    .font(.caption).foregroundStyle(.secondary)
+            }
+            Section("Лимиты Codex") {
+                LabeledContent("Состояние", value: model.codexStatus ?? "ещё не проверялось")
+                TextField("Путь к codex", text: Binding(get: { settings.codexPath ?? "" }, set: { app.setCodexPath($0) }),
+                          prompt: Text("найти самому"))
+                Picker("Аккаунт", selection: Binding(get: { settings.codexHome ?? "" }, set: { app.setCodexHome($0) })) {
+                    Text("~/.codex").tag("")
+                    ForEach(Array(CodexAppServer.accountHomes().enumerated()), id: \.element) { index, home in
+                        Text("Orca, аккаунт \(index + 1)").tag(home)
+                    }
+                }
+                Text("В Orca свой аккаунт Codex: выберите его, иначе лимиты будут от ~/.codex")
                     .font(.caption).foregroundStyle(.secondary)
             }
         }

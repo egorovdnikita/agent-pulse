@@ -14,7 +14,7 @@ public enum HookInstaller {
     }
 
     public static let events = [
-        "UserPromptSubmit", "PreToolUse", "PostToolUse", "Notification", "SubagentStop", "Stop", "SessionEnd",
+        "UserPromptSubmit", "PreToolUse", "PostToolUse", "Notification", "SubagentStop", "Stop", "StopFailure", "SessionEnd",
     ]
     static let toolEvents: Set<String> = ["PreToolUse", "PostToolUse"]
     /// Наши записи узнаём по имени бинаря в команде.
