@@ -63,6 +63,8 @@ final class ConsoleModel {
     @ObservationIgnored private var lastTick = Date.distantPast
     @ObservationIgnored private var hoverTask: Task<Void, Never>?
     @ObservationIgnored private var quietOn = false
+    /// Размер, под который уже выложена панель.
+    @ObservationIgnored var placedSize = CGSize.zero
 
     /// Новый модуль — одна строка здесь.
     private var modules: [any ConsoleModule] {
@@ -210,12 +212,9 @@ final class ConsoleModel {
     private func refresh(agentWaiting: Bool) {
         let before = director.leader
         director.update(candidates: candidates, now: now, agentWaiting: agentWaiting, expanded: expanded)
-        if director.leader != before {
-            onLeaderChange?()
-            onLayoutChange?()
-        } else if !expanded {
-            onLayoutChange?()
-        }
+        if director.leader != before { onLeaderChange?() }
+        // Раскладка читает настройки Dock: только когда размер правда изменился, а не на каждом тике.
+        if panelSize != placedSize { onLayoutChange?() }
     }
 
     // MARK: - Состояния

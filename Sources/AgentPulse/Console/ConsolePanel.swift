@@ -83,6 +83,7 @@ final class ConsolePanel: NSPanel {
         model.fit = ConsoleLayout.fit(screenWidth: screen.frame.width, dock: dock)
         model.expandedWidth = ConsoleLayout.expandedWidth(screenWidth: screen.frame.width, dock: dock)
         let size = model.panelSize
+        model.placedSize = size
         let inset = ConsoleLayout.sideInset(dock: dock, onRight: !model.onLeft)
         let frameRect = screen.frame
         let x = model.onLeft ? frameRect.minX + inset : frameRect.maxX - inset - size.width
