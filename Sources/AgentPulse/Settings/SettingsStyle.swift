@@ -227,11 +227,14 @@ struct SettingsSidebarItem: View {
 struct ShortcutRow: View {
     let title: String
     let keys: String?
+    /// Клавишу занял кто-то другой.
+    var busy = false
 
     var body: some View {
         LabeledContent(title) {
             if let keys {
                 HStack(spacing: 4) {
+                    if busy { Text("Занята другим приложением").font(SettingsStyle.caption).foregroundStyle(ConsoleStyle.orange) }
                     ForEach(keys.split(separator: " ").map(String.init), id: \.self) { key in
                         Text(key)
                             .font(.system(size: 11))

@@ -88,6 +88,8 @@ final class ConsoleModel {
     /// Прочитанные строки с дробной частью: текст едет, а не прыгает.
     private(set) var prompterScroll = 0.0
     var prompterTextSize = PrompterTextSize.medium
+    /// Какие клавиши занял кто-то другой: об этом надо сказать, а не молчать.
+    var busyKeys: Set<String> = []
     /// Высота выреза экрана, под которым стоит суфлёр.
     var prompterNotch = 0.0
     /// Голос недоступен: почему.

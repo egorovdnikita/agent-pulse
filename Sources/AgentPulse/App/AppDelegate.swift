@@ -411,7 +411,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         let translating = translateHotKey.set(code: config.enabled && config.translator && ConsoleTranslator.isAvailable ? kVK_ANSI_T : nil) {
             [weak self] in self?.dictation?.pressTranslate()
         }
-        if !dictating || !translating { Self.log.notice("клавиша диктовки или перевода занята") }
+        var busy = model.console.busyKeys.subtracting(["dictation", "translate"])
+        if !dictating { busy.insert("dictation") }
+        if !translating { busy.insert("translate") }
+        model.console.busyKeys = busy
     }
 
     func setDictationEnabled(_ on: Bool) {
@@ -507,7 +510,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     func applyPrompterHotKey() {
         let on = model.config.console.enabled && model.config.console.prompter
         let registered = prompterHotKey.set(code: on ? kVK_ANSI_P : nil) { [weak self] in self?.model.console.togglePrompter() }
-        if !registered { Self.log.notice("hotkey суфлёра занята") }
+        model.console.busyKeys = registered ? model.console.busyKeys.subtracting(["prompter"]) : model.console.busyKeys.union(["prompter"])
     }
 
     func setPrompterEnabled(_ on: Bool) {
@@ -581,7 +584,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         let registered = consoleHotKey.set(letter: enabled ? model.config.console.hotkey : "") { [weak self] in
             self?.model.console.toggle()
         }
-        if !registered { Self.log.notice("hotkey занята") }
+        model.console.busyKeys = registered ? model.console.busyKeys.subtracting(["console"]) : model.console.busyKeys.union(["console"])
     }
 
     func setConsoleEnabled(_ on: Bool) {

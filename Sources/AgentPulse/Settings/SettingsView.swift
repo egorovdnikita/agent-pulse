@@ -521,11 +521,11 @@ private struct ConsoleSettings: View {
                     Text("Нет").tag("")
                 }
                 .disabled(!settings.enabled)
-                if settings.prompter { ShortcutRow(title: "Суфлёр: старт и стоп", keys: "⌃⌥P") }
+                if settings.prompter { ShortcutRow(title: "Суфлёр: старт и стоп", keys: "⌃⌥P", busy: model.console.busyKeys.contains("prompter")) }
                 if settings.prompter { ShortcutRow(title: "Суфлёр: скорость", keys: "⌃⌥↑ ⌃⌥↓") }
                 if settings.prompter { ShortcutRow(title: "Суфлёр: строка назад и вперёд", keys: "⌃⌥← ⌃⌥→") }
-                if settings.dictation { ShortcutRow(title: "Диктовка: держи и говори", keys: "⌃⌥D") }
-                if settings.translator, ConsoleTranslator.isAvailable { ShortcutRow(title: "Перевести выделенное", keys: "⌃⌥T") }
+                if settings.dictation { ShortcutRow(title: "Диктовка: держи и говори", keys: "⌃⌥D", busy: model.console.busyKeys.contains("dictation")) }
+                if settings.translator, ConsoleTranslator.isAvailable { ShortcutRow(title: "Перевести выделенное", keys: "⌃⌥T", busy: model.console.busyKeys.contains("translate")) }
             }
             SettingsBlock("Лимиты Claude") {
                 LabeledContent("Подключение", value: model.statuslineInstalled ? "подключена" : "не подключена")
