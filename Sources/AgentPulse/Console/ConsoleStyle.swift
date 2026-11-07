@@ -11,11 +11,12 @@ enum ConsoleStyle {
     static let orange = Color(hex: 0xFF9F0A)
 
     static let caption = Color.white.opacity(0x8C / 255)
-    static let track = Color.white.opacity(0x26 / 255)
+    /// Дорожки и выключенные переключатели: не меньше 3:1 к карточке.
+    static let track = Color.white.opacity(0.32)
     static let card = Color.white.opacity(0x14 / 255)
     static let button = Color.white.opacity(0x33 / 255)
     /// Край на тёмных обоях: у референса чёрное сливается со шторкой, Пульту сливаться не с чем.
-    static let edge = Color.white.opacity(0.12)
+    static let edge = Color.white.opacity(0.18)
 
     /// Отступ страницы от края панели и радиусы: внутренний и внешний концентричны.
     static let inset = 12.0
