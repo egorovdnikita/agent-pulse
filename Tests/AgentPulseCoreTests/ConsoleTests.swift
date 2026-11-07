@@ -1213,24 +1213,3 @@ private func snapshot(_ used: Double, at: Date = t0, service: LimitService = .cl
         #expect(!module.replaceable)
     }
 }
-
-@Suite struct ConsoleTopPlacementTests {
-    @Test func staysClearOfAppMenusOnSmallScreen() {
-        let center = ConsoleLayout.topCenter(screen: CGRect(x: 0, y: 0, width: 1680, height: 1050))
-        #expect(center - ConsoleLayout.stripWidth / 2 >= ConsoleLayout.menuReserve)
-    }
-
-    @Test func wideScreenIsExactlyCentered() {
-        #expect(ConsoleLayout.topCenter(screen: CGRect(x: 0, y: 0, width: 3000, height: 1600)) == 1500)
-    }
-
-    @Test func secondDisplayCountsFromItsOwnEdge() {
-        #expect(ConsoleLayout.topCenter(screen: CGRect(x: 1680, y: 0, width: 3000, height: 1600)) == 3180)
-    }
-
-    @Test func narrowScreenKeepsOpenPanelOnScreen() {
-        let screen = CGRect(x: 0, y: 0, width: 1280, height: 800)
-        let center = ConsoleLayout.topCenter(screen: screen)
-        #expect(center + ConsoleLayout.expandedWidth / 2 <= 1280)
-    }
-}

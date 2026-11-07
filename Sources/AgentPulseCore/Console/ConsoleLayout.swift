@@ -61,17 +61,6 @@ public enum ConsoleLayout {
     /// Нижний отступ капсулы, если полосы Dock нет.
     public static let edgeMargin = 4.0
 
-    /// Сверху капсула не заходит на меню приложений: в Chrome на русском они занимают около 786 pt (оценка по шрифту).
-    public static let menuReserve = 800.0
-    /// Самая широкая капсула без волны: по ней считается центр, чтобы он не гулял вместе с шириной.
-    public static let stripWidth = 180.0
-
-    /// Центр Пульта сверху: середина экрана, а если меню доходят до неё, чуть правее.
-    public static func topCenter(screen: CGRect) -> Double {
-        let free = screen.minX + menuReserve + stripWidth / 2
-        return screen.midX >= free ? screen.midX : min(free, screen.maxX - expandedWidth / 2 - screenGap)
-    }
-
     /// Сколько места у капсулы рядом с Dock. nil Dock — оценка не удалась.
     public static func fit(screenWidth: Double, dock: DockMetrics?) -> ConsoleFit {
         guard let dock else { return .leader }
