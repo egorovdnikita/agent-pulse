@@ -1085,3 +1085,30 @@ private func snapshot(_ used: Double, at: Date = t0, service: LimitService = .cl
         #expect(module.capsule(now: now).rings.first?.figure == "20%")
     }
 }
+
+@Suite struct ConsoleSoundTests {
+    @Test func silentWhileReadingOnCallAndAtNight() {
+        for sound in ConsoleSound.allCases {
+            #expect(ConsoleSound.allowed(sound, enabled: true, prompter: false, call: false, quietHours: false))
+            #expect(!ConsoleSound.allowed(sound, enabled: false, prompter: false, call: false, quietHours: false))
+            #expect(!ConsoleSound.allowed(sound, enabled: true, prompter: true, call: false, quietHours: false))
+            #expect(!ConsoleSound.allowed(sound, enabled: true, prompter: false, call: true, quietHours: false))
+            #expect(!ConsoleSound.allowed(sound, enabled: true, prompter: false, call: false, quietHours: true))
+        }
+    }
+
+    @Test func dictationSoundsAreMarked() {
+        #expect(ConsoleSound.recordStart.isDictation)
+        #expect(ConsoleSound.inserted.isDictation)
+        #expect(!ConsoleSound.limitCritical.isDictation)
+    }
+
+    @Test func wavIsValidAndShort() {
+        for sound in ConsoleSound.allCases {
+            let wav = sound.wav
+            #expect(wav.prefix(4) == Data("RIFF".utf8))
+            #expect(wav.count > 44)
+            #expect(wav.count < 44 + 44_100)
+        }
+    }
+}
