@@ -92,6 +92,9 @@ private struct MonthGrid: View {
         } label: {
             ZStack {
                 if isToday { Circle().fill(.white).frame(width: 20, height: 20) }
+                if !isToday, model.calendarScope == .day, Calendar.current.isDate(day, inSameDayAs: model.calendarDay) {
+                    Circle().strokeBorder(.white, lineWidth: 1).frame(width: 20, height: 20)
+                }
                 Text("\(number)").font(noteFont).foregroundStyle(isToday ? .black : .white)
                 if !model.calendar.events(on: day).isEmpty {
                     Circle().fill(isToday ? Color.black : ConsoleStyle.orange).frame(width: 3, height: 3).offset(y: 7)
