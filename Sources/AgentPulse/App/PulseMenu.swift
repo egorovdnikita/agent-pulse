@@ -147,7 +147,7 @@ private struct PulseMenuHover<Content: View>: View {
             .frame(height: 32)
             .background(
                 hovering.wrappedValue ? ConsoleStyle.card : .clear,
-                in: RoundedRectangle(cornerRadius: 10, style: .continuous)
+                in: RoundedRectangle(cornerRadius: 16, style: .continuous)
             )
             .contentShape(Rectangle())
             .onHover { hovering.wrappedValue = $0 }
@@ -175,7 +175,7 @@ private struct PulseMenuSurface: View {
         let open = reveal.open
         let width = open ? reveal.size.width : Self.startSize
         let height = open ? reveal.size.height : Self.startSize
-        let shape = RoundedRectangle(cornerRadius: open ? ConsoleStyle.cardRadius : Self.startSize / 2, style: .continuous)
+        let shape = RoundedRectangle(cornerRadius: open ? ConsoleStyle.surfaceRadius : Self.startSize / 2, style: .continuous)
         ZStack(alignment: .bottomTrailing) {
             shape.fill(Color.black)
                 .frame(width: width, height: height)
