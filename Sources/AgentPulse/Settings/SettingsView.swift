@@ -525,7 +525,7 @@ private struct ConsoleSettings: View {
                 if settings.translator, ConsoleTranslator.isAvailable { ShortcutRow(title: "Перевести выделенное", keys: "⌃⌥T") }
             }
             SettingsBlock("Лимиты Claude") {
-                LabeledContent("Statusline", value: model.statuslineInstalled ? "подключена" : "не подключена")
+                LabeledContent("Подключение", value: model.statuslineInstalled ? "подключена" : "не подключена")
                 if model.statuslineBroken {
                     Text("Исходная команда ссылается на скрипт Orca, которого больше нет. Отключите и подключите снова")
                         .font(SettingsStyle.caption).foregroundStyle(SettingsStyle.muted)
@@ -564,11 +564,11 @@ private struct SourcesSettings: View {
         @Bindable var model = app.model
         SettingsPage {
             SettingsBlock("Claude Code") {
-                LabeledContent("Хуки", value: model.hooksInstalled ? "установлены" + Self.ago(model, .claudeCode) : "не установлены")
+                LabeledContent("Подключение", value: model.hooksInstalled ? "подключено" + Self.ago(model, .claudeCode) : "не подключено")
                 if model.hooksInstalled {
-                    Button("Удалить хуки") { app.uninstallHooks() }
+                    Button("Отключить") { app.uninstallHooks() }
                 } else {
-                    Button("Установить хуки…") { app.installHooks() }
+                    Button("Подключить…") { app.installHooks() }
                 }
             }
             SettingsBlock("Claude Cowork") {
@@ -578,8 +578,8 @@ private struct SourcesSettings: View {
                 }
             }
             SettingsBlock("ChatGPT") {
-                LabeledContent("Хуки Codex", value: Self.codexHooked ? "зовут маскота" + Self.ago(model, .codex) : "не найдены")
-                Text("Приложение ChatGPT перенимает хуки Claude Code: маскот видит его работу")
+                LabeledContent("Подключение", value: Self.codexHooked ? "подключено" + Self.ago(model, .codex) : "не найдены")
+                Text("Подключается вместе с Claude Code: маскот видит работу ChatGPT")
                     .font(SettingsStyle.caption).foregroundStyle(SettingsStyle.muted)
             }
             SettingsBlock("Orca") {
