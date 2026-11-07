@@ -1128,21 +1128,25 @@ private func snapshot(_ used: Double, at: Date = t0, service: LimitService = .cl
 
     @Test func twoQuickTapsCount() {
         var gesture = TwoFingerTap()
-        #expect(!tap(&gesture, at: 0))
-        #expect(tap(&gesture, at: 0.3))
+        let result1 = tap(&gesture, at: 0)
+        #expect(!result1)
+        let result2 = tap(&gesture, at: 0.3)
+        #expect(result2)
     }
 
     @Test func slowSecondTapDoesNot() {
         var gesture = TwoFingerTap()
         _ = tap(&gesture, at: 0)
-        #expect(!tap(&gesture, at: 1))
+        let result3 = tap(&gesture, at: 1)
+        #expect(!result3)
     }
 
     @Test func oneFingerDoesNotCount() {
         var gesture = TwoFingerTap()
         for time in [0.0, 0.3] {
             _ = gesture.observe(TouchFrame(time: time, contacts: [TouchContact(id: 1, x: 50, y: 40, size: 8)]))
-            #expect(!gesture.observe(TouchFrame(time: time + 0.1, contacts: [])))
+            let result4 = gesture.observe(TouchFrame(time: time + 0.1, contacts: []))
+            #expect(!result4)
         }
     }
 
@@ -1150,8 +1154,10 @@ private func snapshot(_ used: Double, at: Date = t0, service: LimitService = .cl
         var gesture = TwoFingerTap()
         _ = gesture.observe(two(0))
         _ = gesture.observe(two(0.05, y: 50))
-        #expect(!gesture.observe(TouchFrame(time: 0.1, contacts: [])))
-        #expect(!tap(&gesture, at: 0.3))
+        let result5 = gesture.observe(TouchFrame(time: 0.1, contacts: []))
+        #expect(!result5)
+        let result6 = tap(&gesture, at: 0.3)
+        #expect(!result6)
     }
 
     @Test func threeFingersAndPalmSpoil() {
@@ -1159,9 +1165,11 @@ private func snapshot(_ used: Double, at: Date = t0, service: LimitService = .cl
         _ = gesture.observe(TouchFrame(time: 0, contacts: [
             TouchContact(id: 1, x: 10, y: 10, size: 8), TouchContact(id: 2, x: 30, y: 10, size: 8), TouchContact(id: 3, x: 50, y: 10, size: 8),
         ]))
-        #expect(!gesture.observe(TouchFrame(time: 0.1, contacts: [])))
+        let result7 = gesture.observe(TouchFrame(time: 0.1, contacts: []))
+        #expect(!result7)
         _ = gesture.observe(two(0.2, size: 40))
-        #expect(!gesture.observe(TouchFrame(time: 0.3, contacts: [])))
+        let result8 = gesture.observe(TouchFrame(time: 0.3, contacts: []))
+        #expect(!result8)
     }
 
     @Test func pressIsAClick() {
@@ -1169,18 +1177,21 @@ private func snapshot(_ used: Double, at: Date = t0, service: LimitService = .cl
         _ = tap(&gesture, at: 0)
         _ = gesture.observe(two(0.3))
         gesture.press()
-        #expect(!gesture.observe(TouchFrame(time: 0.4, contacts: [])))
+        let result9 = gesture.observe(TouchFrame(time: 0.4, contacts: []))
+        #expect(!result9)
     }
 
     @Test func holdIsNotATap() {
         var gesture = TwoFingerTap()
         _ = gesture.observe(two(0))
-        #expect(!gesture.observe(TouchFrame(time: 1, contacts: [])))
+        let result10 = gesture.observe(TouchFrame(time: 1, contacts: []))
+        #expect(!result10)
     }
 
     @Test func farApartTapsDoNotPair() {
         var gesture = TwoFingerTap()
         _ = tap(&gesture, at: 0, x: 20)
-        #expect(!tap(&gesture, at: 0.3, x: 90))
+        let result11 = tap(&gesture, at: 0.3, x: 90)
+        #expect(!result11)
     }
 }
