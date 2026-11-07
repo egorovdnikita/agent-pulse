@@ -162,6 +162,8 @@ private struct LimitCard: View {
                             .font(.system(size: 11, weight: .semibold))
                             .foregroundStyle(.white)
                     } else {
+                        // Процент — расход: у похожих приложений такое же число значит остаток.
+                        Text("использовано").font(ConsoleStyle.font(11)).foregroundStyle(ConsoleStyle.caption).lineLimit(1)
                         chip(readings.map(\.reading))
                     }
                 }

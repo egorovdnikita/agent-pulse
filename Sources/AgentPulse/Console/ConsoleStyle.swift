@@ -171,7 +171,7 @@ struct LimitGauge: View {
         }
         .frame(width: ConsoleStyle.gaugeSize, height: ConsoleStyle.gaugeSize)
         .accessibilityElement(children: .ignore)
-        .accessibilityLabel("\(kind.title): \(reading.map { "\($0.usedPercent)%" } ?? LimitText.noData)")
+        .accessibilityLabel("\(kind.title): \(reading.map { "использовано \($0.usedPercent)%" } ?? LimitText.noData)")
     }
 
     private var stroke: StrokeStyle { StrokeStyle(lineWidth: ConsoleStyle.gaugeLine, lineCap: .round) }
