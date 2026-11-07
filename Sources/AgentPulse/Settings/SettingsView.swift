@@ -555,8 +555,12 @@ private struct ConsoleSettings: View {
             }
             SettingsBlock("Лимиты Codex") {
                 LabeledContent("Состояние", value: model.codexStatus ?? "ещё не проверялось")
-                TextField("Путь к codex", text: Binding(get: { settings.codexPath ?? "" }, set: { app.setCodexPath($0) }),
-                          prompt: Text("найти самому"))
+                LabeledContent("Путь к codex") {
+                    TextField("Путь к codex", text: Binding(get: { settings.codexPath ?? "" }, set: { app.setCodexPath($0) }),
+                              prompt: Text("найти самому"))
+                        .labelsHidden()
+                        .frame(maxWidth: 280)
+                }
                 SettingsPicker("Аккаунт", selection: Binding(get: { settings.codexHome ?? "" }, set: { app.setCodexHome($0) })) {
                     Text("~/.codex").tag("")
                     ForEach(Array(CodexAppServer.accountHomes().enumerated()), id: \.element) { index, home in
