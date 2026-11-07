@@ -130,12 +130,23 @@ final class DictationController {
     // MARK: - Перевод
 
     func pressTranslate() {
+        Task { await readAndTranslate() }
+    }
+
+    private func readAndTranslate() async {
         let readable = settings().accessibility && AXIsProcessTrusted()
-        selection = readable ? TextInsertion.selection() : nil
+        // Раскрытый Пульт держит клавиатуру: ⌘C ушла бы ему, а не твоему приложению.
+        if readable, console.expanded {
+            console.setExpanded(false)
+            try? await Task.sleep(for: .milliseconds(150))
+        }
+        selection = readable ? await TextInsertion.selection() : nil
         // Буфер читаем только на втором нажатии: ты сам сказал взять его.
         let clipboard = console.translate.state == .askToCopy ? NSPasteboard.general.string(forType: .string) : nil
-        guard let text = console.pressTranslate(selection: selection?.text, clipboard: clipboard) else { return }
-        Task { [console] in await console.runTranslation(text) }
+        guard let text = console.pressTranslate(
+            selection: selection?.text, clipboard: clipboard, editable: selection?.editable ?? false
+        ) else { return }
+        await console.runTranslation(text)
     }
 
     private func replaceSelection(with text: String) {

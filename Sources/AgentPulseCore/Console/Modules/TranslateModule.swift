@@ -52,10 +52,11 @@ public struct TranslateModule: ConsoleModule {
     public init() {}
 
     /// Нажатие ⌃⌥T. Возвращает текст, который пора переводить.
-    public mutating func press(selection: String?, clipboard: String?, now: Date) -> String? {
+    /// `editable` — выделение стоит в поле, его можно заменить; текст на странице заменить нельзя.
+    public mutating func press(selection: String?, clipboard: String?, now: Date, editable: Bool = true) -> String? {
         if let text = Self.cleaned(selection) {
             state = .working(source: text)
-            replaceable = true
+            replaceable = editable
             flipped = false
             return text
         }

@@ -16,7 +16,9 @@ enum TextInsertion {
     /// Выделение и поле, откуда оно. Поле нужно, чтобы потом заменить текст.
     struct Selection {
         let text: String
-        let element: AXUIElement
+        let element: AXUIElement?
+        /// Текст стоит в поле: его можно заменить. Текст на странице — нет.
+        let editable: Bool
     }
 
     static func focusedElement() -> AXUIElement? {
@@ -32,9 +34,29 @@ enum TextInsertion {
         return value as? String
     }
 
-    static func selection() -> Selection? {
-        guard let element = focusedElement(), let text = string(element, kAXSelectedTextAttribute), !text.isEmpty else { return nil }
-        return Selection(text: text, element: element)
+    /// Выделение. Chrome, VS Code и Figma не отдают его напрямую: тогда нажимаем ⌘C и сразу возвращаем буфер.
+    static func selection(pasteboard: NSPasteboard = .general) async -> Selection? {
+        let element = focusedElement()
+        if let element, let text = string(element, kAXSelectedTextAttribute), !text.isEmpty {
+            return Selection(text: text, element: element, editable: isEditable(element))
+        }
+        let saved = ClipboardSnapshot(pasteboard)
+        let before = pasteboard.changeCount
+        await press(key: kVK_ANSI_C)
+        for _ in 0..<12 {
+            try? await Task.sleep(for: .milliseconds(30))
+            if pasteboard.changeCount != before { break }
+        }
+        guard pasteboard.changeCount != before else { return nil }
+        let text = pasteboard.string(forType: .string)
+        saved.restore(to: pasteboard)
+        guard let text, !text.isEmpty else { return nil }
+        return Selection(text: text, element: element, editable: element.map(isEditable) ?? false)
+    }
+
+    private static func isEditable(_ element: AXUIElement) -> Bool {
+        var settable = DarwinBoolean(false)
+        return AXUIElementIsAttributeSettable(element, kAXSelectedTextAttribute as CFString, &settable) == .success && settable.boolValue
     }
 
     /// Запись в поле с проверкой: многие приложения отвечают «успех», а текст не меняют.
@@ -78,7 +100,7 @@ enum TextInsertion {
 
     /// Заменить выделение там, откуда оно взято.
     static func replace(_ selection: Selection, with text: String, pasteboard: NSPasteboard = .general) async -> Outcome {
-        if await write(text, into: selection.element) { return .inserted }
+        if let element = selection.element, await write(text, into: element) { return .inserted }
         return await insert(text, accessibility: true, pasteboard: pasteboard)
     }
 
@@ -89,13 +111,17 @@ enum TextInsertion {
     }
 
     private static func pressPaste() async {
-        // ⌃⌥ могут быть ещё зажаты: со ⌘V они дали бы другую команду.
+        await press(key: kVK_ANSI_V)
+    }
+
+    private static func press(key: Int) async {
+        // ⌃⌥ могут быть ещё зажаты: с ⌘ они дали бы другую команду.
         for _ in 0..<20 where !CGEventSource.flagsState(.combinedSessionState).isDisjoint(with: [.maskControl, .maskAlternate]) {
             try? await Task.sleep(for: .milliseconds(50))
         }
         let source = CGEventSource(stateID: .combinedSessionState)
         for down in [true, false] {
-            let event = CGEvent(keyboardEventSource: source, virtualKey: CGKeyCode(kVK_ANSI_V), keyDown: down)
+            let event = CGEvent(keyboardEventSource: source, virtualKey: CGKeyCode(key), keyDown: down)
             event?.flags = .maskCommand
             event?.post(tap: .cghidEventTap)
         }

@@ -1204,3 +1204,12 @@ private func snapshot(_ used: Double, at: Date = t0, service: LimitService = .cl
         }
     }
 }
+
+@Suite struct TranslateSelectionTests {
+    @Test func textOnPageIsTranslatedButNotReplaceable() {
+        var module = TranslateModule()
+        let text = module.press(selection: "заголовок", clipboard: nil, now: Date(), editable: false)
+        #expect(text == "заголовок")
+        #expect(!module.replaceable)
+    }
+}

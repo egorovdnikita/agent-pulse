@@ -513,10 +513,10 @@ final class ConsoleModel {
 
     // MARK: - Перевод
 
-    func pressTranslate(selection: String?, clipboard: String?) -> String? {
+    func pressTranslate(selection: String?, clipboard: String?, editable: Bool = true) -> String? {
         guard translatorEnabled else { return nil }
         now = Date()
-        let text = translate.press(selection: selection, clipboard: clipboard, now: now)
+        let text = translate.press(selection: selection, clipboard: clipboard, now: now, editable: editable)
         if let text { translateInput = text }
         tab = .translate
         setExpanded(true)
