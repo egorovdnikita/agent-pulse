@@ -58,6 +58,8 @@ enum SettingsWindow {
 @Observable
 final class SettingsSelection {
     var tab: SettingsNavigation.Tab = .general
+    /// Блок, к которому перейти: название его заголовка.
+    var anchor: String?
 }
 
 /// Окно «Настройки»: слева разделы словами, справа заголовок и карточки, как в Пульте.
@@ -85,6 +87,7 @@ struct SettingsRoot: View {
         .toggleStyle(SettingsSwitchStyle())
         .buttonStyle(SettingsButtonStyle())
         .preferredColorScheme(.dark)
+        .environment(\.settingsAnchor, selection.anchor)
         .ignoresSafeArea(.container, edges: .top)
     }
 
@@ -108,7 +111,10 @@ struct SettingsRoot: View {
     private var sidebar: some View {
         VStack(alignment: .leading, spacing: 2) {
             ForEach(Array(SettingsNavigation.Tab.allCases.enumerated()), id: \.element) { index, tab in
-                SettingsSidebarItem(tab: tab, number: index + 1, isSelected: selection.tab == tab) { selection.tab = tab }
+                SettingsSidebarItem(tab: tab, number: index + 1, isSelected: selection.tab == tab) {
+                    selection.anchor = nil
+                    selection.tab = tab
+                }
             }
             Spacer()
         }

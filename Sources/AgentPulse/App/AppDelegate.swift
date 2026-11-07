@@ -380,14 +380,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
 
     private func startDictation() {
         let console = model.console
-        let controller = DictationController(console: console, settings: { [model] in model.config.console }, showSettings: { [weak self] in self?.showSettings(.console) })
+        let controller = DictationController(console: console, settings: { [model] in model.config.console }, showSettings: { [weak self] in self?.showSettings(.console, anchor: "Диктовка") })
         dictation = controller
         console.onDictationActive = { [weak self] on in
             guard let self else { return }
             self.model.animator.watchesConsole = on ? (self.model.config.display.anchor.isRight ? -1 : 1) : nil
             self.updateConsoleVisibility()
         }
-        console.onOpenSettings = { [weak self] _ in self?.showSettings(.console) }
+        console.onOpenSettings = { [weak self] anchor in self?.showSettings(.console, anchor: anchor) }
         applyDictationHotKeys()
         // Отладка: `--dictation-model` — скачать модель, `--dictation-demo файл.wav [секунд]` — весь путь без микрофона.
         if CommandLine.arguments.contains("--dictation-model") { controller.models.download() }
@@ -804,8 +804,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         menu.show(at: NSEvent.mouseLocation)
     }
 
-    func showSettings(_ tab: SettingsNavigation.Tab? = nil) {
+    func showSettings(_ tab: SettingsNavigation.Tab? = nil, anchor: String? = nil) {
         if let tab { settingsSelection.tab = tab }
+        settingsSelection.anchor = anchor
         if settingsWindow == nil {
             let controller = NSHostingController(rootView: SettingsRoot(app: self, selection: settingsSelection))
             controller.sizingOptions = [.preferredContentSize]

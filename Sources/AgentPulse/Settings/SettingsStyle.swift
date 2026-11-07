@@ -20,19 +20,41 @@ enum SettingsStyle {
     }
 }
 
-/// Страница настроек: столбец карточек.
+private struct SettingsAnchorKey: EnvironmentKey {
+    static let defaultValue: String? = nil
+}
+
+extension EnvironmentValues {
+    /// Блок настроек, к которому надо перейти.
+    var settingsAnchor: String? {
+        get { self[SettingsAnchorKey.self] }
+        set { self[SettingsAnchorKey.self] = newValue }
+    }
+}
+
+/// Страница настроек: столбец карточек. Умеет сразу показать нужный блок.
 struct SettingsPage<Content: View>: View {
     @ViewBuilder let content: Content
+    @Environment(\.settingsAnchor) private var anchor
 
     var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 20) { content }
-                .padding(.horizontal, 24)
-                .padding(.top, 16)
-                .padding(.bottom, 24)
-                .frame(maxWidth: .infinity, alignment: .leading)
+        ScrollViewReader { proxy in
+            ScrollView {
+                VStack(alignment: .leading, spacing: 20) { content }
+                    .padding(.horizontal, 24)
+                    .padding(.top, 16)
+                    .padding(.bottom, 24)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+            }
+            .onAppear { reveal(proxy) }
+            .onChange(of: anchor) { reveal(proxy) }
         }
         .labeledContentStyle(SettingsRowStyle())
+    }
+
+    private func reveal(_ proxy: ScrollViewProxy) {
+        guard let anchor else { return }
+        DispatchQueue.main.async { proxy.scrollTo(anchor, anchor: .top) }
     }
 }
 
@@ -56,6 +78,7 @@ struct SettingsBlock<Content: View>: View {
             }
             _VariadicView.Tree(SettingsRows()) { content }
         }
+        .id(title)
     }
 }
 
