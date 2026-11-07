@@ -274,8 +274,8 @@ public struct PrompterLibrary: Codable, Sendable, Equatable {
 
 /// Где встаёт суфлёр. Камера встроена в экран ноутбука: на нём панель выше всего, ближе к объективу.
 public enum PrompterLayout {
-    public static let width = 420.0
-    public static let textHeight = 96.0
+    public static let width = 560.0
+    public static let textHeight = 148.0
     /// Отступ под строкой меню, когда выреза нет.
     public static let menuBarGap = 6.0
 

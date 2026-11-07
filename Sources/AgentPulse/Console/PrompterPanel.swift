@@ -102,6 +102,8 @@ struct PrompterView: View {
             }
         }
         .opacity(model.prompter.mode == .paused ? 0.6 : 1)
+        // Текст не обрывается по краю, а уходит в чёрное.
+        .mask(LinearGradient(stops: [.init(color: .black, location: 0.62), .init(color: .clear, location: 1)], startPoint: .top, endPoint: .bottom))
         .frame(width: PrompterLayout.width, height: PrompterLayout.textHeight, alignment: .topLeading)
         .clipped()
         .padding(.top, model.prompterNotch)
@@ -119,7 +121,7 @@ enum PrompterLook {
     /// Шаг таймера суфлёра.
     static let tick = 0.2
     static let lineStep = 28.0
-    static let visibleLines = 3
+    static let visibleLines = 5
     static let topInset = 10.0
     static let textInset = 18.0
     static let textWidth = PrompterLayout.width - textInset * 2
