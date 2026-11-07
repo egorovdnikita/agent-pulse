@@ -17,4 +17,4 @@ Jonas van den Berg и участники, BSD 3-Clause: `mediaremote-adapter-BSD
 ## Оформление Пульта
 
 - **Geist** — шрифт Пульта. Авторы: The Geist Project. Лицензия SIL OFL 1.1: `Geist-OFL.txt`.
-- **CapaTheNotch** — референс оформления: значения цветов и шкал, значок Claude и файл значка OpenAI. Лицензия MIT: `CapaTheNotch-MIT.txt`.
+- **CapaTheNotch** — референс оформления: значения цветов и шкал, значок Claude и файл значка OpenAI, способ чтения кадров трекпада. Лицензия MIT: `CapaTheNotch-MIT.txt`.
