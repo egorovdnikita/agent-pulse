@@ -358,6 +358,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         let console = model.console
         let folder = URL(filePath: CommandLine.arguments[index + 1])
         let now = Date()
+        // Сначала пустая капсула: без данных тоже должно быть понятно.
+        ConsoleSheet.renderCapsule(console, to: folder.appending(path: "capsule-empty.png"))
         console.ingest(LimitSnapshot(service: .claude, windows: [
             LimitWindow(kind: .fiveHour, usedPercent: 31, resetsAt: now.addingTimeInterval(3 * 3600 + 24 * 60)),
             LimitWindow(kind: .week, usedPercent: 84, resetsAt: now.addingTimeInterval(4 * 86_400)),
@@ -377,6 +379,24 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         )))
         console.prompterDraft = "Здравствуйте! Сегодня покажу, что изменилось в Пульте."
         ConsoleSheet.render(console, app: self, to: folder)
+        // Длинное: ничего не должно вылезать за край.
+        let long = "Очень длинное название, которое не помещается ни в одну строку и проверяет обрезку текста"
+        console.updateCalendar([
+            MeetingEvent(id: "a", title: long, start: now.addingTimeInterval(600), end: now.addingTimeInterval(4200)),
+            MeetingEvent(id: "b", title: long, start: now.addingTimeInterval(5000), end: now.addingTimeInterval(9000)),
+            MeetingEvent(id: "c", title: long, start: now.addingTimeInterval(9000), end: now.addingTimeInterval(9900)),
+            MeetingEvent(id: "d", title: long, start: now.addingTimeInterval(9900), end: now.addingTimeInterval(9990)),
+            MeetingEvent(id: "e", title: long, start: now.addingTimeInterval(9990), end: now.addingTimeInterval(9999)),
+        ])
+        console.addToShelf((1...16).map { URL(filePath: "/tmp/\(long) номер \($0).pdf") })
+        console.updateMedia(.playing(NowPlaying(
+            title: long, artist: long, isPlaying: true, duration: 240, elapsed: 80, at: now
+        )))
+        console.prompterDraft = Array(repeating: long, count: 20).joined(separator: " ")
+        if let text = console.pressTranslate(selection: Array(repeating: long, count: 8).joined(separator: " "), clipboard: nil) {
+            console.finishTranslate(source: text, result: .success(Array(repeating: "A very long translated sentence that keeps going", count: 12).joined(separator: " ")))
+        }
+        ConsoleSheet.renderStress(console, to: folder)
         exit(0)
     }
 

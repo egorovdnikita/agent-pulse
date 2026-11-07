@@ -402,6 +402,22 @@ enum ConsoleSheet {
         }
     }
 
+    static func renderCapsule(_ model: ConsoleModel, to url: URL) {
+        write(CapsulePreview(model: model), size: CGSize(width: model.capsuleWidth + 16, height: 48), to: url)
+    }
+
+    static func renderStress(_ model: ConsoleModel, to folder: URL) {
+        model.showPanelNow()
+        let panel = CGSize(width: ConsoleLayout.expandedWidth + 16, height: ConsoleLayout.expandedHeight + 16)
+        for tab in model.tabs {
+            model.tab = tab.id
+            write(PanelPreview(model: model), size: panel, to: folder.appending(path: "stress-\(tab.id.rawValue).png"))
+        }
+        model.calendarScope = .week
+        model.tab = .calendar
+        write(PanelPreview(model: model), size: panel, to: folder.appending(path: "stress-week.png"))
+    }
+
     private static func write(_ view: some View, size: CGSize, to url: URL) {
         let host = NSHostingView(rootView: view.frame(width: size.width, height: size.height).background(Color(white: 0.32)))
         host.frame = CGRect(origin: .zero, size: size)
