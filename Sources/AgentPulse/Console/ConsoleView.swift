@@ -259,11 +259,6 @@ private struct ExpandedBody: View {
         .animation(ConsoleStyle.contentMotion(appearing: model.contentShown, reduced: reduce), value: model.contentShown)
         .animation(ConsoleStyle.pageMotion(reduced: reduce), value: model.tab)
         .frame(width: ConsoleLayout.expandedWidth, height: ConsoleLayout.expandedHeight, alignment: .topLeading)
-        .background(Color.black)
-        .clipShape(RoundedRectangle(cornerRadius: ConsoleStyle.surfaceRadius, style: .continuous))
-        .overlay {
-            RoundedRectangle(cornerRadius: ConsoleStyle.surfaceRadius, style: .continuous).strokeBorder(ConsoleStyle.edge, lineWidth: 1)
-        }
     }
 
     private var page: some View {
@@ -291,17 +286,28 @@ private struct ExpandedBody: View {
     }
 }
 
-/// Форма панели по пути из капсулы и обратно. Содержимое в это время скрыто, поэтому сжатия не видно.
-private struct PanelMorph: ViewModifier {
-    var scaleX: Double
-    var scaleY: Double
-    var offset: Double
-    let anchor: UnitPoint
+/// Чёрная форма панели. Как в шторке референса: содержимое стоит на месте, а форма вырастает из капсулы
+/// и обрезает его по себе. Ничего не масштабируется, поэтому текст не плывёт и не сжимается.
+private struct PanelSurface<Content: View>: View {
+    let model: ConsoleModel
+    @ViewBuilder let content: Content
 
-    func body(content: Content) -> some View {
-        content
-            .scaleEffect(x: scaleX, y: scaleY, anchor: anchor)
-            .offset(y: offset)
+    var body: some View {
+        let reduce = NSWorkspace.shared.accessibilityDisplayShouldReduceMotion
+        let open = model.panelOpen
+        let alignment: Alignment = model.onLeft ? .bottomLeading : .bottomTrailing
+        let width = open ? ConsoleLayout.expandedWidth : model.capsuleWidth
+        let height = open ? ConsoleLayout.expandedHeight : model.capsuleHeight
+        let radius = open ? ConsoleStyle.surfaceRadius : model.capsuleHeight / 2
+        let shape = RoundedRectangle(cornerRadius: radius, style: .continuous)
+        ZStack(alignment: alignment) {
+            shape.fill(Color.black).frame(width: width, height: height)
+            content.mask(alignment: alignment) { shape.frame(width: width, height: height) }
+            shape.strokeBorder(ConsoleStyle.edge, lineWidth: 1).frame(width: width, height: height)
+        }
+        .frame(width: ConsoleLayout.expandedWidth, height: ConsoleLayout.expandedHeight, alignment: alignment)
+        .offset(y: open ? 0 : model.expandedGap + model.capsuleHeight)
+        .animation(model.director.quietChange ? nil : ConsoleStyle.panelMotion(opening: open, reduced: reduce), value: open)
     }
 }
 
@@ -321,34 +327,19 @@ struct PrompterPreview: View {
 struct PanelPreview: View {
     let model: ConsoleModel
 
-    var body: some View { ExpandedBody(model: model) }
+    var body: some View { PanelSurface(model: model) { ExpandedBody(model: model) } }
 }
 
 struct ConsoleRootView: View {
     let model: ConsoleModel
 
-    /// Панель не появляется, а вырастает из самой капсулы: в начале она точно на её месте и её размера.
-    private func panelTransition(reduced: Bool) -> AnyTransition {
-        guard !reduced else { return .opacity }
-        let collapsed = PanelMorph(
-            scaleX: model.capsuleWidth / ConsoleLayout.expandedWidth, scaleY: model.capsuleHeight / ConsoleLayout.expandedHeight,
-            offset: model.expandedGap + model.capsuleHeight, anchor: model.onLeft ? .bottomLeading : .bottomTrailing
-        )
-        var open = collapsed
-        open.scaleX = 1
-        open.scaleY = 1
-        open.offset = 0
-        return .modifier(active: collapsed, identity: open)
-    }
-
     var body: some View {
         let reduce = NSWorkspace.shared.accessibilityDisplayShouldReduceMotion
         VStack(alignment: model.onLeft ? .leading : .trailing, spacing: model.expandedGap) {
-            if model.expanded { ExpandedBody(model: model).transition(panelTransition(reduced: reduce)) }
+            if model.panelMounted { PanelSurface(model: model) { ExpandedBody(model: model) } }
             CapsuleBody(model: model)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: model.onLeft ? .bottomLeading : .bottomTrailing)
         .animation(model.director.quietChange ? nil : ConsoleStyle.motion(opening: true, reduced: reduce), value: model.capsuleWidth)
-        .animation(model.director.quietChange ? nil : ConsoleStyle.panelMotion(opening: model.expanded, reduced: reduce), value: model.expanded)
     }
 }

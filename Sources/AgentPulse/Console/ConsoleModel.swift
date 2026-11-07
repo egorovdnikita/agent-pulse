@@ -55,8 +55,13 @@ final class ConsoleModel {
     var expandedGap = ConsoleLayout.expandedGap
     /// С какой стороны въезжает новая страница: 1 — справа, −1 — слева, 0 — снизу, при раскрытии.
     private(set) var pageTravel = 0
-    /// Содержимое проявляется на такт позже панели: форма открывает его, а не пустоту.
-    var contentShown = false
+    /// Панель в окне: ещё стоит, пока форма закрывается.
+    private(set) var panelMounted = false
+    /// Форма раскрыта. Двигается только она, содержимое стоит на месте.
+    private(set) var panelOpen = false
+    /// Содержимое проявляется на такт позже формы: она открывает его, а не пустоту.
+    private(set) var contentShown = false
+    @ObservationIgnored private var closeTask: Task<Void, Never>?
     /// Тот же маскот, что в углу: сидит у карточки сервиса, который сейчас работает.
     @ObservationIgnored var mascotAnimator: MascotAnimator?
     @ObservationIgnored var mascotService: () -> LimitService? = { nil }
@@ -513,20 +518,39 @@ final class ConsoleModel {
             calendarDay = now
         }
         expanded = on
-        contentShown = false
+        closeTask?.cancel()
         if on {
             pageTravel = 0
+            panelMounted = true
             DispatchQueue.main.async { [weak self] in
-                MainActor.assumeIsolated { self?.contentShown = true }
+                MainActor.assumeIsolated {
+                    guard let self, self.expanded else { return }
+                    self.panelOpen = true
+                    self.contentShown = true
+                }
             }
             onLeaderChange?()
         } else {
             forgetTranslation()
+            panelOpen = false
+            contentShown = false
+            closeTask = Task { [weak self] in
+                try? await Task.sleep(for: .milliseconds(ConsoleLook.closeMilliseconds))
+                guard !Task.isCancelled else { return }
+                self?.panelMounted = false
+            }
         }
         onLayoutChange?()
     }
 
     func toggle() { setExpanded(!expanded) }
+
+    /// Для отрисовки в файлы: сразу конечное состояние, без анимации.
+    func showPanelNow() {
+        setExpanded(true)
+        panelOpen = true
+        contentShown = true
+    }
 
     /// Соседняя страница: клавиши и свайп. По кругу не идёт: край страниц должен чувствоваться.
     func movePage(by step: Int) {
@@ -621,7 +645,10 @@ final class ConsoleModel {
 
     var panelSize: CGSize {
         guard expanded else { return CGSize(width: capsuleWidth, height: capsuleHeight) }
-        return CGSize(width: ConsoleLayout.expandedWidth, height: ConsoleLayout.expandedHeight + expandedGap + capsuleHeight)
+        return CGSize(
+            width: ConsoleLayout.expandedWidth + ConsoleLayout.overshoot,
+            height: ConsoleLayout.expandedHeight + expandedGap + capsuleHeight + ConsoleLayout.overshoot
+        )
     }
 }
 
@@ -640,6 +667,8 @@ enum ConsoleLook {
     static let mark = 15.0
     static let sideGap = 7.0
     static let mascot = 16.0
+    /// Сколько панель стоит после закрытия: столько идёт пружина формы.
+    static let closeMilliseconds = 520
     /// Настолько новая страница сдвинута в начале: чуть-чуть, без полёта через всю панель.
     static let pageShift = 24.0
     static let tabs = 30.0

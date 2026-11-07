@@ -108,7 +108,7 @@ final class ConsolePanel: NSPanel {
         )
         setFrame(union, display: true)
         shrinkTask = Task { [weak self] in
-            try? await Task.sleep(for: .milliseconds(420))
+            try? await Task.sleep(for: .milliseconds(ConsoleLook.closeMilliseconds))
             guard !Task.isCancelled else { return }
             self?.setFrame(target, display: true)
             self?.refreshShadow()

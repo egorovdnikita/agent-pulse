@@ -36,7 +36,7 @@ enum ConsoleStyle {
     /// Панель: открытие с лёгкой отдачей, закрытие быстрое: на выходе ждать нечего.
     static func panelMotion(opening: Bool, reduced: Bool) -> Animation {
         if reduced { return .easeInOut(duration: 0.15) }
-        return opening ? .spring(response: 0.44, dampingFraction: 0.82) : .spring(response: 0.28, dampingFraction: 1)
+        return opening ? .spring(response: 0.42, dampingFraction: 0.8) : .spring(response: 0.45, dampingFraction: 1)
     }
 
     /// Смена страницы.
@@ -47,7 +47,7 @@ enum ConsoleStyle {
     /// Содержимое отстаёт от формы на такт: форма открывает его, а не пустоту.
     static func contentMotion(appearing: Bool, reduced: Bool) -> Animation {
         if reduced { return .easeInOut(duration: 0.15) }
-        return appearing ? .easeOut(duration: 0.24).delay(0.16) : .easeIn(duration: 0.07)
+        return appearing ? .easeOut(duration: 0.22).delay(0.06) : .easeIn(duration: 0.1)
     }
 
     static func font(_ size: Double, _ weight: Font.Weight = .regular) -> Font {
@@ -333,8 +333,7 @@ enum ConsoleSheet {
     static func render(_ model: ConsoleModel, app: AppDelegate, to folder: URL) {
         try? FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
         write(CapsulePreview(model: model), size: CGSize(width: model.capsuleWidth + 16, height: 48), to: folder.appending(path: "capsule.png"))
-        model.setExpanded(true)
-        model.contentShown = true
+        model.showPanelNow()
         let panel = CGSize(width: ConsoleLayout.expandedWidth + 16, height: ConsoleLayout.expandedHeight + 16)
         for tab in model.tabs {
             model.tab = tab.id
@@ -353,19 +352,17 @@ enum ConsoleSheet {
         // Перевод: шесть страниц — самая тесная строка навигации.
         if let text = model.pressTranslate(selection: "Привет, это проверка перевода", clipboard: nil) {
             model.finishTranslate(source: text, result: .success("Hello, this is a translation check"))
-            model.contentShown = true
+            model.showPanelNow()
             write(PanelPreview(model: model), size: panel, to: folder.appending(path: "translate.png"))
         }
-        model.setExpanded(true)
-        model.contentShown = true
+        model.showPanelNow()
 
         // Суфлёр идёт: текст запоминается, поэтому сразу забывается.
         let draft = model.prompterDraft
         model.setPrompterFollowsVoice(false)
         model.startPrompter()
         if model.prompter.isActive {
-            model.setExpanded(true)
-            model.contentShown = true
+            model.showPanelNow()
             model.tab = .prompter
             write(PanelPreview(model: model), size: panel, to: folder.appending(path: "prompter-running.png"))
             model.stopPrompter()
@@ -373,8 +370,7 @@ enum ConsoleSheet {
         }
 
         // Пустые страницы.
-        model.setExpanded(true)
-        model.contentShown = true
+        model.showPanelNow()
         model.clearShelf()
         model.updateCalendar([])
         for tab in [ConsoleModuleID.shelf, .calendar] {
