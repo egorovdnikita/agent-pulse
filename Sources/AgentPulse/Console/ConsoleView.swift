@@ -128,7 +128,14 @@ private struct LimitCard: View {
                     ServiceMark(service: service, size: 17)
                     Text(service.title).font(ConsoleStyle.font(15, .semibold)).foregroundStyle(.white).lineLimit(1)
                     Spacer(minLength: 0)
-                    chip(readings.map(\.reading))
+                    if readings.allSatisfy({ $0.reading == nil }) {
+                        Button("Подключить") { model.onOpenSettings?() }
+                            .buttonStyle(ConsolePressStyle())
+                            .font(.system(size: 11, weight: .semibold))
+                            .foregroundStyle(.white)
+                    } else {
+                        chip(readings.map(\.reading))
+                    }
                 }
                 .frame(height: 20)
                 HStack(spacing: 12) {
@@ -168,7 +175,7 @@ private extension ConsoleModuleID {
         case .calendar: "calendar"
         case .shelf: "folder-with-files"
         case .media: "music-note"
-        case .translate: "stars"
+        case .translate: "translation"
         case .dictation: "document-text"
         }
     }
@@ -180,17 +187,42 @@ private struct PageSwitcher: View {
 
     var body: some View {
         let open = model.pagesHovered
+        let shown = model.pageUnderCursor ?? model.tab
         HStack(spacing: 4) {
             ForEach(model.tabs, id: \.id) { tab in
                 page(tab.id, title: tab.title, open: open)
             }
         }
-        .padding(.horizontal, 10)
+        .frame(maxWidth: .infinity)
+        .overlay(alignment: .leading) {
+            if open {
+                Text(model.tabs.first { $0.id == shown }?.title ?? "")
+                    .font(ConsoleStyle.font(11, .medium))
+                    .foregroundStyle(ConsoleStyle.caption)
+                    .lineLimit(1)
+                    .fixedSize()
+                    .padding(.leading, 6)
+                    .transition(.opacity)
+            }
+        }
+        .padding(.horizontal, ConsoleStyle.inset)
         .frame(height: open ? ConsoleLook.pagesOpen : ConsoleLook.pagesClosed, alignment: .center)
         .frame(maxWidth: .infinity)
-        .background(open ? Color.black : Color.clear)
+        .background(alignment: .bottom) {
+            // Кнопки встают поверх страницы: край уходит в чёрное, а не обрезается.
+            if open {
+                VStack(spacing: 0) {
+                    LinearGradient(colors: [.clear, .black], startPoint: .top, endPoint: .bottom).frame(height: 14)
+                    Color.black.frame(height: ConsoleLook.pagesOpen)
+                }
+                .allowsHitTesting(false)
+            }
+        }
         .contentShape(Rectangle())
-        .onHover { model.pagesHovered = $0 }
+        .onHover { inside in
+            model.pagesHovered = inside
+            if !inside { model.pageUnderCursor = nil }
+        }
         .animation(ConsoleStyle.motion(opening: open, reduced: false), value: open)
     }
 
@@ -215,8 +247,8 @@ private struct PageSwitcher: View {
                 .frame(width: open ? 22 : 8, height: open ? 22 : 8)
                 .contentShape(Rectangle())
         }
-        .buttonStyle(.plain)
-        .help(title)
+        .buttonStyle(ConsolePressStyle())
+        .onHover { model.pageUnderCursor = $0 ? id : nil }
         .accessibilityLabel(title)
     }
 }
@@ -255,6 +287,12 @@ struct CapsulePreview: View {
     let model: ConsoleModel
 
     var body: some View { CapsuleBody(model: model) }
+}
+
+struct PrompterPreview: View {
+    let model: ConsoleModel
+
+    var body: some View { PrompterView(model: model) }
 }
 
 struct PanelPreview: View {

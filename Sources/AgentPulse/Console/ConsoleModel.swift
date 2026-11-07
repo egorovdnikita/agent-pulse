@@ -55,6 +55,10 @@ final class ConsoleModel {
     var activeWidth = ConsoleLayout.activeWidth
     /// Курсор над точками-страницами: они становятся кнопками.
     var pagesHovered = false
+    /// Над какой страницей курсор: подпись показывает её.
+    var pageUnderCursor: ConsoleModuleID?
+    /// Перевод только что скопирован.
+    var translateCopied = false
     var calendarEnabled = false
     var shelfEnabled = true
     var musicEnabled = true
@@ -105,6 +109,7 @@ final class ConsoleModel {
     @ObservationIgnored var dictationModelReady: () -> Bool = { false }
     /// «Скопировать» и «Заменить выделенное» во вкладке перевода.
     @ObservationIgnored var onTranslateReplace: ((String) -> Void)?
+    @ObservationIgnored var onOpenSettings: (() -> Void)?
     @ObservationIgnored private var prompterTimer: Timer?
     @ObservationIgnored private var dictationLimitTimer: Timer?
     @ObservationIgnored private var lastTick = Date.distantPast
@@ -339,6 +344,13 @@ final class ConsoleModel {
         return nil
     }
 
+    /// Сколько займёт текст при нынешней скорости.
+    var prompterEstimate: String? {
+        let words = prompterDraft.split(whereSeparator: \.isWhitespace).count
+        guard words > 0 else { return nil }
+        return "≈ " + PrompterModule.clock(Double(words) / Double(prompter.speed) * 60)
+    }
+
     func forgetPrompterText(_ text: String) {
         prompterLibrary.remove(text)
         prompterLibrary.save()
@@ -511,11 +523,36 @@ final class ConsoleModel {
             calendarDay = now
         }
         expanded = on
-        if !on { forgetTranslation() }
+        if !on {
+            forgetTranslation()
+            pagesHovered = false
+            pageUnderCursor = nil
+        }
         onLayoutChange?()
     }
 
     func toggle() { setExpanded(!expanded) }
+
+    /// Соседняя страница: клавиши и свайп. По кругу не идёт: край страниц должен чувствоваться.
+    func movePage(by step: Int) {
+        let ids = tabs.map(\.id)
+        guard let index = ids.firstIndex(of: tab), ids.indices.contains(index + step) else { return }
+        tab = ids[index + step]
+    }
+
+    func selectPage(number: Int) {
+        let ids = tabs.map(\.id)
+        if ids.indices.contains(number - 1) { tab = ids[number - 1] }
+    }
+
+    func copyTranslation(_ text: String) {
+        NSPasteboard.general.clearContents()
+        NSPasteboard.general.setString(text, forType: .string)
+        translateCopied = true
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) { [weak self] in
+            MainActor.assumeIsolated { self?.translateCopied = false }
+        }
+    }
 
     // MARK: - Размеры
 

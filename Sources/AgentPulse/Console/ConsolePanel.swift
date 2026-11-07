@@ -46,6 +46,8 @@ final class ConsolePanel: NSPanel {
     private var shrinkTask: Task<Void, Never>?
     private var outsideMonitor: Any?
     private var localMonitor: Any?
+    private var swipe = 0.0
+    private static let swipeDistance = 60.0
 
     init(model: ConsoleModel) {
         self.model = model
@@ -123,7 +125,12 @@ final class ConsolePanel: NSPanel {
             outsideMonitor = NSEvent.addGlobalMonitorForEvents(matching: [.leftMouseDown, .rightMouseDown]) { [weak self] _ in
                 MainActor.assumeIsolated { self?.model.setExpanded(false) }
             }
-            localMonitor = NSEvent.addLocalMonitorForEvents(matching: [.keyDown, .leftMouseDown]) { [weak self] event in
+            localMonitor = NSEvent.addLocalMonitorForEvents(matching: [.keyDown, .leftMouseDown, .scrollWheel]) { [weak self] event in
+                if event.type == .scrollWheel {
+                    MainActor.assumeIsolated { self?.handleScroll(event) }
+                    return event
+                }
+                if event.type == .keyDown, MainActor.assumeIsolated({ self?.handlePageKey(event) == true }) { return nil }
                 // У приложения без меню ⌘V и остальные некому обработать: поле суфлёра осталось бы без вставки.
                 if event.type == .keyDown, event.modifierFlags.intersection(.deviceIndependentFlagsMask) == .command,
                    let key = event.charactersIgnoringModifiers?.lowercased(), let action = Self.editActions[key],
@@ -152,6 +159,30 @@ final class ConsolePanel: NSPanel {
         "v": #selector(NSText.paste(_:)), "c": #selector(NSText.copy(_:)), "x": #selector(NSText.cut(_:)),
         "a": #selector(NSText.selectAll(_:)), "z": Selector(("undo:")),
     ]
+
+    /// Горизонтальный свайп листает страницы; вертикальный остаётся спискам.
+    private func handleScroll(_ event: NSEvent) {
+        if event.phase == .began { swipe = 0 }
+        guard event.momentumPhase == [], abs(event.scrollingDeltaX) > abs(event.scrollingDeltaY) else { return }
+        swipe += event.isDirectionInvertedFromDevice ? -event.scrollingDeltaX : event.scrollingDeltaX
+        guard abs(swipe) >= Self.swipeDistance else { return }
+        model.movePage(by: swipe > 0 ? 1 : -1)
+        swipe = 0
+    }
+
+    /// ← → и цифры листают страницы, если ты не пишешь в поле.
+    private func handlePageKey(_ event: NSEvent) -> Bool {
+        guard !(firstResponder is NSTextView),
+              event.modifierFlags.intersection(.deviceIndependentFlagsMask).subtracting([.function, .numericPad]).isEmpty else { return false }
+        switch event.keyCode {
+        case 123: model.movePage(by: -1)
+        case 124: model.movePage(by: 1)
+        default:
+            guard let number = event.characters.flatMap(Int.init), number >= 1 else { return false }
+            model.selectPage(number: number)
+        }
+        return true
+    }
 
     func rejoinAllSpaces() {
         collectionBehavior = []

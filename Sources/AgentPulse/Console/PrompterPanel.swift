@@ -87,7 +87,7 @@ private struct PrompterLineView: View {
     }
 }
 
-private struct PrompterView: View {
+struct PrompterView: View {
     let model: ConsoleModel
 
     var body: some View {

@@ -11,28 +11,53 @@ private let noteFont = ConsoleStyle.font(11).monospacedDigit()
 
 // MARK: - Календарь
 
+private enum CalendarText {
+    static func formatter(_ format: String) -> DateFormatter {
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "ru_RU")
+        formatter.dateFormat = format
+        return formatter
+    }
+
+    /// «Сегодня», «Завтра», дальше — день недели и число.
+    static func day(_ date: Date, now: Date) -> String {
+        let calendar = Calendar.current
+        if calendar.isDate(date, inSameDayAs: now) { return "Сегодня" }
+        if let next = calendar.date(byAdding: .day, value: 1, to: now), calendar.isDate(date, inSameDayAs: next) { return "Завтра" }
+        return formatter("EE, d MMMM").string(from: date)
+    }
+}
+
 private struct EventRow: View {
     let model: ConsoleModel
     let event: MeetingEvent
-    let showsDay: Bool
 
     var body: some View {
-        HStack(spacing: 8) {
-            Text(time).font(noteFont).foregroundStyle(ConsoleStyle.caption).frame(width: showsDay ? 72 : 40, alignment: .leading)
-            Text(event.title).font(tabFont).foregroundStyle(.white).lineLimit(1)
+        let running = event.start <= model.now && event.end > model.now
+        let over = event.end <= model.now
+        HStack(spacing: 10) {
+            Capsule()
+                .fill(running ? ConsoleStyle.green : ConsoleStyle.track)
+                .frame(width: 3, height: 30)
+            VStack(alignment: .leading, spacing: 1) {
+                Text(event.title).font(tabFont).foregroundStyle(.white).lineLimit(1)
+                Text(detail(running: running)).font(noteFont).foregroundStyle(running ? ConsoleStyle.green : ConsoleStyle.caption).lineLimit(1)
+            }
             Spacer(minLength: 4)
-            if let link = event.link, event.end > model.now {
-                Button("Войти") { model.onJoin?(link.url) }
-                    .buttonStyle(.plain).font(tabFont).foregroundStyle(ConsoleStyle.orange)
+            if let link = event.link, !over {
+                PrompterSmallButton(title: "Войти", tint: ConsoleStyle.orange) { model.onJoin?(link.url) }
             }
         }
+        .opacity(over ? 0.5 : 1)
     }
 
-    private var time: String {
-        let formatter = DateFormatter()
-        formatter.locale = Locale(identifier: "ru_RU")
-        formatter.dateFormat = showsDay ? "EE, d, HH:mm" : "HH:mm"
-        return event.isAllDay ? (showsDay ? "весь день" : "день") : formatter.string(from: event.start)
+    private func detail(running: Bool) -> String {
+        if event.isAllDay { return "Весь день" }
+        let minutes = Int(event.start.timeIntervalSince(model.now) / 60)
+        if running { return "Идёт, ещё \(max(1, Int(event.end.timeIntervalSince(model.now) / 60))) мин" }
+        if minutes >= 0, minutes < 60 { return "Через \(max(1, minutes)) мин" }
+        let clock = CalendarText.formatter("HH:mm")
+        return "\(clock.string(from: event.start)) – \(clock.string(from: event.end))"
     }
 }
 
@@ -46,28 +71,37 @@ private struct MonthGrid: View {
         let days = calendar.range(of: .day, in: .month, for: start)?.count ?? 30
         // Понедельник — первая колонка.
         let lead = (calendar.component(.weekday, from: start) + 5) % 7
-        LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 0), count: 7), spacing: 2) {
-            ForEach(["пн", "вт", "ср", "чт", "пт", "сб", "вс"], id: \.self) { Text($0).font(noteFont).foregroundStyle(ConsoleStyle.caption) }
+        LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 0), count: 7), spacing: 1) {
+            ForEach(["пн", "вт", "ср", "чт", "пт", "сб", "вс"], id: \.self) {
+                Text($0).font(ConsoleStyle.font(10)).foregroundStyle(ConsoleStyle.caption)
+            }
             ForEach(0..<(lead + days), id: \.self) { index in
                 if index < lead {
-                    Color.clear.frame(height: 24)
+                    Color.clear.frame(height: 22)
                 } else if let day = calendar.date(byAdding: .day, value: index - lead, to: start) {
-                    Button {
-                        model.calendarDay = day
-                        model.calendarScope = .day
-                    } label: {
-                        VStack(spacing: 2) {
-                            Text("\(index - lead + 1)").font(noteFont)
-                                .foregroundStyle(calendar.isDate(day, inSameDayAs: today) ? ConsoleStyle.orange : .white)
-                            Circle().fill(model.calendar.events(on: day).isEmpty ? Color.clear : Color(hex: model.calendar.accent)).frame(width: 4, height: 4)
-                        }
-                        .frame(maxWidth: .infinity, minHeight: 24)
-                        .contentShape(Rectangle())
-                    }
-                    .buttonStyle(.plain)
+                    cell(day, number: index - lead + 1, isToday: calendar.isDate(day, inSameDayAs: today))
                 }
             }
         }
+    }
+
+    private func cell(_ day: Date, number: Int, isToday: Bool) -> some View {
+        Button {
+            model.calendarDay = day
+            model.calendarScope = .day
+        } label: {
+            ZStack {
+                if isToday { Circle().fill(.white).frame(width: 22, height: 22) }
+                Text("\(number)").font(noteFont).foregroundStyle(isToday ? .black : .white)
+                if !model.calendar.events(on: day).isEmpty {
+                    Circle().fill(isToday ? Color.black : ConsoleStyle.orange).frame(width: 3, height: 3).offset(y: 8)
+                }
+            }
+            .frame(maxWidth: .infinity, minHeight: 22)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(ConsolePressStyle())
+        .accessibilityLabel(CalendarText.day(day, now: model.now))
     }
 }
 
@@ -75,47 +109,86 @@ struct CalendarTab: View {
     let model: ConsoleModel
 
     var body: some View {
-        ConsoleCard {
-            content
+        VStack(alignment: .leading, spacing: 8) {
+            ConsoleSegments(values: CalendarScope.allCases, selected: model.calendarScope, title: \.title) { scope in
+                model.calendarDay = model.now
+                model.calendarScope = scope
+            }
+            ConsoleCard {
+                switch model.calendarScope {
+                case .month:
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text(CalendarText.formatter("LLLL yyyy").string(from: model.now).capitalized)
+                            .font(ConsoleStyle.font(13, .semibold))
+                            .foregroundStyle(.white)
+                        MonthGrid(model: model)
+                    }
+                case .day:
+                    dayPage
+                case .week:
+                    weekPage
+                }
+            }
         }
     }
 
-    private var content: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            HStack(spacing: 12) {
-                ForEach(CalendarScope.allCases, id: \.self) { scope in
-                    Button(scope.title) {
-                        model.calendarDay = model.now
-                        model.calendarScope = scope
+    private var dayPage: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack(spacing: 4) {
+                Text(CalendarText.day(model.calendarDay, now: model.now))
+                    .font(ConsoleStyle.font(13, .semibold))
+                    .foregroundStyle(.white)
+                    .lineLimit(1)
+                Spacer(minLength: 4)
+                dayButton("alt-arrow-left", "Предыдущий день", -1)
+                dayButton("alt-arrow-right", "Следующий день", 1)
+            }
+            let events = model.calendar.events(on: model.calendarDay)
+            if events.isEmpty {
+                ConsoleEmpty(icon: "calendar", title: "Встреч нет")
+            } else {
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 10) {
+                        ForEach(events) { EventRow(model: model, event: $0) }
                     }
-                    .buttonStyle(.plain).font(tabFont)
-                    .foregroundStyle(.white.opacity(model.calendarScope == scope ? 1 : 0.5))
                 }
             }
-            switch model.calendarScope {
-            case .month:
-                MonthGrid(model: model)
-            case .day, .week:
-                let events = listed
-                if events.isEmpty {
-                    Text("Встреч нет").font(noteFont).foregroundStyle(ConsoleStyle.caption)
-                } else {
-                    ScrollView {
-                        VStack(alignment: .leading, spacing: 8) {
-                            ForEach(events) { EventRow(model: model, event: $0, showsDay: model.calendarScope == .week) }
+        }
+    }
+
+    private func dayButton(_ icon: String, _ label: String, _ step: Int) -> some View {
+        Button {
+            model.calendarDay = Calendar.current.date(byAdding: .day, value: step, to: model.calendarDay) ?? model.calendarDay
+        } label: {
+            solar(icon, 14).frame(width: 24, height: 24).contentShape(Rectangle())
+        }
+        .buttonStyle(ConsolePressStyle())
+        .accessibilityLabel(label)
+    }
+
+    private var weekPage: some View {
+        let calendar = Calendar.current
+        let start = calendar.startOfDay(for: model.now)
+        let days = (0..<7).compactMap { calendar.date(byAdding: .day, value: $0, to: start) }
+            .filter { !model.calendar.events(on: $0).isEmpty }
+        return Group {
+            if days.isEmpty {
+                ConsoleEmpty(icon: "calendar", title: "На неделе встреч нет")
+            } else {
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 10) {
+                        ForEach(days, id: \.self) { day in
+                            VStack(alignment: .leading, spacing: 6) {
+                                Text(CalendarText.day(day, now: model.now))
+                                    .font(ConsoleStyle.font(11, .semibold))
+                                    .foregroundStyle(ConsoleStyle.caption)
+                                ForEach(model.calendar.events(on: day)) { EventRow(model: model, event: $0) }
+                            }
                         }
                     }
                 }
             }
         }
-    }
-
-    private var listed: [MeetingEvent] {
-        let calendar = Calendar.current
-        if model.calendarScope == .day { return model.calendar.events(on: model.calendarDay) }
-        let start = calendar.startOfDay(for: model.now)
-        let end = calendar.date(byAdding: .day, value: 7, to: start) ?? start
-        return model.calendar.events.filter { $0.start < end && $0.end > start }
     }
 }
 
@@ -162,33 +235,55 @@ struct ShelfTab: View {
     let model: ConsoleModel
 
     var body: some View {
-        if model.shelf.items.isEmpty {
-            ConsoleCard { Text("Брось файл на Пульт или на маскота").font(tabFont).foregroundStyle(ConsoleStyle.caption) }
-        } else {
-            ConsoleCard { files }
+        ConsoleCard {
+            if model.shelf.items.isEmpty {
+                ConsoleEmpty(icon: "folder-with-files", title: "Полка пуста", hint: "Брось файл на Пульт или на маскота")
+            } else {
+                files
+            }
+        }
+        .overlay {
+            if model.dropTargeted {
+                RoundedRectangle(cornerRadius: ConsoleStyle.cardRadius, style: .continuous)
+                    .strokeBorder(.white.opacity(0.7), style: StrokeStyle(lineWidth: 1.5, dash: [5, 4]))
+            }
         }
     }
 
     private var files: some View {
-        Group {
-            VStack(alignment: .leading, spacing: 8) {
-                ScrollView {
-                    VStack(alignment: .leading, spacing: 6) {
-                        ForEach(model.shelf.items.reversed()) { item in
-                            HStack(spacing: 8) {
-                                Image(nsImage: NSWorkspace.shared.icon(forFile: item.url.path)).resizable().frame(width: 20, height: 20)
+        VStack(alignment: .leading, spacing: 8) {
+            ScrollView {
+                VStack(alignment: .leading, spacing: 8) {
+                    ForEach(model.shelf.items.reversed()) { item in
+                        HStack(spacing: 10) {
+                            Image(nsImage: NSWorkspace.shared.icon(forFile: item.url.path)).resizable().frame(width: 28, height: 28)
+                            VStack(alignment: .leading, spacing: 1) {
                                 Text(item.name).font(tabFont).foregroundStyle(.white).lineLimit(1).truncationMode(.middle)
-                                Spacer(minLength: 4)
-                                Button { model.removeFromShelf(item.url) } label: { solar("close-circle", 14).opacity(0.5) }
-                                    .buttonStyle(.plain).accessibilityLabel("Убрать с полки")
+                                Text(detail(item.url)).font(noteFont).foregroundStyle(ConsoleStyle.caption).lineLimit(1)
                             }
-                            .background(ShelfDragArea(url: item.url) { model.removeFromShelf($0) })
+                            Spacer(minLength: 4)
+                            Button { model.removeFromShelf(item.url) } label: { solar("close-circle", 16).opacity(0.5) }
+                                .buttonStyle(ConsolePressStyle()).accessibilityLabel("Убрать с полки")
                         }
+                        .background(ShelfDragArea(url: item.url) { model.removeFromShelf($0) })
                     }
                 }
-                Button("Очистить") { model.clearShelf() }.buttonStyle(.plain).font(noteFont).foregroundStyle(ConsoleStyle.caption)
+            }
+            HStack {
+                Text("Потяни файл, чтобы забрать").font(noteFont).foregroundStyle(ConsoleStyle.caption).lineLimit(1)
+                Spacer(minLength: 4)
+                Button("Очистить") { model.clearShelf() }
+                    .buttonStyle(ConsolePressStyle()).font(ConsoleStyle.font(11, .medium)).foregroundStyle(.white)
             }
         }
+    }
+
+    /// Тип и размер: только для файлов, которые ты сам положил.
+    private func detail(_ url: URL) -> String {
+        let kind = url.pathExtension.uppercased()
+        let bytes = (try? url.resourceValues(forKeys: [.fileSizeKey]))?.fileSize
+        let size = bytes.map { ByteCountFormatter.string(fromByteCount: Int64($0), countStyle: .file) }
+        return [kind.isEmpty ? nil : kind, size].compactMap(\.self).joined(separator: " · ")
     }
 }
 
@@ -202,60 +297,85 @@ struct MediaTab: View {
     }
 
     var body: some View {
-        if model.media.availability == .unavailable {
-            VStack(alignment: .leading, spacing: 8) {
-                Text("Недоступно на этой системе").font(tabFont).foregroundStyle(.white)
-                Button("Управлять «Музыкой» и Spotify") { model.onConnectMusic?() }
-                    .buttonStyle(.plain).font(noteFont).foregroundStyle(ConsoleStyle.orange)
+        ConsoleCard {
+            if model.media.availability == .unavailable {
+                VStack(spacing: 10) {
+                    ConsoleEmpty(icon: "music-note", title: "Недоступно на этой системе")
+                    PrompterSmallButton(title: "Управлять «Музыкой» и Spotify") { model.onConnectMusic?() }
+                }
+            } else if let playing = model.media.playing {
+                player(playing)
+            } else {
+                ConsoleEmpty(icon: "music-note", title: "Сейчас ничего не играет")
             }
-        } else if let playing = model.media.playing {
-            ConsoleCard { player(playing) }
-        } else {
-            ConsoleCard { Text("Сейчас ничего не играет").font(tabFont).foregroundStyle(ConsoleStyle.caption) }
         }
     }
 
     private func player(_ playing: NowPlaying) -> some View {
-            VStack(alignment: .leading, spacing: 10) {
-                HStack(spacing: 10) {
-                    Group {
-                        if let artwork = model.artwork {
-                            Image(nsImage: artwork).resizable().scaledToFill()
-                        } else {
-                            solar("music-note", 24).opacity(0.5).frame(maxWidth: .infinity, maxHeight: .infinity).background(ConsoleStyle.card)
-                        }
-                    }
-                    .frame(width: 56, height: 56).clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text(playing.title).font(tabFont).foregroundStyle(.white).lineLimit(2)
-                        if let artist = playing.artist { Text(artist).font(noteFont).foregroundStyle(ConsoleStyle.caption).lineLimit(1) }
+        VStack(alignment: .leading, spacing: 0) {
+            HStack(spacing: 12) {
+                Group {
+                    if let artwork = model.artwork {
+                        Image(nsImage: artwork).resizable().scaledToFill()
+                    } else {
+                        solar("music-note", 28).opacity(0.5).frame(maxWidth: .infinity, maxHeight: .infinity).background(ConsoleStyle.card)
                     }
                 }
-                if let duration = playing.duration {
-                    VStack(spacing: 0) {
-                    ThinSlider(value: playing.position(now: model.now), range: 0...duration, label: "Позиция") { model.onSeek?($0) }
-                    HStack {
-                        Text(clock(playing.position(now: model.now)))
-                        Spacer()
-                        Text(clock(duration))
-                    }
-                    .font(noteFont).foregroundStyle(ConsoleStyle.caption)
-                    }
-                }
-                HStack(spacing: 18) {
-                    control("skip-previous", "Предыдущий", .previous)
-                    control(playing.isPlaying ? "pause" : "play", playing.isPlaying ? "Пауза" : "Играть", .togglePlayPause)
-                    control("skip-next", "Следующий", .next)
-                    if model.volume != nil {
-                        ThinSlider(value: model.volume ?? 0, range: 0...1, label: "Громкость") { model.onVolume?($0) }
+                .frame(width: 72, height: 72).clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(playing.title).font(ConsoleStyle.font(15, .semibold)).foregroundStyle(.white).lineLimit(2)
+                    if let artist = playing.artist {
+                        Text(artist).font(ConsoleStyle.font(13)).foregroundStyle(ConsoleStyle.caption).lineLimit(1)
                     }
                 }
             }
+            Spacer(minLength: 6)
+            if let duration = playing.duration {
+                ThinSlider(value: playing.position(now: model.now), range: 0...duration, label: "Позиция") { model.onSeek?($0) }
+                HStack {
+                    Text(clock(playing.position(now: model.now)))
+                    Spacer()
+                    Text(clock(duration))
+                }
+                .font(noteFont).foregroundStyle(ConsoleStyle.caption)
+            }
+            Spacer(minLength: 6)
+            HStack(spacing: 22) {
+                control("skip-previous", "Предыдущий", .previous, size: 20)
+                playButton(playing)
+                control("skip-next", "Следующий", .next, size: 20)
+            }
+            .frame(maxWidth: .infinity)
+            if model.volume != nil {
+                Spacer(minLength: 6)
+                HStack(spacing: 8) {
+                    solar("volume-loud", 14).opacity(0.55)
+                    ThinSlider(value: model.volume ?? 0, range: 0...1, label: "Громкость") { model.onVolume?($0) }
+                }
+            }
+        }
     }
 
-    private func control(_ icon: String, _ label: String, _ command: MediaCommand) -> some View {
-        Button { model.onMediaCommand?(command) } label: { solar(icon, 18) }
-            .buttonStyle(.plain).accessibilityLabel(label)
+    private func playButton(_ playing: NowPlaying) -> some View {
+        Button { model.onMediaCommand?(.togglePlayPause) } label: {
+            Image(nsImage: SolarIcons.image(playing.isPlaying ? "pause" : "play") ?? NSImage())
+                .resizable()
+                .frame(width: 18, height: 18)
+                .foregroundStyle(.black)
+                .frame(width: 40, height: 40)
+                .background(.white, in: Circle())
+                .contentShape(Circle())
+        }
+        .buttonStyle(ConsolePressStyle())
+        .accessibilityLabel(playing.isPlaying ? "Пауза" : "Играть")
+    }
+
+    private func control(_ icon: String, _ label: String, _ command: MediaCommand, size: Double) -> some View {
+        Button { model.onMediaCommand?(command) } label: {
+            solar(icon, size).frame(width: 32, height: 32).contentShape(Rectangle())
+        }
+        .buttonStyle(ConsolePressStyle())
+        .accessibilityLabel(label)
     }
 }
 
@@ -315,21 +435,38 @@ private struct PrompterEditor: NSViewRepresentable {
 struct PrompterSmallButton: View {
     let title: String
     var strong = false
+    /// Цветная кнопка: главное действие строки.
+    var tint: Color?
     let action: () -> Void
 
     var body: some View {
         Button(action: action) {
             Text(title)
                 .font(ConsoleStyle.font(12, .medium))
-                .foregroundStyle(strong ? .black : .white)
+                .foregroundStyle(strong || tint != nil ? .black : .white)
                 .lineLimit(1)
                 .fixedSize()
                 .padding(.horizontal, title.count == 1 ? 0 : 12)
                 .frame(width: title.count == 1 ? 28 : nil, height: 28)
-                .background(strong ? Color.white : ConsoleStyle.button, in: Capsule())
+                .background(tint ?? (strong ? Color.white : ConsoleStyle.button), in: Capsule())
                 .contentShape(Capsule())
         }
-        .buttonStyle(.plain)
+        .buttonStyle(ConsolePressStyle())
+    }
+}
+
+/// Полоса хода, без касаний: темп задают клавиши и голос.
+private struct ProgressLine: View {
+    let fraction: Double
+
+    var body: some View {
+        GeometryReader { space in
+            ZStack(alignment: .leading) {
+                Capsule().fill(ConsoleStyle.track)
+                Capsule().fill(.white).frame(width: max(4, space.size.width * min(1, max(0, fraction))))
+            }
+        }
+        .frame(height: 4)
     }
 }
 
@@ -363,6 +500,11 @@ struct PrompterTab: View {
                         .allowsHitTesting(false)
                 }
             }
+            .overlay(alignment: .bottomTrailing) {
+                if let estimate = model.prompterEstimate {
+                    Text(estimate).font(noteFont).foregroundStyle(ConsoleStyle.caption).padding(8).allowsHitTesting(false)
+                }
+            }
             .background(ConsoleStyle.card, in: RoundedRectangle(cornerRadius: ConsoleStyle.cardRadius - 8, style: .continuous))
             HStack(spacing: 8) {
                 if !model.prompterLibrary.texts.isEmpty {
@@ -380,45 +522,55 @@ struct PrompterTab: View {
     }
 
     private var recent: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            ForEach(model.prompterLibrary.texts, id: \.self) { text in
-                HStack(spacing: 8) {
-                    Button {
-                        model.prompterDraft = text
-                        model.prompterRecentOpen = false
-                    } label: {
-                        Text(text.replacingOccurrences(of: "\n", with: " "))
-                            .font(ConsoleStyle.font(12))
-                            .foregroundStyle(.white)
-                            .lineLimit(1)
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                            .contentShape(Rectangle())
+        VStack(alignment: .leading, spacing: 8) {
+            ConsoleCard {
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 10) {
+                        ForEach(model.prompterLibrary.texts, id: \.self) { text in
+                            HStack(spacing: 8) {
+                                Button {
+                                    model.prompterDraft = text
+                                    model.prompterRecentOpen = false
+                                } label: {
+                                    Text(text.replacingOccurrences(of: "\n", with: " "))
+                                        .font(tabFont)
+                                        .foregroundStyle(.white)
+                                        .lineLimit(1)
+                                        .frame(maxWidth: .infinity, alignment: .leading)
+                                        .contentShape(Rectangle())
+                                }
+                                .buttonStyle(ConsolePressStyle())
+                                Button {
+                                    model.forgetPrompterText(text)
+                                    if model.prompterLibrary.texts.isEmpty { model.prompterRecentOpen = false }
+                                } label: { solar("close-circle", 16).opacity(0.5) }
+                                .buttonStyle(ConsolePressStyle())
+                                .accessibilityLabel("Удалить")
+                            }
+                        }
                     }
-                    .buttonStyle(.plain)
-                    Button("Удалить") {
-                        model.forgetPrompterText(text)
-                        if model.prompterLibrary.texts.isEmpty { model.prompterRecentOpen = false }
-                    }
-                    .buttonStyle(.plain)
-                    .font(ConsoleStyle.font(11))
-                    .foregroundStyle(ConsoleStyle.caption)
                 }
             }
-            Spacer(minLength: 0)
             PrompterSmallButton(title: "Назад") { model.prompterRecentOpen = false }
         }
     }
 
     private var running: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            Text("\(PrompterModule.clock(model.prompter.elapsed)) из \(PrompterModule.clock(model.prompter.total))")
-                .font(ConsoleStyle.font(22, .semibold).monospacedDigit())
-                .foregroundStyle(.white)
-            HStack(spacing: 8) {
-                PrompterSmallButton(title: model.prompter.mode == .paused ? "Дальше" : "Пауза") { model.togglePrompterPause() }
-                PrompterSmallButton(title: "Стоп") { model.stopPrompter() }
+        ConsoleCard {
+            VStack(alignment: .leading, spacing: 10) {
+                Text(model.prompter.mode == .paused ? "Пауза" : "Идёт текст")
+                    .font(ConsoleStyle.font(11, .semibold))
+                    .foregroundStyle(model.prompter.mode == .paused ? ConsoleStyle.yellow : ConsoleStyle.green)
+                Text("\(PrompterModule.clock(model.prompter.elapsed)) из \(PrompterModule.clock(model.prompter.total))")
+                    .font(ConsoleStyle.font(24, .semibold).monospacedDigit())
+                    .foregroundStyle(.white)
+                ProgressLine(fraction: model.prompter.total > 0 ? model.prompter.elapsed / model.prompter.total : 0)
+                Spacer(minLength: 0)
+                HStack(spacing: 8) {
+                    PrompterSmallButton(title: model.prompter.mode == .paused ? "Дальше" : "Пауза", strong: true) { model.togglePrompterPause() }
+                    PrompterSmallButton(title: "Стоп") { model.stopPrompter() }
+                }
             }
-            Spacer(minLength: 0)
         }
     }
 
@@ -460,44 +612,48 @@ struct TranslateTab: View {
     let model: ConsoleModel
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
+        ConsoleCard {
             switch model.translate.state {
             case .idle:
                 EmptyView()
             case .askToCopy:
-                hint(TranslateModule.askToCopyHint)
+                ConsoleEmpty(icon: "translation", title: "Выделение не прочиталось", hint: TranslateModule.askToCopyHint)
             case .working:
-                hint("Перевожу…")
+                ConsoleEmpty(icon: "translation", title: "Перевожу…")
             case .failed(let problem):
-                hint(problem)
+                ConsoleEmpty(icon: "translation", title: "Перевод не вышел", hint: problem)
             case .done(let source, let result):
-                Text(TranslateDirection.detect(source).title)
-                    .font(ConsoleStyle.font(11, .semibold))
-                    .foregroundStyle(ConsoleStyle.caption)
-                ScrollView {
-                    Text(result)
-                        .font(ConsoleStyle.font(14))
-                        .foregroundStyle(.white)
-                        .textSelection(.enabled)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                }
-                HStack(spacing: 8) {
-                    PrompterSmallButton(title: "Скопировать") {
-                        NSPasteboard.general.clearContents()
-                        NSPasteboard.general.setString(result, forType: .string)
-                    }
-                    if model.translate.replaceable {
-                        PrompterSmallButton(title: "Заменить выделенное") { model.onTranslateReplace?(result) }
-                    }
-                }
+                done(source: source, result: result)
             }
         }
     }
 
-    private func hint(_ text: String) -> some View {
-        Text(text)
-            .font(ConsoleStyle.font(13))
-            .foregroundStyle(ConsoleStyle.caption)
-            .fixedSize(horizontal: false, vertical: true)
+    private func done(source: String, result: String) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text(TranslateDirection.detect(source).title)
+                .font(ConsoleStyle.font(11, .semibold))
+                .foregroundStyle(ConsoleStyle.caption)
+            ScrollView {
+                VStack(alignment: .leading, spacing: 8) {
+                    Text(source)
+                        .font(ConsoleStyle.font(12))
+                        .foregroundStyle(ConsoleStyle.caption)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                    Text(result)
+                        .font(ConsoleStyle.font(15, .medium))
+                        .foregroundStyle(.white)
+                        .textSelection(.enabled)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                }
+            }
+            HStack(spacing: 8) {
+                PrompterSmallButton(title: model.translateCopied ? "Скопировано" : "Скопировать", strong: !model.translateCopied) {
+                    model.copyTranslation(result)
+                }
+                if model.translate.replaceable {
+                    PrompterSmallButton(title: "Заменить") { model.onTranslateReplace?(result) }
+                }
+            }
+        }
     }
 }

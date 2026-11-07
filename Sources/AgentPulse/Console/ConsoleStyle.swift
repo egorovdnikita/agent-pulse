@@ -179,14 +179,78 @@ struct LimitGauge: View {
     }
 }
 
+/// Нажатие чувствуется: кнопка чуть сжимается.
+struct ConsolePressStyle: ButtonStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .scaleEffect(configuration.isPressed ? 0.94 : 1)
+            .opacity(configuration.isPressed ? 0.75 : 1)
+            .animation(.easeOut(duration: 0.1), value: configuration.isPressed)
+    }
+}
+
+/// Пусто: что здесь будет и что сделать.
+struct ConsoleEmpty: View {
+    let icon: String
+    let title: String
+    var hint: String?
+
+    var body: some View {
+        VStack(spacing: 6) {
+            Image(nsImage: SolarIcons.image(icon) ?? NSImage())
+                .resizable()
+                .frame(width: 28, height: 28)
+                .foregroundStyle(ConsoleStyle.caption)
+            Text(title).font(ConsoleStyle.font(13, .medium)).foregroundStyle(.white)
+            if let hint {
+                Text(hint)
+                    .font(ConsoleStyle.font(11))
+                    .foregroundStyle(ConsoleStyle.caption)
+                    .multilineTextAlignment(.center)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
+}
+
+/// Переключатель в капсуле.
+struct ConsoleSegments<Value: Hashable>: View {
+    let values: [Value]
+    let selected: Value
+    let title: (Value) -> String
+    let select: (Value) -> Void
+
+    var body: some View {
+        HStack(spacing: 2) {
+            ForEach(values, id: \.self) { value in
+                Button { select(value) } label: {
+                    Text(title(value))
+                        .font(ConsoleStyle.font(12, .medium))
+                        .foregroundStyle(value == selected ? .white : ConsoleStyle.caption)
+                        .lineLimit(1)
+                        .frame(maxWidth: .infinity)
+                        .frame(height: 24)
+                        .background(value == selected ? ConsoleStyle.button : .clear, in: Capsule())
+                        .contentShape(Capsule())
+                }
+                .buttonStyle(ConsolePressStyle())
+            }
+        }
+        .padding(2)
+        .background(ConsoleStyle.card, in: Capsule())
+    }
+}
+
 /// Карточка: подложка всех страниц.
 struct ConsoleCard<Content: View>: View {
+    var fills = true
     @ViewBuilder let content: Content
 
     var body: some View {
         content
             .padding(ConsoleStyle.cardPadding)
-            .frame(maxWidth: .infinity, alignment: .leading)
+            .frame(maxWidth: .infinity, maxHeight: fills ? .infinity : nil, alignment: .topLeading)
             .background(ConsoleStyle.card, in: RoundedRectangle(cornerRadius: ConsoleStyle.cardRadius, style: .continuous))
     }
 }
@@ -226,6 +290,7 @@ enum ConsoleSheet {
         try? FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
         write(CapsulePreview(model: model), size: CGSize(width: model.capsuleWidth + 16, height: 48), to: folder.appending(path: "capsule.png"))
         model.setExpanded(true)
+        let panel = CGSize(width: ConsoleLayout.expandedMinWidth + 16, height: ConsoleLayout.expandedHeight + 16)
         for width in [ConsoleLayout.expandedMaxWidth, ConsoleLayout.expandedMinWidth] {
             model.expandedWidth = width
             for tab in model.tabs {
@@ -237,6 +302,44 @@ enum ConsoleSheet {
                 )
             }
         }
+        model.expandedWidth = ConsoleLayout.expandedMinWidth
+        for scope in [CalendarScope.week, .month] {
+            model.tab = .calendar
+            model.calendarScope = scope
+            write(PanelPreview(model: model), size: panel, to: folder.appending(path: "calendar-\(scope.rawValue).png"))
+        }
+        model.calendarScope = .day
+
+        // Перевод.
+        if let text = model.pressTranslate(selection: "Привет, это проверка перевода", clipboard: nil) {
+            model.finishTranslate(source: text, result: .success("Hello, this is a translation check"))
+            write(PanelPreview(model: model), size: panel, to: folder.appending(path: "translate.png"))
+        }
+        model.setExpanded(true)
+
+        // Суфлёр идёт: текст запоминается, поэтому сразу забывается.
+        let draft = model.prompterDraft
+        model.setPrompterFollowsVoice(false)
+        model.startPrompter()
+        if model.prompter.isActive {
+            model.tab = .prompter
+            write(PanelPreview(model: model), size: panel, to: folder.appending(path: "prompter-running.png"))
+            write(
+                PrompterPreview(model: model), size: CGSize(width: PrompterLayout.width + 16, height: PrompterLayout.textHeight + 16),
+                to: folder.appending(path: "prompter-panel.png")
+            )
+            model.stopPrompter()
+            model.forgetPrompterText(draft)
+        }
+
+        // Пустые страницы.
+        model.clearShelf()
+        model.updateCalendar([])
+        for tab in [ConsoleModuleID.shelf, .calendar] {
+            model.tab = tab
+            write(PanelPreview(model: model), size: panel, to: folder.appending(path: "\(tab.rawValue)-empty.png"))
+        }
+
         model.tab = .limits
         model.pagesHovered = true
         write(
@@ -250,7 +353,11 @@ enum ConsoleSheet {
         let host = NSHostingView(rootView: view.frame(width: size.width, height: size.height).background(Color(white: 0.32)))
         host.frame = CGRect(origin: .zero, size: size)
         host.layoutSubtreeIfNeeded()
-        guard let bitmap = host.bitmapImageRepForCachingDisplay(in: host.bounds) else { return }
+        guard let bitmap = NSBitmapImageRep(
+            bitmapDataPlanes: nil, pixelsWide: Int(size.width * 2), pixelsHigh: Int(size.height * 2), bitsPerSample: 8, samplesPerPixel: 4,
+            hasAlpha: true, isPlanar: false, colorSpaceName: .deviceRGB, bytesPerRow: 0, bitsPerPixel: 0
+        ) else { return }
+        bitmap.size = size
         host.cacheDisplay(in: host.bounds, to: bitmap)
         try? bitmap.representation(using: .png, properties: [:])?.write(to: url)
     }
