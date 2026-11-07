@@ -26,7 +26,6 @@ struct PulseMenuView: View {
                 }
             }
             VStack(spacing: 0) {
-                PulseMenuRow(title: "Вернуть маскота в угол") { act { app.panel?.resetPosition() } }
                 PulseMenuRow(title: "Настройки", keys: "⌘,") { act { app.showSettings() } }
                     .keyboardShortcut(",")
                 PulseMenuRow(title: "Выйти", keys: "⌘Q") { NSApp.terminate(nil) }
