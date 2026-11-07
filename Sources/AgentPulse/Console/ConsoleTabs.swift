@@ -52,12 +52,50 @@ private struct EventRow: View {
     }
 
     private func detail(running: Bool) -> String {
+        EventWords.detail(event, now: model.now)
+    }
+}
+
+private enum EventWords {
+    /// «Через 8 мин · Zoom», «Идёт, ещё 12 мин», «21:20 – 21:50».
+    static func detail(_ event: MeetingEvent, now: Date) -> String {
         if event.isAllDay { return "Весь день" }
-        let minutes = Int(event.start.timeIntervalSince(model.now) / 60)
-        if running { return "Идёт, ещё \(max(1, Int(event.end.timeIntervalSince(model.now) / 60))) мин" }
-        if minutes >= 0, minutes < 60 { return "Через \(max(1, minutes)) мин" }
+        let running = event.start <= now && event.end > now
+        let minutes = Int(event.start.timeIntervalSince(now) / 60)
         let clock = CalendarText.formatter("HH:mm")
-        return "\(clock.string(from: event.start)) – \(clock.string(from: event.end))"
+        let time: String
+        if running {
+            time = "Идёт, ещё \(max(1, Int(event.end.timeIntervalSince(now) / 60))) мин"
+        } else if minutes >= 0, minutes < 60 {
+            time = "Через \(max(1, minutes)) мин"
+        } else {
+            time = "\(clock.string(from: event.start)) – \(clock.string(from: event.end))"
+        }
+        return [time, event.link?.service.title].compactMap(\.self).joined(separator: " · ")
+    }
+}
+
+/// Карточка ближайшей встречи: главное в календаре видно сразу, а не строкой в списке.
+private struct FeaturedEvent: View {
+    let model: ConsoleModel
+    let event: MeetingEvent
+
+    var body: some View {
+        let running = event.start <= model.now
+        VStack(alignment: .leading, spacing: 6) {
+            HStack(spacing: 6) {
+                Circle().fill(event.color.map { Color(hex: $0) } ?? ConsoleStyle.green).frame(width: 6, height: 6)
+                Text(EventWords.detail(event, now: model.now))
+                    .font(noteFont)
+                    .foregroundStyle(running ? ConsoleStyle.green : ConsoleStyle.caption)
+                    .lineLimit(1)
+            }
+            Text(event.title).font(ConsoleStyle.font(15, .semibold)).foregroundStyle(.white).lineLimit(2)
+            Spacer(minLength: 0)
+            if let link = event.link {
+                PrompterSmallButton(title: "Войти", tint: ConsoleStyle.orange) { model.onJoin?(link.url) }
+            }
+        }
     }
 }
 
@@ -150,12 +188,21 @@ struct CalendarTab: View {
                 dayButton("alt-arrow-right", "Следующий день", 1)
             }
             let events = model.calendar.events(on: model.calendarDay)
+            let isToday = Calendar.current.isDate(model.calendarDay, inSameDayAs: model.now)
+            let next = isToday ? events.first { !$0.isAllDay && $0.end > model.now } : nil
+            let rest = events.filter { $0.id != next?.id }
             if events.isEmpty {
                 ConsoleEmpty(icon: "calendar", title: "Встреч нет")
             } else {
-                ScrollView {
-                    VStack(alignment: .leading, spacing: 10) {
-                        ForEach(events) { EventRow(model: model, event: $0) }
+                HStack(alignment: .top, spacing: 12) {
+                    if let next { FeaturedEvent(model: model, event: next).frame(maxWidth: .infinity, alignment: .leading) }
+                    if !rest.isEmpty {
+                        ScrollView {
+                            VStack(alignment: .leading, spacing: 10) {
+                                ForEach(rest) { EventRow(model: model, event: $0) }
+                            }
+                        }
+                        .frame(maxWidth: .infinity)
                     }
                 }
             }
