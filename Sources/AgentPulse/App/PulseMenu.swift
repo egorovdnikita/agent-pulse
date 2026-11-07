@@ -56,7 +56,7 @@ struct PulseMenuView: View {
                         Text("\(BubbleCategory.sessionTitle(session)) — \(session.phase.text)")
                             .font(ConsoleStyle.font(13, .medium))
                             .foregroundStyle(.white)
-                            .lineLimit(1)
+                            .lineLimit(2)
                     }
                 }
             }
