@@ -29,7 +29,7 @@ final class ConsoleModel {
     private(set) var now = Date()
     private(set) var expanded = false
     /// Открытая вкладка.
-    var tab = ConsoleModuleID.limits
+    var tab = ConsoleModuleID.shelf
     var calendarScope = CalendarScope.day
     var calendarDay = Date()
     /// Сколько месяцев вперёд открыто: события загружаются на два.
