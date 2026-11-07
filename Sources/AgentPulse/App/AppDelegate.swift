@@ -790,7 +790,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
 
     func installStatusline() {
         guard let path = statuslinePath else {
-            showAlert("Не найден pulse-statusline", "Он должен лежать рядом с приложением. Соберите проект скриптом scripts/bundle.sh.")
+            showAlert("Не удалось подключить лимиты", "Приложение установлено не полностью. Установи его заново.")
             return
         }
         let alert = NSAlert()
@@ -808,7 +808,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
             try StatuslineInstaller.install(wrapperPath: path)
             model.statuslineInstalled = true
         } catch {
-            showAlert("Лимиты не подключены", "\(error)")
+            showAlert("Не удалось подключить лимиты", "Попробуй ещё раз. Настройки Claude Code не изменились.")
         }
     }
 
@@ -817,7 +817,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
             try StatuslineInstaller.uninstall()
             model.statuslineInstalled = false
         } catch {
-            showAlert("Обёртка не снята", "\(error)")
+            showAlert("Не удалось отключить лимиты", "Попробуй ещё раз.")
         }
     }
 
@@ -1169,7 +1169,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         do {
             if enabled { try SMAppService.mainApp.register() } else { try SMAppService.mainApp.unregister() }
         } catch {
-            showAlert("Не получилось", "\(error.localizedDescription)")
+            showAlert("Не получилось", "Попробуй ещё раз.")
         }
         model.launchAtLogin = SMAppService.mainApp.status == .enabled
     }
@@ -1199,7 +1199,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
 
     func installBrowserBridge() {
         guard let hook = hookPath else {
-            showAlert("Не найден pulse-hook", "Соберите приложение скриптом scripts/bundle.sh.")
+            showAlert("Не удалось подключить браузер", "Приложение установлено не полностью. Установи его заново.")
             return
         }
         let alert = NSAlert()
@@ -1225,7 +1225,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
             }
             revealExtension()
         } catch {
-            showAlert("Мост не установлен", "\(error)")
+            showAlert("Не удалось подключить браузер", "Попробуй ещё раз.")
         }
     }
 
@@ -1234,7 +1234,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
             try BrowserBridgeInstaller.uninstall()
             model.browserBridgeInstalled = false
         } catch {
-            showAlert("Мост не удалён", "\(error)")
+            showAlert("Не удалось отключить браузер", "Попробуй ещё раз.")
         }
     }
 
@@ -1245,11 +1245,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
 
     func installHooks() {
         guard let command = hookCommand else {
-            showAlert("Не найден pulse-hook", "Он должен лежать рядом с приложением. Соберите проект скриптом scripts/bundle.sh.")
+            showAlert("Не удалось подключить Claude Code", "Приложение установлено не полностью. Установи его заново.")
             return
         }
         let alert = NSAlert()
-        alert.messageText = "Установить хуки Claude Code?"
+        alert.messageText = "Подключить Claude Code?"
         alert.informativeText = """
             Agent Pulse добавит хуки в ~/.claude/settings.json, чтобы видеть, что делает агент. \
             Рядом будет создана резервная копия файла. Ваши собственные хуки не изменятся, \
@@ -1257,7 +1257,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
 
             Ничего не уходит с машины, текст промптов не читается.
             """
-        alert.addButton(withTitle: "Установить")
+        alert.addButton(withTitle: "Подключить")
         alert.addButton(withTitle: "Отмена")
         NSApp.activate()
         guard alert.runModal() == .alertFirstButtonReturn else { return }
@@ -1266,7 +1266,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
             model.hooksInstalled = true
             startOrca()
         } catch {
-            showAlert("Хуки не установлены", "\(error)")
+            showAlert("Не удалось подключить Claude Code", "Попробуй ещё раз. Настройки Claude Code не изменились.")
         }
     }
 
@@ -1277,7 +1277,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
             model.hooksInstalled = false
             startOrca()
         } catch {
-            showAlert("Хуки не удалены", "\(error)")
+            showAlert("Не удалось отключить Claude Code", "Попробуй ещё раз.")
         }
     }
 
