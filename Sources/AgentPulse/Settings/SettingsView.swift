@@ -139,7 +139,7 @@ private struct GeneralSettings: View {
                 HStack(alignment: .top, spacing: 16) {
                     MascotView(animator: model.animator, diameter: 48)
                         .frame(width: 104, height: 104)
-                        .background(Color.black, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+                        .background(Color.black, in: RoundedRectangle(cornerRadius: 6, style: .continuous))
                     VStack(alignment: .leading, spacing: 6) {
                         Text(Self.now(model)).font(ConsoleStyle.font(15, .semibold))
                         if let today = Self.today(model) {
