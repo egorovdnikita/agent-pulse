@@ -641,14 +641,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         applyTrackpadGesture()
     }
 
-    func setConsolePlacement(_ value: String) {
-        model.config.console.placement = value
-        try? model.config.save()
-        model.console.setExpanded(false)
-        model.console.placedTop = value != "bottom"
-        model.console.onLayoutChange?()
-    }
-
     func setSounds(_ on: Bool) {
         model.config.console.sounds = on
         try? model.config.save()

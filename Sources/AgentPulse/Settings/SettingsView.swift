@@ -461,11 +461,6 @@ private struct ConsoleSettings: View {
                 }
             }
             SettingsBlock {
-                SettingsPicker("Где стоит Пульт", selection: Binding(get: { settings.placement }, set: { app.setConsolePlacement($0) })) {
-                    Text("Вверху, в строке меню").tag("top")
-                    Text("Внизу, у Dock").tag("bottom")
-                }
-                .disabled(!settings.enabled)
                 Toggle(isOn: Binding(get: { settings.sounds }, set: { app.setSounds($0) })) {
                     Text("Звуки")
                     Text("Файл на полке, текст вставлен, лимит на исходе, запись диктовки. Молчат при суфлёре, в созвон и в тихие часы")
