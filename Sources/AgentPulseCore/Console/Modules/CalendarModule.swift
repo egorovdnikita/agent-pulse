@@ -8,8 +8,11 @@ public struct MeetingEvent: Sendable, Equatable, Identifiable {
     public var end: Date
     public var isAllDay: Bool
     public var link: MeetingLink?
+    /// Цвет календаря, sRGB hex.
+    public var color: UInt32?
 
-    public init(id: String, title: String, start: Date, end: Date, isAllDay: Bool = false, link: MeetingLink? = nil) {
+    public init(id: String, title: String, start: Date, end: Date, isAllDay: Bool = false, link: MeetingLink? = nil, color: UInt32? = nil) {
+        self.color = color
         self.id = id
         self.title = title
         self.start = start

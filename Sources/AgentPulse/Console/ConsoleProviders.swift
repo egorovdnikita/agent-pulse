@@ -15,6 +15,14 @@ final class CalendarProvider {
         EKEventStore.authorizationStatus(for: .event) == .fullAccess
     }
 
+    /// Цвет календаря, как в приложении «Календарь».
+    private static func hex(_ color: CGColor?) -> UInt32? {
+        guard let color = color?.converted(to: CGColorSpace(name: CGColorSpace.sRGB)!, intent: .defaultIntent, options: nil),
+              let parts = color.components, parts.count >= 3 else { return nil }
+        let byte = { (value: CGFloat) in UInt32(min(255, max(0, (value * 255).rounded()))) }
+        return byte(parts[0]) << 16 | byte(parts[1]) << 8 | byte(parts[2])
+    }
+
     static var denied: Bool {
         let status = EKEventStore.authorizationStatus(for: .event)
         return status == .denied || status == .restricted
@@ -60,7 +68,8 @@ final class CalendarProvider {
             MeetingEvent(
                 id: "\(event.eventIdentifier ?? "")|\(event.startDate.timeIntervalSince1970)",
                 title: event.title ?? "Без названия", start: event.startDate, end: event.endDate, isAllDay: event.isAllDay,
-                link: MeetingLinks.find(url: event.url, location: event.location, notes: event.notes)
+                link: MeetingLinks.find(url: event.url, location: event.location, notes: event.notes),
+                color: event.calendar.flatMap { Self.hex($0.cgColor) }
             )
         }
     }

@@ -37,7 +37,7 @@ private struct EventRow: View {
         let over = event.end <= model.now
         HStack(spacing: 10) {
             Capsule()
-                .fill(running ? ConsoleStyle.green : ConsoleStyle.track)
+                .fill(event.color.map { Color(hex: $0) } ?? ConsoleStyle.track)
                 .frame(width: 3, height: 30)
             VStack(alignment: .leading, spacing: 1) {
                 Text(event.title).font(tabFont).foregroundStyle(.white).lineLimit(1)
