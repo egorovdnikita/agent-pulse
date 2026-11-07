@@ -196,24 +196,39 @@ struct CalendarTab: View {
 
 // MARK: - Полка
 
-/// Строка полки: файл вытаскивается наружу, и после этого его на полке нет.
+/// Файл вытаскивается наружу как из Finder, и после этого его на полке нет.
+/// Вид лежит поверх плитки и сам ловит нажатие: снизу до него мышь не доходит.
 private final class ShelfDragView: NSView, NSDraggingSource {
     var url: URL?
     var onDropped: ((URL) -> Void)?
+    private var pressedAt: NSPoint?
 
     override func acceptsFirstMouse(for event: NSEvent?) -> Bool { true }
 
+    override func mouseDown(with event: NSEvent) {
+        pressedAt = convert(event.locationInWindow, from: nil)
+    }
+
     override func mouseDragged(with event: NSEvent) {
-        guard let url else { return }
+        guard let url, let start = pressedAt else { return }
+        let point = convert(event.locationInWindow, from: nil)
+        guard hypot(point.x - start.x, point.y - start.y) > 3 else { return }
+        pressedAt = nil
         let item = NSDraggingItem(pasteboardWriter: url as NSURL)
-        let icon = NSWorkspace.shared.icon(forFile: url.path)
-        let location = convert(event.locationInWindow, from: nil)
-        item.setDraggingFrame(NSRect(x: location.x - 16, y: location.y - 16, width: 32, height: 32), contents: icon)
+        let side = 48.0
+        item.setDraggingFrame(
+            NSRect(x: point.x - side / 2, y: point.y - side / 2, width: side, height: side),
+            contents: NSWorkspace.shared.icon(forFile: url.path)
+        )
         beginDraggingSession(with: [item], event: event, source: self)
     }
 
+    override func mouseUp(with event: NSEvent) {
+        pressedAt = nil
+    }
+
     func draggingSession(_ session: NSDraggingSession, sourceOperationMaskFor context: NSDraggingContext) -> NSDragOperation {
-        [.copy, .move, .generic]
+        context == .outsideApplication ? [.move, .copy, .generic, .link] : []
     }
 
     func draggingSession(_ session: NSDraggingSession, endedAt screenPoint: NSPoint, operation: NSDragOperation) {
@@ -260,6 +275,7 @@ struct ShelfTab: View {
                         VStack(spacing: 4) {
                             Image(nsImage: NSWorkspace.shared.icon(forFile: item.url.path)).resizable().frame(width: 40, height: 40)
                                 .padding(.horizontal, 8)
+                                .overlay { ShelfDragArea(url: item.url) { model.removeFromShelf($0) } }
                                 .overlay(alignment: .topTrailing) {
                                     Button { model.removeFromShelf(item.url) } label: { solar("close-circle", 16).opacity(0.5) }
                                         .buttonStyle(ConsolePressStyle()).accessibilityLabel("Убрать с полки")
@@ -268,7 +284,6 @@ struct ShelfTab: View {
                             Text(detail(item.url)).font(ConsoleStyle.font(11)).foregroundStyle(ConsoleStyle.caption).lineLimit(1)
                         }
                         .frame(maxWidth: .infinity)
-                        .background(ShelfDragArea(url: item.url) { model.removeFromShelf($0) })
                     }
                 }
             }
