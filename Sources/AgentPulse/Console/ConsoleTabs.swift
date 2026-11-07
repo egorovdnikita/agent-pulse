@@ -655,7 +655,8 @@ struct PrompterEditor: NSViewRepresentable {
         view.textColor = .white
         view.insertionPointColor = .white
         view.font = ConsoleStyle.nsFont(13)
-        view.textContainerInset = NSSize(width: 6, height: 6)
+        // Текст стоит по тому же полю, что и в остальных карточках: 14 с учётом внутреннего поля строки.
+        view.textContainerInset = NSSize(width: 9, height: 12)
         view.isVerticallyResizable = true
         view.autoresizingMask = .width
         view.textContainer?.widthTracksTextView = true
@@ -743,8 +744,8 @@ struct PrompterTab: View {
                     Text("Вставь текст или перетащи .txt и .md")
                         .font(ConsoleStyle.font(13))
                         .foregroundStyle(ConsoleStyle.caption)
-                        .padding(.horizontal, 11)
-                        .padding(.vertical, 6)
+                        .padding(.horizontal, 14)
+                        .padding(.vertical, 12)
                         .allowsHitTesting(false)
                 }
             }
@@ -759,8 +760,8 @@ struct PrompterTab: View {
                         Text(estimate).font(noteFont).foregroundStyle(ConsoleStyle.caption)
                     }
                 }
-                .padding(.horizontal, 12)
-                .padding(.bottom, 10)
+                .padding(.horizontal, 14)
+                .padding(.bottom, 12)
                 .padding(.top, 4)
             }
         }
@@ -923,7 +924,7 @@ struct TranslateTab: View {
                         .foregroundStyle(ConsoleStyle.caption)
                 }
             }
-            .padding(.horizontal, 12)
+            .padding(.horizontal, 14)
             .padding(.top, 8)
             ZStack(alignment: .topLeading) {
                 PrompterEditor(text: Binding(get: { model.translateInput }, set: { model.typeTranslation($0) }))
@@ -931,8 +932,8 @@ struct TranslateTab: View {
                     Text("Введи текст или выдели его и нажми ⌃⌥T")
                         .font(ConsoleStyle.font(13))
                         .foregroundStyle(ConsoleStyle.caption)
-                        .padding(.horizontal, 11)
-                        .padding(.vertical, 6)
+                        .padding(.horizontal, 14)
+                        .padding(.vertical, 12)
                         .allowsHitTesting(false)
                 }
             }
