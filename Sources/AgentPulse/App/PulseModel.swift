@@ -161,7 +161,6 @@ final class PulseModel {
         console.setPrompterSpeed(config.console.prompterSpeed)
         console.setPrompterFollowsVoice(config.console.prompterVoice)
         console.prompterTextSize = config.console.prompterTextSize
-        console.placedTop = config.console.placement != "bottom"
         console.dictationEnabled = config.console.dictation
         console.setCapsuleWindow(LimitWindowKind(rawValue: config.console.capsuleWindow))
         console.dictationRules = config.console.dictationRules
