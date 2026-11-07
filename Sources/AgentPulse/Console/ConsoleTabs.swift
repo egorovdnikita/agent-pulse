@@ -110,13 +110,13 @@ private struct MonthGrid: View {
         let days = calendar.range(of: .day, in: .month, for: start)?.count ?? 30
         // Понедельник — первая колонка.
         let lead = (calendar.component(.weekday, from: start) + 5) % 7
-        LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 0), count: 7), spacing: 1) {
+        LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 0), count: 7), spacing: 0) {
             ForEach(["пн", "вт", "ср", "чт", "пт", "сб", "вс"], id: \.self) {
                 Text($0).font(ConsoleStyle.font(11)).foregroundStyle(ConsoleStyle.caption)
             }
             ForEach(0..<(lead + days), id: \.self) { index in
                 if index < lead {
-                    Color.clear.frame(height: 20)
+                    Color.clear.frame(height: 19)
                 } else if let day = calendar.date(byAdding: .day, value: index - lead, to: start) {
                     cell(day, number: index - lead + 1, isToday: calendar.isDate(day, inSameDayAs: today))
                 }
@@ -134,16 +134,16 @@ private struct MonthGrid: View {
             model.calendarScope = .day
         } label: {
             ZStack {
-                if isToday { Circle().fill(ConsoleStyle.red).frame(width: 20, height: 20) }
+                if isToday { Circle().fill(ConsoleStyle.red).frame(width: 18, height: 18) }
                 if !isToday, model.calendarScope == .day, Calendar.current.isDate(day, inSameDayAs: model.calendarDay) {
-                    Circle().strokeBorder(.white, lineWidth: 1).frame(width: 20, height: 20)
+                    Circle().strokeBorder(.white, lineWidth: 1).frame(width: 18, height: 18)
                 }
                 Text("\(number)").font(noteFont).foregroundStyle(isToday ? .white : isWeekend(day) ? ConsoleStyle.red : .white)
                 if !model.calendar.events(on: day).isEmpty {
                     Circle().fill(isToday ? Color.white : ConsoleStyle.orange).frame(width: 3, height: 3).offset(y: 7)
                 }
             }
-            .frame(maxWidth: .infinity, minHeight: 20)
+            .frame(maxWidth: .infinity, minHeight: 19)
             .contentShape(Rectangle())
         }
         .buttonStyle(ConsolePressStyle())
