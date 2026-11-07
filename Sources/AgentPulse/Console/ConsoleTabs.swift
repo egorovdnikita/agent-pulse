@@ -738,29 +738,33 @@ struct PrompterTab: View {
     }
 
     private var editor: some View {
-        ZStack(alignment: .topLeading) {
-            PrompterEditor(text: $model.prompterDraft)
-            if model.prompterDraft.isEmpty {
-                Text("Вставь текст или перетащи .txt и .md")
-                    .font(ConsoleStyle.font(13))
-                    .foregroundStyle(ConsoleStyle.caption)
-                    .padding(.horizontal, 11)
-                    .padding(.vertical, 6)
-                    .allowsHitTesting(false)
+        // Счётчик и «Очистить» под текстом, а не поверх него: длинный текст иначе на них наезжает.
+        VStack(spacing: 0) {
+            ZStack(alignment: .topLeading) {
+                PrompterEditor(text: $model.prompterDraft)
+                if model.prompterDraft.isEmpty {
+                    Text("Вставь текст или перетащи .txt и .md")
+                        .font(ConsoleStyle.font(13))
+                        .foregroundStyle(ConsoleStyle.caption)
+                        .padding(.horizontal, 11)
+                        .padding(.vertical, 6)
+                        .allowsHitTesting(false)
+                }
             }
-        }
-        .overlay(alignment: .bottomTrailing) {
-            if let estimate = model.prompterEstimate {
-                Text(estimate).font(noteFont).foregroundStyle(ConsoleStyle.caption).padding(10).allowsHitTesting(false)
-            }
-        }
-        .overlay(alignment: .bottomLeading) {
             if hasText {
-                Button("Очистить") { model.prompterDraft = "" }
-                    .buttonStyle(ConsolePressStyle())
-                    .font(ConsoleStyle.font(11, .medium))
-                    .foregroundStyle(ConsoleStyle.caption)
-                    .padding(10)
+                HStack {
+                    Button("Очистить") { model.prompterDraft = "" }
+                        .buttonStyle(ConsolePressStyle())
+                        .font(ConsoleStyle.font(11, .medium))
+                        .foregroundStyle(ConsoleStyle.caption)
+                    Spacer(minLength: 8)
+                    if let estimate = model.prompterEstimate {
+                        Text(estimate).font(noteFont).foregroundStyle(ConsoleStyle.caption)
+                    }
+                }
+                .padding(.horizontal, 12)
+                .padding(.bottom, 10)
+                .padding(.top, 4)
             }
         }
         .background(ConsoleStyle.card, in: RoundedRectangle(cornerRadius: ConsoleStyle.cardRadius, style: .continuous))
