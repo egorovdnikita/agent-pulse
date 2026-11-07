@@ -387,7 +387,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
             self.model.animator.watchesConsole = on ? (self.model.config.display.anchor.isRight ? -1 : 1) : nil
             self.updateConsoleVisibility()
         }
-        console.onOpenSettings = { [weak self] in self?.showSettings(.console) }
+        console.onOpenSettings = { [weak self] _ in self?.showSettings(.console) }
         applyDictationHotKeys()
         // Отладка: `--dictation-model` — скачать модель, `--dictation-demo файл.wav [секунд]` — весь путь без микрофона.
         if CommandLine.arguments.contains("--dictation-model") { controller.models.download() }

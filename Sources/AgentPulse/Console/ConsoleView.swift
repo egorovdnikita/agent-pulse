@@ -137,7 +137,7 @@ private struct LimitCard: View {
                     }
                     Spacer(minLength: 0)
                     if readings.allSatisfy({ $0.reading == nil }) {
-                        Button("Подключить") { model.onOpenSettings?() }
+                        Button("Подключить") { model.onOpenSettings?("Лимиты \(service.title)") }
                             .buttonStyle(ConsolePressStyle())
                             .font(.system(size: 11, weight: .semibold))
                             .foregroundStyle(.white)
@@ -196,28 +196,20 @@ private struct PageTabs: View {
                 .buttonStyle(ConsolePressStyle())
             }
             Spacer(minLength: 0)
-            PageDots(model: model)
-        }
-    }
-}
-
-/// Точки: где ты среди страниц. Нажимаются, но главная навигация — слова.
-private struct PageDots: View {
-    let model: ConsoleModel
-
-    var body: some View {
-        HStack(spacing: 0) {
-            ForEach(model.tabs, id: \.id) { tab in
-                Button { model.openPage(tab.id) } label: {
-                    Circle()
-                        .fill(Color.white.opacity(model.tab == tab.id ? 0xB3 / 255 : 0x3D / 255))
-                        .frame(width: 6, height: 6)
-                        .frame(width: 14, height: ConsoleLook.tabs)
-                        .contentShape(Rectangle())
-                }
-                .buttonStyle(.plain)
-                .accessibilityLabel(tab.title)
+            Button {
+                model.setExpanded(false)
+                model.onOpenSettings?(nil)
+            } label: {
+                Image(nsImage: SolarIcons.image("settings") ?? NSImage())
+                    .resizable()
+                    .frame(width: 18, height: 18)
+                    .foregroundStyle(.white)
+                    .opacity(0.55)
+                    .frame(width: ConsoleLook.tabs, height: ConsoleLook.tabs)
+                    .contentShape(Rectangle())
             }
+            .buttonStyle(ConsolePressStyle())
+            .accessibilityLabel("Настройки")
         }
     }
 }

@@ -114,7 +114,8 @@ final class ConsoleModel {
     @ObservationIgnored var dictationModelReady: () -> Bool = { false }
     /// «Скопировать» и «Заменить выделенное» во вкладке перевода.
     @ObservationIgnored var onTranslateReplace: ((String) -> Void)?
-    @ObservationIgnored var onOpenSettings: (() -> Void)?
+    /// Открыть настройки Пульта; значение — блок, к которому перейти.
+    @ObservationIgnored var onOpenSettings: ((String?) -> Void)?
     @ObservationIgnored private var prompterTimer: Timer?
     @ObservationIgnored private var dictationLimitTimer: Timer?
     @ObservationIgnored private var lastTick = Date.distantPast
