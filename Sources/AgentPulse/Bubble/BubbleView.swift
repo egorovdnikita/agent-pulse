@@ -3,7 +3,7 @@ import AgentPulseCore
 import SwiftUI
 
 /// Пузырь с хвостиком к маскоту. Сверху — категория: иконка и заголовок, ниже — суть, чуть мельче и светлее.
-/// Белая заливка, мягкая тёмная тень — палитра маскота.
+/// Чёрная заливка с тонким краем и Geist — тот же язык, что у Пульта.
 struct BubbleView: View {
     static let maxWidth: CGFloat = 220
     nonisolated static let tailSize: CGFloat = 5
@@ -16,31 +16,32 @@ struct BubbleView: View {
             HStack(spacing: 5) {
                 CategoryIcon(category: message.category)
                 Text(message.title)
-                    .font(.system(size: 13, weight: .semibold, design: .rounded))
-                    .foregroundStyle(.black)
+                    .font(ConsoleStyle.font(13, .semibold))
+                    .foregroundStyle(.white)
                     .lineLimit(1)
                     .layoutPriority(1)
                 if let when = message.when {
                     Text(when)
-                        .font(.system(size: 11, weight: .medium, design: .rounded))
-                        .foregroundStyle(.black.opacity(0.4))
+                        .font(ConsoleStyle.font(11))
+                        .foregroundStyle(ConsoleStyle.caption)
                         .lineLimit(1)
                 }
             }
             Text(message.text)
-                .font(.system(size: 12, weight: .medium, design: .rounded))
-                .foregroundStyle(.black.opacity(0.6))
+                .font(ConsoleStyle.font(12))
+                .foregroundStyle(.white.opacity(0.75))
                 .multilineTextAlignment(.leading)
                 .lineLimit(4)
                 .fixedSize(horizontal: false, vertical: true)
         }
-        .padding(.horizontal, 10)
-        .padding(.vertical, 7)
+        .padding(.horizontal, 12)
+        .padding(.vertical, 9)
         .padding(tailOnRight ? .trailing : .leading, Self.tailSize)
         .background(
             BubbleShape(tailOnRight: tailOnRight)
-                .fill(.white)
-                .shadow(color: .black.opacity(0.25), radius: 4)
+                .fill(.black)
+                .overlay { BubbleShape(tailOnRight: tailOnRight).stroke(ConsoleStyle.edge, lineWidth: 1) }
+                .shadow(color: .black.opacity(0.35), radius: 6, y: 2)
         )
         .frame(maxWidth: Self.maxWidth, alignment: tailOnRight ? .trailing : .leading)
     }
@@ -61,9 +62,18 @@ struct CategoryIcon: View {
             Image(nsImage: icon)
                 .resizable()
                 .renderingMode(.template)
-                .foregroundStyle(Color(hex: category.color))
+                .foregroundStyle(Self.readable(category.color))
                 .frame(width: Self.size, height: Self.size)
         }
+    }
+
+    /// Тёмные цвета категорий на чёрном не читаются: они светлеют, сохраняя оттенок.
+    static func readable(_ hex: UInt32) -> Color {
+        let (red, green, blue) = (Double((hex >> 16) & 0xFF), Double((hex >> 8) & 0xFF), Double(hex & 0xFF))
+        let light = (0.2126 * red + 0.7152 * green + 0.0722 * blue) / 255
+        guard light < 0.35 else { return Color(hex: hex) }
+        let mix = 0.55
+        return Color(.sRGB, red: (red + (255 - red) * mix) / 255, green: (green + (255 - green) * mix) / 255, blue: (blue + (255 - blue) * mix) / 255)
     }
 
     @MainActor private static var appIcons: [String: NSImage] = [:]
@@ -95,7 +105,7 @@ struct BubbleShape: Shape {
         let body = tailOnRight
             ? CGRect(x: rect.minX, y: rect.minY, width: rect.width - tail, height: rect.height)
             : CGRect(x: rect.minX + tail, y: rect.minY, width: rect.width - tail, height: rect.height)
-        var path = Path(roundedRect: body, cornerRadius: min(12, body.height / 2), style: .continuous)
+        var path = Path(roundedRect: body, cornerRadius: min(14, body.height / 2), style: .continuous)
         let midY = rect.midY
         if tailOnRight {
             path.move(to: CGPoint(x: body.maxX - 1, y: midY - 4))
