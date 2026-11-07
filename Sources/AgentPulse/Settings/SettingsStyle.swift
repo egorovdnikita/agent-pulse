@@ -168,18 +168,19 @@ private struct SettingsSwitch: View {
     @Environment(\.isEnabled) private var isEnabled
 
     var body: some View {
-        HStack(spacing: 12) {
-            VStack(alignment: .leading, spacing: 2) { configuration.label }
-                .frame(maxWidth: .infinity, alignment: .leading)
-            ConsoleSwitch(isOn: configuration.isOn)
+        // Кнопка, а не жест: иначе до переключателя не добраться с клавиатуры.
+        Button { configuration.isOn.toggle() } label: {
+            HStack(spacing: 12) {
+                VStack(alignment: .leading, spacing: 2) { configuration.label }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                ConsoleSwitch(isOn: configuration.isOn)
+            }
+            .contentShape(Rectangle())
         }
+        .buttonStyle(.plain)
         .opacity(isEnabled ? 1 : 0.5)
-        .contentShape(Rectangle())
-        .onTapGesture { if isEnabled { configuration.isOn.toggle() } }
-        .accessibilityElement(children: .combine)
         .accessibilityAddTraits(.isToggle)
         .accessibilityValue(configuration.isOn ? "Включено" : "Выключено")
-        .accessibilityAction { if isEnabled { configuration.isOn.toggle() } }
     }
 }
 
