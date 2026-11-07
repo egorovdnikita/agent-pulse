@@ -139,7 +139,7 @@ private struct GeneralSettings: View {
                 HStack(alignment: .top, spacing: 16) {
                     MascotView(animator: model.animator, diameter: 48)
                         .frame(width: 104, height: 104)
-                        .background(Color(white: 0.1), in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+                        .background(Color(white: 0.1), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
                     VStack(alignment: .leading, spacing: 6) {
                         Text(Self.now(model)).font(.headline)
                         if let today = Self.today(model) {
@@ -426,7 +426,7 @@ private struct NewsSettings: View {
                             // Белая плашка — как в облачке: тёмные цвета тем видны и в тёмной теме.
                             CategoryIcon(category: .news(topic))
                                 .frame(width: 26, height: 26)
-                                .background(.white, in: RoundedRectangle(cornerRadius: 7, style: .continuous))
+                                .background(.white, in: RoundedRectangle(cornerRadius: 6, style: .continuous))
                             VStack(alignment: .leading, spacing: 2) {
                                 Text(topic.title)
                                 Text(Set(sources.map(\.name).map { $0.components(separatedBy: " · ").first ?? $0 }).sorted().joined(separator: ", "))

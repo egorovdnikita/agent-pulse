@@ -168,9 +168,9 @@ final class PulseMenuPanel: NSPanel {
         hasShadow = true
         hidesOnDeactivate = false
         let view = PulseMenuView(app: app) { [weak self] in self?.close() }
-            .clipShape(RoundedRectangle(cornerRadius: ConsoleStyle.surfaceRadius - 8, style: .continuous))
+            .clipShape(RoundedRectangle(cornerRadius: ConsoleStyle.cardRadius, style: .continuous))
             .overlay {
-                RoundedRectangle(cornerRadius: ConsoleStyle.surfaceRadius - 8, style: .continuous)
+                RoundedRectangle(cornerRadius: ConsoleStyle.cardRadius, style: .continuous)
                     .strokeBorder(ConsoleStyle.edge, lineWidth: 1)
             }
         contentView = NSHostingView(rootView: view)

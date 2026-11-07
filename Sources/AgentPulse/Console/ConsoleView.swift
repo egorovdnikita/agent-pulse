@@ -78,7 +78,7 @@ private struct CapsuleBody: View {
                 } else if let image = model.leaderImage {
                     Image(nsImage: image).resizable().scaledToFill()
                         .frame(width: ConsoleLook.ring, height: ConsoleLook.ring)
-                        .clipShape(RoundedRectangle(cornerRadius: 5, style: .continuous))
+                        .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
                 } else if let icon = capsule.icon {
                     Image(nsImage: SolarIcons.image(icon) ?? NSImage()).resizable()
                         .frame(width: 16, height: 16).foregroundStyle(.white)

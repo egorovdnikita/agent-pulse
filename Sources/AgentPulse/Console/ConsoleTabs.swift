@@ -323,7 +323,7 @@ struct MediaTab: View {
                     solar("music-note", 40).opacity(0.5).frame(maxWidth: .infinity, maxHeight: .infinity).background(ConsoleStyle.card)
                 }
             }
-            .frame(width: 146, height: 146).clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+            .frame(width: 146, height: 146).clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
             VStack(alignment: .leading, spacing: 0) {
                 Text(playing.title).font(ConsoleStyle.font(15, .semibold)).foregroundStyle(.white).lineLimit(1)
                 if let artist = playing.artist {

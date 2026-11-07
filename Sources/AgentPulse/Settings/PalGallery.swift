@@ -102,7 +102,7 @@ private struct DesktopScene: View {
                         .scaleEffect(scale, anchor: .topLeading)
                 }
             }
-            .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+            .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
     }
 
     private static func gray(_ value: Int) -> Color {
