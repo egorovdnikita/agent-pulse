@@ -53,6 +53,8 @@ final class ConsoleModel {
     /// Столбики волны, 0…1, новые справа.
     private(set) var dictationLevels = [Float](repeating: 0, count: DictationLook.bars)
     var activeWidth = ConsoleLayout.activeWidth
+    /// Курсор над точками-страницами: они становятся кнопками.
+    var pagesHovered = false
     var calendarEnabled = false
     var shelfEnabled = true
     var musicEnabled = true
@@ -526,7 +528,25 @@ final class ConsoleModel {
     /// Кольца в капсуле; при подписи — одно, того, о ком она.
     var visibleRings: [CapsuleRing] {
         let rings = capsule?.rings ?? []
-        return showsLabel ? rings.filter { $0.service == capsule?.labelService } : rings
+        if showsLabel { return rings.filter { $0.service == capsule?.labelService } }
+        guard ringsWidth(rings) + ConsoleLook.padding * 2 > capsuleLimit,
+              let tightest = rings.max(by: { ($0.fraction ?? -1) < ($1.fraction ?? -1) }) else { return rings }
+        return [tightest]
+    }
+
+    private var capsuleLimit: Double {
+        switch fit {
+        case .full(let width): width
+        case .leader, .dot: ConsoleLayout.minWidth
+        }
+    }
+
+    private func ringsWidth(_ rings: [CapsuleRing]) -> Double {
+        let sides = rings.map { ring in
+            let figure = (ring.figure as NSString).size(withAttributes: [.font: ConsoleLook.figureFont]).width
+            return ConsoleLook.mark + ConsoleLook.sideGap + ceil(figure) + (ring.fraction == nil ? 0 : ConsoleLook.sideGap + ConsoleLook.dot)
+        }
+        return sides.reduce(0, +) + Double(max(0, sides.count - 1)) * ConsoleLook.ringGap
     }
 
     /// Показать подпись: курсор над капсулой и хватает места. У встречи и трека строка видна и так.
@@ -548,14 +568,14 @@ final class ConsoleModel {
             if case .full = fit { return activeWidth }
             return ConsoleLayout.minWidth
         }
-        let limit: Double = switch fit {
-        case .full(let width): width
-        case .leader, .dot: ConsoleLayout.minWidth
-        }
+        let limit = capsuleLimit
         let dots = Double(indicators.count)
         let extras = (capsule?.action != nil ? ConsoleLook.joinWidth + ConsoleLook.labelGap : 0)
             + (dots > 0 ? ConsoleLook.labelGap + dots * ConsoleLook.dot + (dots - 1) * 4 : 0)
-        guard let text = capsuleText else { return min(max(ConsoleLayout.minWidth, 0), limit) }
+        guard let text = capsuleText else {
+            let content = ringsWidth(visibleRings) + (dots > 0 ? ConsoleLook.labelGap + dots * ConsoleLook.dot + (dots - 1) * 4 : 0)
+            return min(limit, max(ConsoleLayout.minWidth, ceil(content) + ConsoleLook.padding * 2))
+        }
         let full = capsule?.tail.map { "\(text) \($0)" } ?? text
         let width = (full as NSString).size(withAttributes: [.font: ConsoleLook.labelFont]).width
         return min(limit, max(ConsoleLayout.minWidth, ConsoleLook.ring + ConsoleLook.labelGap + ceil(width) + extras + ConsoleLook.padding * 2))
@@ -580,14 +600,17 @@ enum DictationLook {
 /// Размеры капсулы вне ядра: шрифт есть только у AppKit.
 enum ConsoleLook {
     static let ring = 18.0
-    static let ringGap = 8.0
+    static let ringGap = 14.0
+    static let mark = 15.0
+    static let sideGap = 7.0
+    /// Строка точек и она же кнопками.
+    static let pagesClosed = 20.0
+    static let pagesOpen = 34.0
     static let labelGap = 8.0
     static let padding = 12.0
     static let joinWidth = 40.0
     static let dot = 6.0
     static let alertColor: UInt32 = 0xFF453A
-    @MainActor static let labelFont: NSFont = {
-        let base = NSFont.monospacedDigitSystemFont(ofSize: 12, weight: .medium)
-        return base.fontDescriptor.withDesign(.rounded).flatMap { NSFont(descriptor: $0, size: 12) } ?? base
-    }()
+    @MainActor static let labelFont = ConsoleStyle.nsFont(13, .medium)
+    @MainActor static let figureFont = ConsoleStyle.nsFont(15, .medium)
 }

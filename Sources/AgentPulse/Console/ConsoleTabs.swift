@@ -2,8 +2,8 @@ import AgentPulseCore
 import AppKit
 import SwiftUI
 
-private let tabFont = Font.system(size: 12, weight: .medium, design: .rounded)
-private let noteFont = Font.system(size: 11, design: .rounded).monospacedDigit()
+private let tabFont = ConsoleStyle.font(13, .medium)
+private let noteFont = ConsoleStyle.font(11).monospacedDigit()
 
 @MainActor private func solar(_ name: String, _ size: Double) -> some View {
     Image(nsImage: SolarIcons.image(name) ?? NSImage()).resizable().frame(width: size, height: size).foregroundStyle(.white)
@@ -18,12 +18,12 @@ private struct EventRow: View {
 
     var body: some View {
         HStack(spacing: 8) {
-            Text(time).font(noteFont).foregroundStyle(.white.opacity(0.6)).frame(width: showsDay ? 72 : 40, alignment: .leading)
+            Text(time).font(noteFont).foregroundStyle(ConsoleStyle.caption).frame(width: showsDay ? 72 : 40, alignment: .leading)
             Text(event.title).font(tabFont).foregroundStyle(.white).lineLimit(1)
             Spacer(minLength: 4)
             if let link = event.link, event.end > model.now {
                 Button("Войти") { model.onJoin?(link.url) }
-                    .buttonStyle(.plain).font(tabFont).foregroundStyle(Color(hex: 0xFF9F0A))
+                    .buttonStyle(.plain).font(tabFont).foregroundStyle(ConsoleStyle.orange)
             }
         }
     }
@@ -47,10 +47,10 @@ private struct MonthGrid: View {
         // Понедельник — первая колонка.
         let lead = (calendar.component(.weekday, from: start) + 5) % 7
         LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 0), count: 7), spacing: 2) {
-            ForEach(["пн", "вт", "ср", "чт", "пт", "сб", "вс"], id: \.self) { Text($0).font(noteFont).foregroundStyle(.white.opacity(0.45)) }
+            ForEach(["пн", "вт", "ср", "чт", "пт", "сб", "вс"], id: \.self) { Text($0).font(noteFont).foregroundStyle(ConsoleStyle.caption) }
             ForEach(0..<(lead + days), id: \.self) { index in
                 if index < lead {
-                    Color.clear.frame(height: 26)
+                    Color.clear.frame(height: 24)
                 } else if let day = calendar.date(byAdding: .day, value: index - lead, to: start) {
                     Button {
                         model.calendarDay = day
@@ -58,10 +58,10 @@ private struct MonthGrid: View {
                     } label: {
                         VStack(spacing: 2) {
                             Text("\(index - lead + 1)").font(noteFont)
-                                .foregroundStyle(calendar.isDate(day, inSameDayAs: today) ? Color(hex: 0xFF9F0A) : .white)
+                                .foregroundStyle(calendar.isDate(day, inSameDayAs: today) ? ConsoleStyle.orange : .white)
                             Circle().fill(model.calendar.events(on: day).isEmpty ? Color.clear : Color(hex: model.calendar.accent)).frame(width: 4, height: 4)
                         }
-                        .frame(maxWidth: .infinity, minHeight: 26)
+                        .frame(maxWidth: .infinity, minHeight: 24)
                         .contentShape(Rectangle())
                     }
                     .buttonStyle(.plain)
@@ -75,6 +75,12 @@ struct CalendarTab: View {
     let model: ConsoleModel
 
     var body: some View {
+        ConsoleCard {
+            content
+        }
+    }
+
+    private var content: some View {
         VStack(alignment: .leading, spacing: 10) {
             HStack(spacing: 12) {
                 ForEach(CalendarScope.allCases, id: \.self) { scope in
@@ -92,7 +98,7 @@ struct CalendarTab: View {
             case .day, .week:
                 let events = listed
                 if events.isEmpty {
-                    Text("Встреч нет").font(noteFont).foregroundStyle(.white.opacity(0.6))
+                    Text("Встреч нет").font(noteFont).foregroundStyle(ConsoleStyle.caption)
                 } else {
                     ScrollView {
                         VStack(alignment: .leading, spacing: 8) {
@@ -157,8 +163,14 @@ struct ShelfTab: View {
 
     var body: some View {
         if model.shelf.items.isEmpty {
-            Text("Брось файл на Пульт или на маскота").font(noteFont).foregroundStyle(.white.opacity(0.6))
+            ConsoleCard { Text("Брось файл на Пульт или на маскота").font(tabFont).foregroundStyle(ConsoleStyle.caption) }
         } else {
+            ConsoleCard { files }
+        }
+    }
+
+    private var files: some View {
+        Group {
             VStack(alignment: .leading, spacing: 8) {
                 ScrollView {
                     VStack(alignment: .leading, spacing: 6) {
@@ -174,7 +186,7 @@ struct ShelfTab: View {
                         }
                     }
                 }
-                Button("Очистить") { model.clearShelf() }.buttonStyle(.plain).font(noteFont).foregroundStyle(.white.opacity(0.6))
+                Button("Очистить") { model.clearShelf() }.buttonStyle(.plain).font(noteFont).foregroundStyle(ConsoleStyle.caption)
             }
         }
     }
@@ -194,47 +206,51 @@ struct MediaTab: View {
             VStack(alignment: .leading, spacing: 8) {
                 Text("Недоступно на этой системе").font(tabFont).foregroundStyle(.white)
                 Button("Управлять «Музыкой» и Spotify") { model.onConnectMusic?() }
-                    .buttonStyle(.plain).font(noteFont).foregroundStyle(Color(hex: model.media.accent))
+                    .buttonStyle(.plain).font(noteFont).foregroundStyle(ConsoleStyle.orange)
             }
         } else if let playing = model.media.playing {
+            ConsoleCard { player(playing) }
+        } else {
+            ConsoleCard { Text("Сейчас ничего не играет").font(tabFont).foregroundStyle(ConsoleStyle.caption) }
+        }
+    }
+
+    private func player(_ playing: NowPlaying) -> some View {
             VStack(alignment: .leading, spacing: 10) {
                 HStack(spacing: 10) {
                     Group {
                         if let artwork = model.artwork {
                             Image(nsImage: artwork).resizable().scaledToFill()
                         } else {
-                            solar("music-note", 24).opacity(0.5).frame(maxWidth: .infinity, maxHeight: .infinity).background(.white.opacity(0.08))
+                            solar("music-note", 24).opacity(0.5).frame(maxWidth: .infinity, maxHeight: .infinity).background(ConsoleStyle.card)
                         }
                     }
-                    .frame(width: 56, height: 56).clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+                    .frame(width: 56, height: 56).clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
                     VStack(alignment: .leading, spacing: 2) {
                         Text(playing.title).font(tabFont).foregroundStyle(.white).lineLimit(2)
-                        if let artist = playing.artist { Text(artist).font(noteFont).foregroundStyle(.white.opacity(0.6)).lineLimit(1) }
+                        if let artist = playing.artist { Text(artist).font(noteFont).foregroundStyle(ConsoleStyle.caption).lineLimit(1) }
                     }
                 }
                 if let duration = playing.duration {
-                    Slider(value: Binding(get: { playing.position(now: model.now) }, set: { model.onSeek?($0) }), in: 0...duration)
-                        .controlSize(.mini).tint(Color(hex: model.media.accent))
+                    VStack(spacing: 0) {
+                    ThinSlider(value: playing.position(now: model.now), range: 0...duration, label: "Позиция") { model.onSeek?($0) }
                     HStack {
                         Text(clock(playing.position(now: model.now)))
                         Spacer()
                         Text(clock(duration))
                     }
-                    .font(noteFont).foregroundStyle(.white.opacity(0.6))
+                    .font(noteFont).foregroundStyle(ConsoleStyle.caption)
+                    }
                 }
                 HStack(spacing: 18) {
                     control("skip-previous", "Предыдущий", .previous)
                     control(playing.isPlaying ? "pause" : "play", playing.isPlaying ? "Пауза" : "Играть", .togglePlayPause)
                     control("skip-next", "Следующий", .next)
                     if model.volume != nil {
-                        Slider(value: Binding(get: { model.volume ?? 0 }, set: { model.onVolume?($0) }), in: 0...1)
-                            .controlSize(.mini).tint(.white).accessibilityLabel("Громкость")
+                        ThinSlider(value: model.volume ?? 0, range: 0...1, label: "Громкость") { model.onVolume?($0) }
                     }
                 }
             }
-        } else {
-            Text("Сейчас ничего не играет").font(noteFont).foregroundStyle(.white.opacity(0.6))
-        }
     }
 
     private func control(_ icon: String, _ label: String, _ command: MediaCommand) -> some View {
@@ -263,7 +279,7 @@ private struct PrompterEditor: NSViewRepresentable {
         view.drawsBackground = false
         view.textColor = .white
         view.insertionPointColor = .white
-        view.font = .systemFont(ofSize: 13)
+        view.font = ConsoleStyle.nsFont(13)
         view.textContainerInset = NSSize(width: 6, height: 6)
         view.isVerticallyResizable = true
         view.autoresizingMask = .width
@@ -304,11 +320,13 @@ struct PrompterSmallButton: View {
     var body: some View {
         Button(action: action) {
             Text(title)
-                .font(.system(size: 12, weight: .medium, design: .rounded))
+                .font(ConsoleStyle.font(12, .medium))
                 .foregroundStyle(strong ? .black : .white)
-                .padding(.horizontal, 10)
-                .frame(height: 24)
-                .background(strong ? Color.white : Color.white.opacity(0.14), in: Capsule())
+                .lineLimit(1)
+                .fixedSize()
+                .padding(.horizontal, title.count == 1 ? 0 : 12)
+                .frame(width: title.count == 1 ? 28 : nil, height: 28)
+                .background(strong ? Color.white : ConsoleStyle.button, in: Capsule())
                 .contentShape(Capsule())
         }
         .buttonStyle(.plain)
@@ -338,14 +356,14 @@ struct PrompterTab: View {
                 PrompterEditor(text: $model.prompterDraft)
                 if model.prompterDraft.isEmpty {
                     Text("Вставь текст или перетащи .txt и .md")
-                        .font(.system(size: 13))
-                        .foregroundStyle(.white.opacity(0.4))
+                        .font(ConsoleStyle.font(13))
+                        .foregroundStyle(ConsoleStyle.caption)
                         .padding(.horizontal, 11)
                         .padding(.vertical, 6)
                         .allowsHitTesting(false)
                 }
             }
-            .background(.white.opacity(0.08), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+            .background(ConsoleStyle.card, in: RoundedRectangle(cornerRadius: ConsoleStyle.cardRadius - 8, style: .continuous))
             HStack(spacing: 8) {
                 if !model.prompterLibrary.texts.isEmpty {
                     PrompterSmallButton(title: "Недавние") { model.prompterRecentOpen = true }
@@ -370,7 +388,7 @@ struct PrompterTab: View {
                         model.prompterRecentOpen = false
                     } label: {
                         Text(text.replacingOccurrences(of: "\n", with: " "))
-                            .font(.system(size: 12, design: .rounded))
+                            .font(ConsoleStyle.font(12))
                             .foregroundStyle(.white)
                             .lineLimit(1)
                             .frame(maxWidth: .infinity, alignment: .leading)
@@ -382,8 +400,8 @@ struct PrompterTab: View {
                         if model.prompterLibrary.texts.isEmpty { model.prompterRecentOpen = false }
                     }
                     .buttonStyle(.plain)
-                    .font(.system(size: 11, design: .rounded))
-                    .foregroundStyle(.white.opacity(0.6))
+                    .font(ConsoleStyle.font(11))
+                    .foregroundStyle(ConsoleStyle.caption)
                 }
             }
             Spacer(minLength: 0)
@@ -394,7 +412,7 @@ struct PrompterTab: View {
     private var running: some View {
         VStack(alignment: .leading, spacing: 10) {
             Text("\(PrompterModule.clock(model.prompter.elapsed)) из \(PrompterModule.clock(model.prompter.total))")
-                .font(.system(size: 22, weight: .semibold, design: .rounded).monospacedDigit())
+                .font(ConsoleStyle.font(22, .semibold).monospacedDigit())
                 .foregroundStyle(.white)
             HStack(spacing: 8) {
                 PrompterSmallButton(title: model.prompter.mode == .paused ? "Дальше" : "Пауза") { model.togglePrompterPause() }
@@ -406,28 +424,32 @@ struct PrompterTab: View {
 
     private var controls: some View {
         VStack(alignment: .leading, spacing: 4) {
-            HStack(spacing: 8) {
+            HStack(spacing: 4) {
                 PrompterSmallButton(title: "−") { model.changePrompterSpeed(faster: false) }
                 Text("\(model.prompter.speed) сл/мин")
-                    .font(.system(size: 12, design: .rounded).monospacedDigit())
-                    .foregroundStyle(.white.opacity(0.75))
+                    .font(ConsoleStyle.font(12).monospacedDigit())
+                    .foregroundStyle(ConsoleStyle.caption)
                     .lineLimit(1)
                     .fixedSize()
                 PrompterSmallButton(title: "+") { model.changePrompterSpeed(faster: true) }
-                Spacer()
+                Spacer(minLength: 4)
+                Text("За голосом")
+                    .font(ConsoleStyle.font(12))
+                    .foregroundStyle(ConsoleStyle.caption)
+                    .lineLimit(1)
+                    .fixedSize()
                 Toggle("За голосом", isOn: Binding(
                     get: { model.prompter.followsVoice }, set: { model.onPrompterVoiceToggle?($0) }
                 ))
-                .toggleStyle(.checkbox)
-                .font(.system(size: 12, design: .rounded))
-                .foregroundStyle(.white.opacity(0.75))
-                .lineLimit(1)
-                .fixedSize()
+                .labelsHidden()
+                .toggleStyle(.switch)
+                .controlSize(.mini)
+                .tint(ConsoleStyle.green)
             }
             if let problem = model.prompterVoiceProblem {
                 Text(problem)
-                    .font(.system(size: 11, design: .rounded))
-                    .foregroundStyle(Color(hex: 0xFF9F0A))
+                    .font(ConsoleStyle.font(11))
+                    .foregroundStyle(ConsoleStyle.orange)
             }
         }
     }
@@ -450,11 +472,11 @@ struct TranslateTab: View {
                 hint(problem)
             case .done(let source, let result):
                 Text(TranslateDirection.detect(source).title)
-                    .font(.system(size: 11, weight: .semibold, design: .rounded))
-                    .foregroundStyle(.white.opacity(0.6))
+                    .font(ConsoleStyle.font(11, .semibold))
+                    .foregroundStyle(ConsoleStyle.caption)
                 ScrollView {
                     Text(result)
-                        .font(.system(size: 14, design: .rounded))
+                        .font(ConsoleStyle.font(14))
                         .foregroundStyle(.white)
                         .textSelection(.enabled)
                         .frame(maxWidth: .infinity, alignment: .leading)
@@ -474,8 +496,8 @@ struct TranslateTab: View {
 
     private func hint(_ text: String) -> some View {
         Text(text)
-            .font(.system(size: 13, design: .rounded))
-            .foregroundStyle(.white.opacity(0.75))
+            .font(ConsoleStyle.font(13))
+            .foregroundStyle(ConsoleStyle.caption)
             .fixedSize(horizontal: false, vertical: true)
     }
 }

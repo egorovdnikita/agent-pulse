@@ -37,6 +37,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     private var screenTimer: Timer?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
+        ConsoleStyle.registerFont()
         NSApp.setActivationPolicy(.accessory)
         // Отладка: `--design-sheet out.png` — нарисовать ключевые позы и выйти.
         if let index = CommandLine.arguments.firstIndex(of: "--design-sheet"), index + 1 < CommandLine.arguments.count {
@@ -304,6 +305,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         console.onConnectMusic = { [weak self] in self?.startScriptMedia() }
         startPrompter()
         startDictation()
+        renderConsoleSheet()
         if model.config.console.calendar { startCalendar() }
         startMedia()
         startScreenshots()
@@ -344,6 +346,34 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
                 console.tab = tab
             }
         }
+    }
+
+    /// Отладка: `--console-sheet папка` — нарисовать капсулу и все страницы в файлы, без окон.
+    private func renderConsoleSheet() {
+        guard let index = CommandLine.arguments.firstIndex(of: "--console-sheet"), index + 1 < CommandLine.arguments.count else { return }
+        let console = model.console
+        let folder = URL(filePath: CommandLine.arguments[index + 1])
+        let now = Date()
+        console.ingest(LimitSnapshot(service: .claude, windows: [
+            LimitWindow(kind: .fiveHour, usedPercent: 31, resetsAt: now.addingTimeInterval(3 * 3600 + 24 * 60)),
+            LimitWindow(kind: .week, usedPercent: 84, resetsAt: now.addingTimeInterval(4 * 86_400)),
+        ], at: now))
+        console.ingest(LimitSnapshot(service: .codex, windows: [
+            LimitWindow(kind: .fiveHour, usedPercent: 100, resetsAt: now.addingTimeInterval(1800)),
+            LimitWindow(kind: .week, usedPercent: 12, resetsAt: now.addingTimeInterval(5 * 86_400)),
+        ], at: now))
+        console.calendarEnabled = true
+        console.updateCalendar([
+            MeetingEvent(id: "1", title: "Синк команды", start: now.addingTimeInterval(1800), end: now.addingTimeInterval(3600)),
+            MeetingEvent(id: "2", title: "Обзор дизайна", start: now.addingTimeInterval(7200), end: now.addingTimeInterval(9000)),
+        ])
+        console.addToShelf([URL(filePath: "/System/Library/CoreServices/Finder.app"), URL(filePath: "/etc/hosts")])
+        console.updateMedia(.playing(NowPlaying(
+            title: "Название трека", artist: "Исполнитель", isPlaying: true, duration: 240, elapsed: 80, at: now
+        )))
+        console.prompterDraft = "Здравствуйте! Сегодня покажу, что изменилось в Пульте."
+        ConsoleSheet.render(console, to: folder)
+        exit(0)
     }
 
     private func startDictation() {

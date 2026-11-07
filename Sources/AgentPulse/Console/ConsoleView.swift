@@ -2,50 +2,24 @@ import AgentPulseCore
 import AppKit
 import SwiftUI
 
-/// Подложка Пульта: тёмная и полупрозрачная. Пульт — инструмент, поэтому он строже маскота.
-struct HUDBackground: NSViewRepresentable {
-    func makeNSView(context: Context) -> NSVisualEffectView {
-        let view = NSVisualEffectView()
-        view.material = .hudWindow
-        view.blendingMode = .behindWindow
-        view.state = .active
-        view.appearance = NSAppearance(named: .darkAqua)
-        return view
-    }
-
-    func updateNSView(_ view: NSVisualEffectView, context: Context) {}
-}
-
-private extension LimitZone {
-    func color(_ service: LimitService) -> Color {
-        switch self {
-        case .normal: Color(hex: service.color)
-        case .attention: Color(hex: 0xFF9F0A)
-        case .critical, .exhausted: Color(hex: ConsoleLook.alertColor)
-        }
-    }
-}
-
-/// Кольцо: заполнение — расход самого тесного окна. Нет данных — пустое кольцо, а не 0%.
-private struct LimitRing: View {
-    let fraction: Double?
-    let color: Color
-    let dimmed: Bool
-    var size = ConsoleLook.ring
+/// Сторона капсулы: значок, число, точка зоны. Шесть пунктов цвета: число и так говорит, что происходит.
+private struct LimitSide: View {
+    let ring: CapsuleRing
 
     var body: some View {
-        ZStack {
-            Circle().stroke(.white.opacity(0.16), lineWidth: 3)
-            if let fraction {
-                Circle()
-                    .trim(from: 0, to: fraction)
-                    .stroke(color, style: StrokeStyle(lineWidth: 3, lineCap: .round))
-                    .rotationEffect(.degrees(-90))
+        HStack(spacing: ConsoleLook.sideGap) {
+            ServiceMark(service: ring.service, size: ConsoleLook.mark)
+            Text(ring.figure)
+                .font(ConsoleStyle.font(15, .medium))
+                .monospacedDigit()
+                .foregroundStyle(.white)
+                .lineLimit(1)
+                .fixedSize()
+            if ring.fraction != nil {
+                Circle().fill(ConsoleStyle.color(ring.zone)).frame(width: ConsoleLook.dot, height: ConsoleLook.dot)
             }
         }
-        .padding(1.5)
-        .frame(width: size, height: size)
-        .opacity(dimmed ? 0.45 : 1)
+        .opacity(ring.stale ? 0.45 : 1)
     }
 }
 
@@ -85,14 +59,12 @@ private struct CapsuleBody: View {
             } else if let capsule = model.capsule {
                 if !capsule.rings.isEmpty {
                     HStack(spacing: ConsoleLook.ringGap) {
-                        ForEach(model.visibleRings) { ring in
-                            LimitRing(fraction: ring.fraction, color: ring.zone.color(ring.service), dimmed: ring.stale)
-                        }
+                        ForEach(model.visibleRings) { LimitSide(ring: $0) }
                     }
                 } else if let image = model.leaderImage {
                     Image(nsImage: image).resizable().scaledToFill()
                         .frame(width: ConsoleLook.ring, height: ConsoleLook.ring)
-                        .clipShape(RoundedRectangle(cornerRadius: 4, style: .continuous))
+                        .clipShape(RoundedRectangle(cornerRadius: 5, style: .continuous))
                 } else if let icon = capsule.icon {
                     Image(nsImage: SolarIcons.image(icon) ?? NSImage()).resizable()
                         .frame(width: 16, height: 16).foregroundStyle(.white)
@@ -119,7 +91,7 @@ private struct CapsuleBody: View {
                     Button("Войти") { model.onJoin?(url) }
                         .buttonStyle(.plain)
                         .font(Font(ConsoleLook.labelFont))
-                        .foregroundStyle(Color(hex: 0xFF9F0A))
+                        .foregroundStyle(ConsoleStyle.orange)
                         .frame(width: ConsoleLook.joinWidth)
                 }
                 if !model.indicators.isEmpty {
@@ -133,9 +105,9 @@ private struct CapsuleBody: View {
         }
         .padding(.horizontal, model.showsDot ? 0 : ConsoleLook.padding)
         .frame(width: model.capsuleWidth, height: model.capsuleHeight)
-        .background(HUDBackground())
+        .background(Color.black)
         .clipShape(Capsule())
-        .overlay { if let accent { Capsule().strokeBorder(accent, lineWidth: 1.5) } }
+        .overlay { Capsule().strokeBorder(accent ?? ConsoleStyle.edge, lineWidth: accent == nil ? 1 : 1.5) }
         .contentShape(Capsule())
         .accessibilityElement(children: .contain)
         .accessibilityLabel(model.capsule?.label ?? "Пульт")
@@ -143,50 +115,109 @@ private struct CapsuleBody: View {
     }
 }
 
-private struct LimitRow: View {
-    let reading: LimitReading?
-    let kind: LimitWindowKind
-    let now: Date
-
-    var body: some View {
-        HStack(spacing: 10) {
-            LimitRing(fraction: reading.map { min(1, Double($0.usedPercent) / 100) }, color: reading.map { $0.zone.color($0.service) } ?? .white,
-                      dimmed: reading?.stale ?? false, size: 24)
-            VStack(alignment: .leading, spacing: 1) {
-                Text(kind.title).font(.system(size: 12, weight: .medium, design: .rounded)).foregroundStyle(.white)
-                Text(detail).font(.system(size: 11, design: .rounded).monospacedDigit()).foregroundStyle(.white.opacity(0.6))
-            }
-            Spacer()
-            Text(reading.map { "\($0.usedPercent)%" } ?? "—")
-                .font(.system(size: 13, weight: .semibold, design: .rounded).monospacedDigit())
-                .foregroundStyle(.white)
-        }
-    }
-
-    private var detail: String {
-        guard let reading else { return LimitText.noData }
-        if reading.stale { return LimitText.stale }
-        return reading.resetsAt.map { "сброс \(LimitText.countdown($0, now: now))" } ?? " "
-    }
-}
-
-/// Вкладка «Лимиты»: оба окна каждого сервиса с обратным отсчётом.
-private struct LimitsTab: View {
+/// Карточка сервиса: заголовок и два окна. Процент — расход, как в капсуле.
+private struct LimitCard: View {
     let model: ConsoleModel
+    let service: LimitService
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 14) {
-            ForEach(LimitService.allCases, id: \.self) { service in
-                VStack(alignment: .leading, spacing: 8) {
-                    Text(service.title)
-                        .font(.system(size: 11, weight: .semibold, design: .rounded))
-                        .foregroundStyle(.white.opacity(0.6))
-                    ForEach(LimitWindowKind.allCases, id: \.self) { kind in
-                        LimitRow(reading: model.limits.book.reading(service, kind, now: model.now), kind: kind, now: model.now)
+        let readings = LimitWindowKind.allCases.map { (kind: $0, reading: model.limits.book.reading(service, $0, now: model.now)) }
+        ConsoleCard {
+            VStack(alignment: .leading, spacing: 4) {
+                HStack(spacing: 6) {
+                    ServiceMark(service: service, size: 17)
+                    Text(service.title).font(ConsoleStyle.font(15, .semibold)).foregroundStyle(.white).lineLimit(1)
+                    Spacer(minLength: 0)
+                    chip(readings.map(\.reading))
+                }
+                .frame(height: 20)
+                HStack(spacing: 12) {
+                    ForEach(readings, id: \.kind) { item in
+                        LimitGauge(reading: item.reading, kind: item.kind, now: model.now).frame(maxWidth: .infinity)
                     }
                 }
             }
         }
+    }
+
+    private func chip(_ readings: [LimitReading?]) -> some View {
+        let known = readings.compactMap { $0 }
+        let title = known.isEmpty ? "Нет данных" : known.contains(where: \.stale) ? "Устарело" : "Свежие"
+        return Text(title)
+            .font(.system(size: 11, weight: .semibold))
+            .foregroundStyle(title == "Свежие" ? ConsoleStyle.green : ConsoleStyle.caption)
+            .lineLimit(1)
+    }
+}
+
+private struct LimitsTab: View {
+    let model: ConsoleModel
+
+    var body: some View {
+        VStack(spacing: 8) {
+            ForEach(LimitService.allCases, id: \.self) { LimitCard(model: model, service: $0) }
+        }
+    }
+}
+
+private extension ConsoleModuleID {
+    var pageIcon: String {
+        switch self {
+        case .limits: "tuning-2"
+        case .prompter: "document-text"
+        case .calendar: "calendar"
+        case .shelf: "folder-with-files"
+        case .media: "music-note"
+        case .translate: "stars"
+        case .dictation: "document-text"
+        }
+    }
+}
+
+/// Страницы: точки, под курсором — кнопки с иконками и подписью.
+private struct PageSwitcher: View {
+    let model: ConsoleModel
+
+    var body: some View {
+        let open = model.pagesHovered
+        HStack(spacing: 4) {
+            ForEach(model.tabs, id: \.id) { tab in
+                page(tab.id, title: tab.title, open: open)
+            }
+        }
+        .padding(.horizontal, 10)
+        .frame(height: open ? ConsoleLook.pagesOpen : ConsoleLook.pagesClosed, alignment: .center)
+        .frame(maxWidth: .infinity)
+        .background(open ? Color.black : Color.clear)
+        .contentShape(Rectangle())
+        .onHover { model.pagesHovered = $0 }
+        .animation(ConsoleStyle.motion(opening: open, reduced: false), value: open)
+    }
+
+    private func page(_ id: ConsoleModuleID, title: String, open: Bool) -> some View {
+        let current = model.tab == id
+        let opacity: Double = if open {
+            current ? 0x66 / 255 : 0x2E / 255
+        } else {
+            current ? 0xB3 / 255 : 0x3D / 255
+        }
+        return Button { model.tab = id } label: {
+            RoundedRectangle(cornerRadius: open ? 4 : 3, style: .continuous)
+                .fill(Color.white.opacity(opacity))
+                .frame(width: open ? 22 : 6, height: open ? 22 : 6)
+                .overlay {
+                    Image(nsImage: SolarIcons.image(id.pageIcon) ?? NSImage())
+                        .resizable()
+                        .frame(width: 16, height: 16)
+                        .foregroundStyle(.white)
+                        .opacity(open ? (current ? 1 : 0.6) : 0)
+                }
+                .frame(width: open ? 22 : 8, height: open ? 22 : 8)
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .help(title)
+        .accessibilityLabel(title)
     }
 }
 
@@ -194,48 +225,57 @@ private struct ExpandedBody: View {
     let model: ConsoleModel
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            // Пять и больше вкладок влезают только мельче; при узкой панели, когда Dock длинный, — ещё плотнее.
-            let crowded = model.tabs.count > 4
-            let tight = crowded && model.expandedWidth < 300
-            HStack(spacing: tight ? 5 : crowded ? 7 : 14) {
-                ForEach(model.tabs, id: \.id) { tab in
-                    Button(tab.title) { model.tab = tab.id }
-                        .buttonStyle(.plain)
-                        .font(.system(size: tight ? 11 : crowded ? 12 : 13, weight: .semibold, design: .rounded))
-                        .foregroundStyle(.white.opacity(model.tab == tab.id ? 1 : 0.5))
-                        .lineLimit(1)
-                        .fixedSize()
+        ZStack(alignment: .bottom) {
+            VStack(alignment: .leading, spacing: 0) {
+                switch model.tab {
+                case .prompter: PrompterTab(model: model)
+                case .calendar: CalendarTab(model: model)
+                case .shelf: ShelfTab(model: model)
+                case .media: MediaTab(model: model)
+                case .translate: TranslateTab(model: model)
+                default: LimitsTab(model: model)
                 }
+                Spacer(minLength: 0)
             }
-            switch model.tab {
-            case .prompter: PrompterTab(model: model)
-            case .calendar: CalendarTab(model: model)
-            case .shelf: ShelfTab(model: model)
-            case .media: MediaTab(model: model)
-            case .translate: TranslateTab(model: model)
-            default: LimitsTab(model: model)
-            }
-            Spacer(minLength: 0)
+            .padding([.horizontal, .top], ConsoleStyle.inset)
+            .padding(.bottom, ConsoleLook.pagesClosed)
+            PageSwitcher(model: model)
         }
-        .padding(16)
         .frame(width: model.expandedWidth, height: ConsoleLayout.expandedHeight, alignment: .topLeading)
-        .background(HUDBackground())
-        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+        .background(Color.black)
+        .clipShape(RoundedRectangle(cornerRadius: ConsoleStyle.surfaceRadius, style: .continuous))
+        .overlay {
+            RoundedRectangle(cornerRadius: ConsoleStyle.surfaceRadius, style: .continuous).strokeBorder(ConsoleStyle.edge, lineWidth: 1)
+        }
     }
+}
+
+/// Для `--console-sheet`.
+struct CapsulePreview: View {
+    let model: ConsoleModel
+
+    var body: some View { CapsuleBody(model: model) }
+}
+
+struct PanelPreview: View {
+    let model: ConsoleModel
+
+    var body: some View { ExpandedBody(model: model) }
 }
 
 struct ConsoleRootView: View {
     let model: ConsoleModel
 
     var body: some View {
-        let reduce = NSWorkspace.shared.accessibilityDisplayShouldReduceMotion || model.director.quietChange
+        let reduce = NSWorkspace.shared.accessibilityDisplayShouldReduceMotion
         VStack(alignment: model.onLeft ? .leading : .trailing, spacing: ConsoleLayout.expandedGap) {
             if model.expanded { ExpandedBody(model: model).transition(.opacity) }
             CapsuleBody(model: model)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: model.onLeft ? .bottomLeading : .bottomTrailing)
-        .animation(reduce ? nil : .spring(response: 0.35, dampingFraction: 0.85), value: model.capsuleWidth)
-        .animation(reduce ? nil : .easeOut(duration: 0.2), value: model.expanded)
+        .animation(model.director.quietChange ? nil : ConsoleStyle.motion(opening: true, reduced: reduce), value: model.capsuleWidth)
+        .animation(
+            model.director.quietChange ? nil : ConsoleStyle.motion(opening: model.expanded, reduced: reduce), value: model.expanded
+        )
     }
 }

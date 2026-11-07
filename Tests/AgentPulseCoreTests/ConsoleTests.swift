@@ -804,3 +804,15 @@ private func snapshot(_ used: Double, at: Date = t0, service: LimitService = .cl
         #expect(module.state == .working(source: "второе"))
     }
 }
+
+@Suite struct GaugeResetTests {
+    @Test func gaugeShowsTimeTodayAndShortCountdownLater() {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = TimeZone(secondsFromGMT: 0)!
+        let now = Date(timeIntervalSince1970: 1_000_000_000)
+        #expect(LimitText.gaugeReset(now.addingTimeInterval(3600), now: now, calendar: calendar).count == 5)
+        let later = LimitText.gaugeReset(now.addingTimeInterval(4 * 86_400 + 6 * 3600), now: now, calendar: calendar)
+        #expect(!later.hasPrefix("через"))
+        #expect(later.contains("4"))
+    }
+}

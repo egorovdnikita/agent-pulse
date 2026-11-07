@@ -13,3 +13,8 @@ Jonas van den Berg и участники, BSD 3-Clause: `mediaremote-adapter-BSD
 - **GigaAM-v3** — модель распознавания русской речи. Авторы: GigaChat Team. Лицензия MIT: `GigaAM-MIT.txt`. Модель не входит в приложение, скачивается кнопкой в настройках. Некоммерческая лицензия относилась только к модели 2024 года, она не используется.
 - **sherpa-onnx** — движок распознавания. Авторы: k2-fsa. Лицензия Apache 2.0: `sherpa-onnx-Apache-2.0.txt`. Заголовок `Sources/pulse-asr/include/c-api.h` взят без изменений.
 - **ONNX Runtime** — Microsoft. Лицензия MIT: `onnxruntime-MIT.txt`.
+
+## Оформление Пульта
+
+- **Geist** — шрифт Пульта. Авторы: The Geist Project. Лицензия SIL OFL 1.1: `Geist-OFL.txt`.
+- **CapaTheNotch** — референс оформления: значения цветов и шкал, значок Claude и файл значка OpenAI. Лицензия MIT: `CapaTheNotch-MIT.txt`.

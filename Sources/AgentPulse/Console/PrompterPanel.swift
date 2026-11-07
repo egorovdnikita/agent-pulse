@@ -66,7 +66,7 @@ private struct PrompterLineView: View {
 
     var body: some View {
         Text(attributed)
-            .font(.system(size: PrompterLook.fontSize, weight: .semibold, design: .rounded))
+            .font(ConsoleStyle.font(PrompterLook.fontSize, .semibold))
             .lineLimit(1)
             .fixedSize()
     }
@@ -96,8 +96,8 @@ private struct PrompterView: View {
         let notched = model.prompterNotch > 0
         let lines = model.prompterLines
         let shape = UnevenRoundedRectangle(
-            topLeadingRadius: notched ? 0 : 18, bottomLeadingRadius: 18, bottomTrailingRadius: 18,
-            topTrailingRadius: notched ? 0 : 18, style: .continuous
+            topLeadingRadius: notched ? 0 : 22, bottomLeadingRadius: 22, bottomTrailingRadius: 22,
+            topTrailingRadius: notched ? 0 : 22, style: .continuous
         )
         ZStack {
             ForEach(lines.indices.filter { abs($0 - current) <= 2 }, id: \.self) { index in
@@ -109,8 +109,8 @@ private struct PrompterView: View {
             }
             if let status = model.prompterStatus {
                 Text(status)
-                    .font(.system(size: 10, weight: .medium, design: .rounded).monospacedDigit())
-                    .foregroundStyle(.white.opacity(0.7))
+                    .font(ConsoleStyle.font(11, .medium).monospacedDigit())
+                    .foregroundStyle(ConsoleStyle.caption)
                     .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomTrailing)
                     .padding(.trailing, 14)
                     .padding(.bottom, 6)
@@ -120,7 +120,8 @@ private struct PrompterView: View {
         .frame(width: PrompterLayout.width, height: PrompterLayout.textHeight)
         .clipped()
         .padding(.top, model.prompterNotch)
-        .background(notched ? AnyView(shape.fill(.black)) : AnyView(HUDBackground().clipShape(shape)))
+        .background(shape.fill(.black))
+        .overlay { if !notched { shape.strokeBorder(ConsoleStyle.edge, lineWidth: 1) } }
         .contentShape(shape)
         .onTapGesture { model.togglePrompterPause() }
         .animation(reduce ? nil : .easeInOut(duration: 0.28), value: current)
@@ -138,9 +139,9 @@ enum PrompterLook {
     static let sideScale = 0.72
     static let lineStep = 28.0
     static let textWidth = PrompterLayout.width - 36
-    @MainActor static let font = NSFont.systemFont(ofSize: fontSize, weight: .semibold)
+    @MainActor static let font = ConsoleStyle.nsFont(fontSize, .semibold)
 
-    /// Запас на скруглённое начертание: строка не должна упереться в край.
+    /// Запас: строка не должна упереться в край.
     @MainActor static func fits(_ text: String) -> Bool {
         (text as NSString).size(withAttributes: [.font: font]).width * 1.04 <= textWidth
     }

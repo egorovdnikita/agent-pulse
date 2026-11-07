@@ -232,6 +232,16 @@ public enum LimitText {
         return parts.joined(separator: " · ")
     }
 
+    /// Под шкалой места мало: сегодня — «19:00», дальше — «4 д 6 ч».
+    public static func gaugeReset(_ date: Date, now: Date, calendar: Calendar = .current) -> String {
+        if calendar.isDate(date, inSameDayAs: now) || date.timeIntervalSince(now) < 12 * 3600 {
+            let parts = calendar.dateComponents([.hour, .minute], from: date)
+            return String(format: "%02d:%02d", parts.hour ?? 0, parts.minute ?? 0)
+        }
+        let text = countdown(date, now: now)
+        return text.hasPrefix("через ") ? String(text.dropFirst(6)) : text
+    }
+
     /// «19:00» сегодня, «пт 19:00» на другой день.
     public static func clock(_ date: Date, now: Date, calendar: Calendar = .current) -> String {
         let parts = calendar.dateComponents([.hour, .minute], from: date)
