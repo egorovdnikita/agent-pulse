@@ -402,15 +402,6 @@ enum ConsoleSheet {
 
     static func renderStress(_ model: ConsoleModel, to folder: URL) {
         model.showPanelNow()
-        model.tab = .limits
-        model.pagesHovered = true
-        model.pageUnderCursor = .calendar
-        write(
-            PanelPreview(model: model), size: CGSize(width: ConsoleLayout.expandedWidth + 16, height: model.panelHeight + 16),
-            to: folder.appending(path: "pages-open.png")
-        )
-        model.pagesHovered = false
-        model.pageUnderCursor = nil
         let panel = CGSize(width: ConsoleLayout.expandedWidth + 16, height: ConsoleLayout.expandedHeight + 16)
         for tab in model.tabs {
             model.tab = tab.id

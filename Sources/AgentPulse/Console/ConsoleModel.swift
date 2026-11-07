@@ -55,13 +55,6 @@ final class ConsoleModel {
     var activeWidth = ConsoleLayout.activeWidth
     /// Зазор между капсулой на уровне Dock и панелью над ним.
     var expandedGap = ConsoleLayout.expandedGap
-    /// Курсор над точками: они становятся кнопками, а форма подрастает.
-    var pagesHovered = false
-    /// Над какой страницей курсор: над ней подпись.
-    var pageUnderCursor: ConsoleModuleID?
-    var panelHeight: Double {
-        ConsoleLayout.expandedHeight + (pagesHovered ? ConsoleLayout.pagesGrowth : 0)
-    }
     /// С какой стороны въезжает новая страница: 1 — справа, −1 — слева, 0 — снизу, при раскрытии.
     private(set) var pageTravel = 0
     /// Окно лимита в капсуле, из настроек.
@@ -635,8 +628,6 @@ final class ConsoleModel {
             }
             onLeaderChange?()
         } else {
-            pagesHovered = false
-            pageUnderCursor = nil
             panelOpen = false
             contentShown = false
             closeTask = Task { [weak self] in
@@ -752,7 +743,7 @@ final class ConsoleModel {
         guard expanded else { return CGSize(width: capsuleWidth, height: capsuleHeight) }
         return CGSize(
             width: ConsoleLayout.expandedWidth + ConsoleLayout.overshoot,
-            height: ConsoleLayout.expandedHeight + ConsoleLayout.pagesGrowth + expandedGap + capsuleHeight + ConsoleLayout.overshoot
+            height: ConsoleLayout.expandedHeight + expandedGap + capsuleHeight + ConsoleLayout.overshoot
         )
     }
 }
