@@ -16,6 +16,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     private let prompterFaster = ConsoleHotKey(id: 3)
     private let prompterSlower = ConsoleHotKey(id: 4)
     private let prompterVoice = PrompterVoice()
+    private let dictationHotKey = ConsoleHotKey(id: 5)
+    private let translateHotKey = ConsoleHotKey(id: 6)
+    private(set) var dictation: DictationController?
     private var prompterPanel: PrompterPanel?
     private var codexTimer: Timer?
     private var codexFetchedAt = Date.distantPast
@@ -300,6 +303,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         }
         console.onConnectMusic = { [weak self] in self?.startScriptMedia() }
         startPrompter()
+        startDictation()
         if model.config.console.calendar { startCalendar() }
         startMedia()
         startScreenshots()
@@ -339,6 +343,79 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
                 console.setExpanded(true)
                 console.tab = tab
             }
+        }
+    }
+
+    private func startDictation() {
+        let console = model.console
+        let controller = DictationController(console: console, settings: { [model] in model.config.console }, showSettings: { [weak self] in self?.showSettings(.console) })
+        dictation = controller
+        console.onDictationActive = { [weak self] on in
+            guard let self else { return }
+            self.model.animator.watchesConsole = on ? (self.model.config.display.anchor.isRight ? -1 : 1) : nil
+            self.updateConsoleVisibility()
+        }
+        applyDictationHotKeys()
+        // Отладка: `--dictation-model` — скачать модель, `--dictation-demo файл.wav [секунд]` — весь путь без микрофона.
+        if CommandLine.arguments.contains("--dictation-model") { controller.models.download() }
+        if let index = CommandLine.arguments.firstIndex(of: "--dictation-demo"), index + 1 < CommandLine.arguments.count {
+            let path = CommandLine.arguments[index + 1]
+            let seconds = index + 2 < CommandLine.arguments.count ? Double(CommandLine.arguments[index + 2]) ?? 4 : 4
+            DispatchQueue.main.asyncAfter(deadline: .now() + 2) { controller.runDemo(path: path, holdFor: seconds) }
+        }
+    }
+
+    func applyDictationHotKeys() {
+        let config = model.config.console
+        let console = model.console
+        let dictating = dictationHotKey.set(
+            code: config.enabled && config.dictation ? kVK_ANSI_D : nil,
+            released: { [weak console] in console?.releaseDictation() },
+            action: { [weak console] in console?.pressDictation() }
+        )
+        let translating = translateHotKey.set(code: config.enabled && config.translator && ConsoleTranslator.isAvailable ? kVK_ANSI_T : nil) {
+            [weak self] in self?.dictation?.pressTranslate()
+        }
+        if !dictating || !translating { Self.log.notice("клавиша диктовки или перевода занята") }
+    }
+
+    func setDictationEnabled(_ on: Bool) {
+        model.config.console.dictation = on
+        try? model.config.save()
+        if !on { model.console.releaseDictation() }
+        model.console.dictationEnabled = on
+        applyDictationHotKeys()
+    }
+
+    func setDictationLanguage(_ language: String) {
+        model.config.console.dictationLanguage = language
+        try? model.config.save()
+    }
+
+    func setDictationRules(_ rules: [DictationRule]) {
+        model.config.console.dictationRules = rules
+        try? model.config.save()
+    }
+
+    func setDictationHistory(_ on: Bool) {
+        model.config.console.dictationHistory = on
+        try? model.config.save()
+        if !on { dictation?.clearHistory() }
+    }
+
+    func setTranslatorEnabled(_ on: Bool) {
+        model.config.console.translator = on
+        try? model.config.save()
+        model.console.translatorEnabled = on && ConsoleTranslator.isAvailable
+        applyDictationHotKeys()
+    }
+
+    /// Универсальный доступ: система спросит только сейчас, когда ты сам включил.
+    func setConsoleAccessibility(_ on: Bool) {
+        model.config.console.accessibility = on
+        try? model.config.save()
+        if on {
+            _ = AXIsProcessTrustedWithOptions(["AXTrustedCheckOptionPrompt": true] as CFDictionary)
         }
     }
 
@@ -441,7 +518,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     func updateConsoleVisibility() {
         guard let consolePanel else { return }
         let console = model.console
-        let show = console.enabled && (!fullScreenHidden || console.expanded)
+        let show = console.enabled && (!fullScreenHidden || console.showsOverFullScreen)
         if show, !consolePanel.isVisible {
             consolePanel.rejoinAllSpaces()
             consolePanel.orderFrontRegardless()
@@ -467,6 +544,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         if !on { model.console.stopPrompter() }
         model.console.prompterEnabled = on && model.config.console.prompter
         applyPrompterHotKey()
+        if !on { model.console.releaseDictation() }
+        applyDictationHotKeys()
     }
 
     func setLimitsEnabled(_ on: Bool) {

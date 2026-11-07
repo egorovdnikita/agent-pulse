@@ -160,6 +160,9 @@ final class PulseModel {
         console.prompterEnabled = config.console.prompter
         console.setPrompterSpeed(config.console.prompterSpeed)
         console.setPrompterFollowsVoice(config.console.prompterVoice)
+        console.dictationEnabled = config.console.dictation
+        console.dictationRules = config.console.dictationRules
+        console.translatorEnabled = config.console.translator && ConsoleTranslator.isAvailable
         console.calendarEnabled = config.console.calendar
         console.shelfEnabled = config.console.shelf
         console.musicEnabled = config.console.music

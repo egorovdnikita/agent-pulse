@@ -10,6 +10,7 @@ final class ConsoleHotKey {
     /// Что можно выбрать в настройках.
     static let letters = ["x", "z", "c", "b", "n"]
     private static var handlers: [UInt32: () -> Void] = [:]
+    private static var releaseHandlers: [UInt32: () -> Void] = [:]
     private static var installed = false
 
     private var reference: EventHotKeyRef?
@@ -29,13 +30,15 @@ final class ConsoleHotKey {
         return register(code: code, action: action)
     }
 
-    /// Ставит клавишу ⌃⌥ + код; nil — снимает.
+    /// Ставит клавишу ⌃⌥ + код; nil — снимает. `released` — для удержания: отпускание Input Monitoring тоже не нужно.
     @discardableResult
-    func set(code: Int?, action: @escaping () -> Void) -> Bool {
+    func set(code: Int?, released: (() -> Void)? = nil, action: @escaping () -> Void) -> Bool {
         if let reference { UnregisterEventHotKey(reference) }
         reference = nil
         Self.handlers[id] = nil
+        Self.releaseHandlers[id] = nil
         guard let code else { return true }
+        Self.releaseHandlers[id] = released
         return register(code: code, action: action)
     }
 
@@ -51,7 +54,9 @@ final class ConsoleHotKey {
     private static func installHandler() {
         guard !installed else { return }
         installed = true
-        var spec = EventTypeSpec(eventClass: OSType(kEventClassKeyboard), eventKind: UInt32(kEventHotKeyPressed))
+        var specs = [UInt32(kEventHotKeyPressed), UInt32(kEventHotKeyReleased)].map {
+            EventTypeSpec(eventClass: OSType(kEventClassKeyboard), eventKind: $0)
+        }
         InstallEventHandler(GetEventDispatcherTarget(), { _, event, _ in
             var hotKey = EventHotKeyID()
             GetEventParameter(
@@ -59,8 +64,11 @@ final class ConsoleHotKey {
                 MemoryLayout<EventHotKeyID>.size, nil, &hotKey
             )
             let id = hotKey.id
-            DispatchQueue.main.async { MainActor.assumeIsolated { ConsoleHotKey.handlers[id]?() } }
+            let released = GetEventKind(event) == UInt32(kEventHotKeyReleased)
+            DispatchQueue.main.async {
+                MainActor.assumeIsolated { (released ? ConsoleHotKey.releaseHandlers[id] : ConsoleHotKey.handlers[id])?() }
+            }
             return noErr
-        }, 1, &spec, nil, nil)
+        }, specs.count, &specs, nil, nil)
     }
 }

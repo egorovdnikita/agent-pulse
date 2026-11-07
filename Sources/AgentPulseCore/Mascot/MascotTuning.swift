@@ -25,6 +25,8 @@ public struct MascotTuning: Codable, Sendable, Equatable {
     public var bubbleGlance: Double = 0.3
     /// Взгляд в камеру при суфлёре: вверх.
     public var cameraGaze: Double = -0.85
+    /// Глаза, пока идёт диктовка.
+    public var dictationEyes: Double = 1.1
 
     // Фиксации по состояниям
     public var idleFixation: ClosedRange<Double> = 2...4

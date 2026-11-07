@@ -49,6 +49,25 @@ private struct LimitRing: View {
     }
 }
 
+/// Живая волна диктовки: без текста, модель не даёт частичного результата. Пока идёт распознавание — застывшая и тише.
+private struct DictationWave: View {
+    let levels: [Float]
+    let listening: Bool
+
+    var body: some View {
+        HStack(spacing: DictationLook.barGap) {
+            ForEach(levels.indices, id: \.self) { index in
+                Capsule()
+                    .fill(.white.opacity(listening ? 0.9 : 0.4))
+                    .frame(width: DictationLook.barWidth, height: max(DictationLook.barWidth, DictationLook.height * Double(levels[index])))
+            }
+        }
+        .frame(maxWidth: .infinity)
+        .clipped()
+        .accessibilityHidden(true)
+    }
+}
+
 private struct CapsuleBody: View {
     let model: ConsoleModel
 
@@ -61,6 +80,8 @@ private struct CapsuleBody: View {
                     .frame(width: 14, height: 14)
                     .foregroundStyle(.white)
                     .opacity(0.4)
+            } else if model.capsule?.wave == true {
+                DictationWave(levels: model.dictationLevels, listening: model.dictation.phase == .recording)
             } else if let capsule = model.capsule {
                 if !capsule.rings.isEmpty {
                     HStack(spacing: ConsoleLook.ringGap) {
@@ -174,7 +195,7 @@ private struct ExpandedBody: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
-            // Пять вкладок влезают только мельче; при узкой панели, когда Dock длинный, — ещё плотнее.
+            // Пять и больше вкладок влезают только мельче; при узкой панели, когда Dock длинный, — ещё плотнее.
             let crowded = model.tabs.count > 4
             let tight = crowded && model.expandedWidth < 300
             HStack(spacing: tight ? 5 : crowded ? 7 : 14) {
@@ -192,6 +213,7 @@ private struct ExpandedBody: View {
             case .calendar: CalendarTab(model: model)
             case .shelf: ShelfTab(model: model)
             case .media: MediaTab(model: model)
+            case .translate: TranslateTab(model: model)
             default: LimitsTab(model: model)
             }
             Spacer(minLength: 0)

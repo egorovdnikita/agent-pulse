@@ -20,6 +20,8 @@ enum CalendarScope: String, CaseIterable {
 final class ConsoleModel {
     private(set) var limits = LimitsModule()
     private(set) var prompter = PrompterModule()
+    private(set) var dictation = DictationModule()
+    private(set) var translate = TranslateModule()
     private(set) var calendar = CalendarModule()
     private(set) var shelf = ShelfModule()
     private(set) var media = MediaModule()
@@ -44,6 +46,13 @@ final class ConsoleModel {
     var enabled = true
     var limitsEnabled = true
     var prompterEnabled = true
+    var dictationEnabled = false
+    var translatorEnabled = false
+    /// Свои правила замены.
+    var dictationRules: [DictationRule] = []
+    /// Столбики волны, 0…1, новые справа.
+    private(set) var dictationLevels = [Float](repeating: 0, count: DictationLook.bars)
+    var activeWidth = ConsoleLayout.activeWidth
     var calendarEnabled = false
     var shelfEnabled = true
     var musicEnabled = true
@@ -84,7 +93,18 @@ final class ConsoleModel {
     @ObservationIgnored var onPrompterSpeed: ((Int) -> Void)?
     /// Галочка «За голосом» во вкладке: настройки сохраняет приложение.
     @ObservationIgnored var onPrompterVoiceToggle: ((Bool) -> Void)?
+    /// Диктовка: записать, закончить запись, открыть настройки модели.
+    @ObservationIgnored var onDictationStart: (() -> Void)?
+    @ObservationIgnored var onDictationStop: ((_ keep: Bool) -> Void)?
+    @ObservationIgnored var onDictationNeedsModel: (() -> Void)?
+    /// Изменилась диктовка; true — идёт запись, маскот смотрит на Пульт.
+    @ObservationIgnored var onDictationActive: ((Bool) -> Void)?
+    /// Модель готова к записи.
+    @ObservationIgnored var dictationModelReady: () -> Bool = { false }
+    /// «Скопировать» и «Заменить выделенное» во вкладке перевода.
+    @ObservationIgnored var onTranslateReplace: ((String) -> Void)?
     @ObservationIgnored private var prompterTimer: Timer?
+    @ObservationIgnored private var dictationLimitTimer: Timer?
     @ObservationIgnored private var lastTick = Date.distantPast
     @ObservationIgnored private var hoverTask: Task<Void, Never>?
     @ObservationIgnored private var quietOn = false
@@ -96,14 +116,18 @@ final class ConsoleModel {
         var list: [any ConsoleModule] = []
         if limitsEnabled { list.append(limits) }
         if prompterEnabled { list.append(prompter) }
+        if dictationEnabled { list.append(dictation) }
         if calendarEnabled { list.append(calendar) }
         if shelfEnabled { list.append(shelf) }
         if musicEnabled { list.append(media) }
+        // Вкладка перевода есть, только пока есть что показать: шести вкладкам тесно.
+        if translatorEnabled, translate.state != .idle { list.append(translate) }
         return list
     }
 
+    /// У диктовки вкладки нет: она вся в капсуле.
     var tabs: [(id: ConsoleModuleID, title: String)] {
-        modules.map { ($0.id, $0.title) }
+        modules.filter { $0.id != .dictation }.map { ($0.id, $0.title) }
     }
 
     private var candidates: [ConsoleCandidate] {
@@ -123,7 +147,7 @@ final class ConsoleModel {
 
     /// До трёх точек других модулей, которым есть что показать. С кнопкой им нет места: строка важнее.
     var indicators: [UInt32] {
-        guard capsule?.action == nil else { return [] }
+        guard capsule?.action == nil, capsule?.wave != true else { return [] }
         return modules.filter { $0.id != director.leader?.module && $0.priority(now: now) != nil }.prefix(3).map(\.accent)
     }
 
@@ -329,6 +353,94 @@ final class ConsoleModel {
         prompterDraft = text
     }
 
+    // MARK: - Диктовка
+
+    func pressDictation() {
+        guard dictationEnabled, !prompter.isActive else { return }
+        now = Date()
+        let recording = dictation.press(now: now, modelReady: dictationModelReady())
+        settleDictation()
+        guard recording else {
+            if dictation.notice == .needsModel { onDictationNeedsModel?() }
+            return
+        }
+        dictationLevels = [Float](repeating: 0, count: DictationLook.bars)
+        onDictationStart?()
+        dictationLimitTimer = Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { [weak self] _ in
+            MainActor.assumeIsolated {
+                guard let self, self.dictation.reachedLimit(now: Date()) else { return }
+                self.releaseDictation()
+            }
+        }
+    }
+
+    func releaseDictation() {
+        guard dictation.phase == .recording else { return }
+        dictationLimitTimer?.invalidate()
+        dictationLimitTimer = nil
+        now = Date()
+        let keep = dictation.release(now: now)
+        onDictationStop?(keep)
+        settleDictation()
+    }
+
+    func finishDictation(notice: DictationModule.Notice?) {
+        now = Date()
+        dictation.finish(now: now, notice: notice)
+        settleDictation()
+        guard notice != nil else { return }
+        // Сообщение ушло: лидер и показ поверх полного экрана возвращаются сразу, а не ждут случая.
+        DispatchQueue.main.asyncAfter(deadline: .now() + DictationModule.noticeLength + 0.1) { [weak self] in
+            MainActor.assumeIsolated {
+                guard let self else { return }
+                self.now = Date()
+                self.settleDictation()
+            }
+        }
+    }
+
+    /// Поверх полного экрана: раскрытый Пульт и диктовка, иначе не видно, идёт ли запись.
+    var showsOverFullScreen: Bool {
+        expanded || (dictationEnabled && dictation.priority(now: Date()) != nil)
+    }
+
+    func hearDictation(level: Float) {
+        // Речь редко громче 0.1 по RMS: растягиваем, чтобы волна была видна.
+        dictationLevels.removeFirst()
+        dictationLevels.append(min(1, (level * 8).squareRoot()))
+    }
+
+    /// Тишина и лидер — сразу, а не на следующем тике.
+    private func settleDictation() {
+        onDictationActive?(dictation.phase == .recording)
+        tickModules()
+        refresh(agentWaiting: false)
+    }
+
+    // MARK: - Перевод
+
+    func pressTranslate(selection: String?, clipboard: String?) -> String? {
+        guard translatorEnabled else { return nil }
+        now = Date()
+        let text = translate.press(selection: selection, clipboard: clipboard, now: now)
+        tab = .translate
+        setExpanded(true)
+        tab = .translate
+        return text
+    }
+
+    func finishTranslate(source: String, result: Result<String, TranslateProblem>) {
+        switch result {
+        case .success(let text): translate.finish(source: source, result: text)
+        case .failure(let problem): translate.fail(source: source, problem: problem.text)
+        }
+    }
+
+    /// Вкладка закрыта: разовый перевод больше не нужен.
+    private func forgetTranslation() {
+        translate.reset()
+    }
+
     // MARK: - Тик
 
     /// Раз в секунду: сброс окон, удержание лидера, обратный отсчёт. Содержимое не меняется — кадров нет.
@@ -388,7 +500,7 @@ final class ConsoleModel {
         guard on != expanded else { return }
         if on {
             // Открываем то, что занимает капсулу.
-            let ids = modules.map(\.id)
+            let ids = tabs.map(\.id)
             if let leader = director.leader?.module, ids.contains(leader) {
                 tab = leader
             } else if !ids.contains(tab), let first = ids.first {
@@ -397,6 +509,7 @@ final class ConsoleModel {
             calendarDay = now
         }
         expanded = on
+        if !on { forgetTranslation() }
         onLayoutChange?()
     }
 
@@ -418,7 +531,7 @@ final class ConsoleModel {
 
     /// Показать подпись: курсор над капсулой и хватает места. У встречи и трека строка видна и так.
     var showsLabel: Bool {
-        guard hovering, !expanded, capsule != nil, capsule?.text == nil, case .full = fit else { return false }
+        guard hovering, !expanded, capsule != nil, capsule?.text == nil, capsule?.wave != true, case .full = fit else { return false }
         return true
     }
 
@@ -431,6 +544,10 @@ final class ConsoleModel {
     /// Ширина капсулы по содержимому: 96–220 pt; Dock может её сузить.
     var capsuleWidth: Double {
         guard !showsDot else { return ConsoleLayout.dotSize }
+        if capsule?.wave == true {
+            if case .full = fit { return activeWidth }
+            return ConsoleLayout.minWidth
+        }
         let limit: Double = switch fit {
         case .full(let width): width
         case .leader, .dot: ConsoleLayout.minWidth
@@ -450,6 +567,14 @@ final class ConsoleModel {
         guard expanded else { return CGSize(width: capsuleWidth, height: capsuleHeight) }
         return CGSize(width: expandedWidth, height: ConsoleLayout.expandedHeight + ConsoleLayout.expandedGap + capsuleHeight)
     }
+}
+
+/// Волна диктовки.
+enum DictationLook {
+    static let bars = 32
+    static let barWidth = 3.0
+    static let barGap = 3.0
+    static let height = 18.0
 }
 
 /// Размеры капсулы вне ядра: шрифт есть только у AppKit.

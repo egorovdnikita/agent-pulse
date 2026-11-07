@@ -296,7 +296,7 @@ private struct PrompterEditor: NSViewRepresentable {
     }
 }
 
-private struct PrompterSmallButton: View {
+struct PrompterSmallButton: View {
     let title: String
     var strong = false
     let action: () -> Void
@@ -430,5 +430,52 @@ struct PrompterTab: View {
                     .foregroundStyle(Color(hex: 0xFF9F0A))
             }
         }
+    }
+}
+
+/// Вкладка «Перевод»: появляется по ⌃⌥T и уходит вместе с Пультом.
+struct TranslateTab: View {
+    let model: ConsoleModel
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            switch model.translate.state {
+            case .idle:
+                EmptyView()
+            case .askToCopy:
+                hint(TranslateModule.askToCopyHint)
+            case .working:
+                hint("Перевожу…")
+            case .failed(let problem):
+                hint(problem)
+            case .done(let source, let result):
+                Text(TranslateDirection.detect(source).title)
+                    .font(.system(size: 11, weight: .semibold, design: .rounded))
+                    .foregroundStyle(.white.opacity(0.6))
+                ScrollView {
+                    Text(result)
+                        .font(.system(size: 14, design: .rounded))
+                        .foregroundStyle(.white)
+                        .textSelection(.enabled)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                }
+                HStack(spacing: 8) {
+                    PrompterSmallButton(title: "Скопировать") {
+                        NSPasteboard.general.clearContents()
+                        NSPasteboard.general.setString(result, forType: .string)
+                    }
+                    if model.translate.replaceable {
+                        PrompterSmallButton(title: "Заменить выделенное") { model.onTranslateReplace?(result) }
+                    }
+                }
+            }
+        }
+    }
+
+    private func hint(_ text: String) -> some View {
+        Text(text)
+            .font(.system(size: 13, design: .rounded))
+            .foregroundStyle(.white.opacity(0.75))
+            .fixedSize(horizontal: false, vertical: true)
     }
 }

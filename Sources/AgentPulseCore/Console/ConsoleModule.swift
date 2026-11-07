@@ -47,11 +47,14 @@ public struct CapsuleContent: Sendable, Equatable {
     public var label: String
     /// Чьё кольцо стоит рядом с подписью: на два кольца и текст 220 pt не хватает.
     public var labelService: LimitService?
+    /// Живая волна вместо текста: идёт диктовка.
+    public var wave: Bool
 
     public init(
         rings: [CapsuleRing], label: String, labelService: LimitService? = nil, text: String? = nil, tail: String? = nil,
-        icon: String? = nil, action: CapsuleAction? = nil
+        icon: String? = nil, action: CapsuleAction? = nil, wave: Bool = false
     ) {
+        self.wave = wave
         self.tail = tail
         self.rings = rings
         self.label = label

@@ -7,3 +7,9 @@
 ## mediaremote-adapter
 
 Jonas van den Berg и участники, BSD 3-Clause: `mediaremote-adapter-BSD-3-Clause.txt`. Исходники — `Vendor/mediaremote-adapter`.
+
+## Диктовка
+
+- **GigaAM-v3** — модель распознавания русской речи. Авторы: GigaChat Team. Лицензия MIT: `GigaAM-MIT.txt`. Модель не входит в приложение, скачивается кнопкой в настройках. Некоммерческая лицензия относилась только к модели 2024 года, она не используется.
+- **sherpa-onnx** — движок распознавания. Авторы: k2-fsa. Лицензия Apache 2.0: `sherpa-onnx-Apache-2.0.txt`. Заголовок `Sources/pulse-asr/include/c-api.h` взят без изменений.
+- **ONNX Runtime** — Microsoft. Лицензия MIT: `onnxruntime-MIT.txt`.

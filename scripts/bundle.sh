@@ -12,7 +12,7 @@ BIN="$(swift build "${SWIFT_FLAGS[@]}" -c "$CONFIG" --show-bin-path)"
 APP="build/Agent Pulse.app"
 rm -rf "$APP"
 mkdir -p "$APP/Contents/MacOS"
-cp "$BIN/AgentPulse" "$BIN/pulse-hook" "$BIN/pulse-statusline" "$APP/Contents/MacOS/"
+cp "$BIN/AgentPulse" "$BIN/pulse-hook" "$BIN/pulse-statusline" "$BIN/pulse-asr" "$APP/Contents/MacOS/"
 cp Resources/Info.plist "$APP/Contents/Info.plist"
 mkdir -p "$APP/Contents/Resources"
 cp Resources/AppIcon.icns "$APP/Contents/Resources/AppIcon.icns"
@@ -29,6 +29,10 @@ scripts/build-media-adapter.sh "$APP/Contents/Resources/MediaAdapter"
 mkdir -p "$APP/Contents/Frameworks"
 cp -R "$BIN/Lottie.framework" "$APP/Contents/Frameworks/"
 install_name_tool -add_rpath "@executable_path/../Frameworks" "$APP/Contents/MacOS/AgentPulse" 2>/dev/null || true
+# Рантайм диктовки: загружает только помощник и только на время работы.
+scripts/fetch-sherpa.sh
+cp Vendor/sherpa-onnx/*.dylib "$APP/Contents/Frameworks/"
+install_name_tool -add_rpath "@loader_path" "$APP/Contents/Frameworks/libsherpa-onnx-c-api.dylib" 2>/dev/null || true
 
 # Ad-hoc подпись для локального запуска. Для дистрибуции — Developer ID + нотаризация.
 # macOS привязывает «Универсальный доступ» к подписи: с ad-hoc разрешение слетает после каждой сборки.
@@ -42,6 +46,9 @@ IDENTITY="${AGENT_PULSE_SIGN_IDENTITY:--}"
 codesign --force --sign "$IDENTITY" "$APP/Contents/MacOS/pulse-hook"
 codesign --force --sign "$IDENTITY" "$APP/Contents/MacOS/pulse-statusline"
 codesign --force --sign "$IDENTITY" "$APP/Contents/Frameworks/Lottie.framework"
+codesign --force --sign "$IDENTITY" "$APP/Contents/Frameworks/libonnxruntime.dylib"
+codesign --force --sign "$IDENTITY" "$APP/Contents/Frameworks/libsherpa-onnx-c-api.dylib"
+codesign --force --sign "$IDENTITY" --options runtime --entitlements Resources/PulseASR.entitlements "$APP/Contents/MacOS/pulse-asr"
 codesign --force --sign "$IDENTITY" "$APP/Contents/Resources/MediaAdapter/MediaRemoteAdapter.framework"
 # Hardened runtime с entitlements: иначе macOS молча откажет в Календарях, микрофоне и Automation.
 codesign --force --sign "$IDENTITY" --options runtime --entitlements Resources/AgentPulse.entitlements "$APP"

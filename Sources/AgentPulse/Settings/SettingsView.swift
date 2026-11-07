@@ -148,7 +148,7 @@ private struct GeneralSettings: View {
                 }
             }
             Section("О программе") {
-                Text("Иконки категорий — Solar Icons, 480 Design, лицензия CC BY 4.0. Анимации ботов играет Lottie от Airbnb, лицензия Apache 2.0. «Музыка» работает через mediaremote-adapter, Jonas van den Berg, лицензия BSD-3.")
+                Text("Иконки категорий — Solar Icons, 480 Design, лицензия CC BY 4.0. Анимации ботов играет Lottie от Airbnb, лицензия Apache 2.0. «Музыка» работает через mediaremote-adapter, Jonas van den Berg, лицензия BSD-3. Диктовка: GigaAM (лицензия MIT), sherpa-onnx (Apache 2.0), ONNX Runtime (MIT).")
                     .font(.caption).foregroundStyle(.secondary)
                 Button("Лицензии") {
                     if let url = Bundle.main.url(forResource: "Licenses", withExtension: nil) { NSWorkspace.shared.open(url) }
@@ -462,6 +462,7 @@ private struct ConsoleSettings: View {
                 }
                 .disabled(!settings.enabled)
             }
+            DictationSettings(model: model, app: app, controller: app.dictation)
             Section("Лимиты Claude") {
                 LabeledContent("Statusline", value: model.statuslineInstalled ? "подключена" : "не подключена")
                 if model.statuslineBroken {

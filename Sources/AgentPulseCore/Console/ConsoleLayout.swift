@@ -43,6 +43,8 @@ public enum ConsoleLayout {
     public static let dotSize = 28.0
     public static let minWidth = 96.0
     public static let maxWidth = 220.0
+    /// Капсула активного режима: волна диктовки.
+    public static let activeWidth = 240.0
     public static let expandedMaxWidth = 360.0
     public static let expandedMinWidth = 280.0
     /// Вкладка над капсулой; вместе с ней и зазором — не выше 320 pt.
@@ -56,6 +58,13 @@ public enum ConsoleLayout {
         let free = (screenWidth - dock.length) / 2 - screenMargin - dockGap
         if free >= minWidth { return .full(width: min(free, maxWidth)) }
         return free >= dotSize ? .leader : .dot
+    }
+
+    /// Капсула активного режима тоже не заезжает на Dock.
+    public static func activeWidth(screenWidth: Double, dock: DockMetrics?) -> Double {
+        guard let dock, dock.edge == .bottom, !dock.hidden else { return activeWidth }
+        let free = (screenWidth - dock.length) / 2 - screenMargin - dockGap
+        return max(minWidth, min(activeWidth, free))
     }
 
     /// Раскрытый Пульт не заезжает на Dock: до 360 pt, сколько есть до его края.

@@ -34,6 +34,18 @@ public struct PulseConfig: Codable, Sendable, Equatable {
         public var prompterVoice = false
         /// Слова в минуту.
         public var prompterSpeed = PrompterModule.defaultSpeed
+        /// Диктовка: выключена, пока ты сам не включишь: ей нужны модель и микрофон.
+        public var dictation = false
+        /// Язык диктовки: `ru` (GigaAM) или `en` (системный распознаватель, macOS 26+).
+        public var dictationLanguage = "ru"
+        /// Свои правила замены, поверх встроенных.
+        public var dictationRules: [DictationRule] = []
+        /// История текста: выключена по умолчанию.
+        public var dictationHistory = false
+        /// Переводчик, macOS 26+.
+        public var translator = true
+        /// Универсальный доступ для вставки и чтения выделения: только с твоего согласия.
+        public var accessibility = false
         /// Глобальная клавиша раскрытия: буква вместе с ⌃⌥; пусто — без клавиши.
         public var hotkey = "x"
         /// Путь к `codex`; пусто — найти самому.

@@ -9,6 +9,7 @@ let package = Package(
         .executable(name: "AgentPulse", targets: ["AgentPulse"]),
         .executable(name: "pulse-hook", targets: ["pulse-hook"]),
         .executable(name: "pulse-statusline", targets: ["pulse-statusline"]),
+        .executable(name: "pulse-asr", targets: ["pulse-asr"]),
     ],
     dependencies: [
         // Облик Agent Pals: Lottie на движке Core Animation — анимации крутит рендер-сервер, без кадров на CPU.
@@ -26,6 +27,8 @@ let package = Package(
         .executableTarget(name: "pulse-hook"),
         // Обёртка statusline Claude Code: копия лимитов в сокет, затем исходная команда пользователя.
         .executableTarget(name: "pulse-statusline"),
+        // Помощник диктовки: распознавание в своём процессе, чтобы модель можно было выгрузить целиком.
+        .executableTarget(name: "pulse-asr"),
         .testTarget(name: "AgentPulseCoreTests", dependencies: ["AgentPulseCore"]),
     ]
 )

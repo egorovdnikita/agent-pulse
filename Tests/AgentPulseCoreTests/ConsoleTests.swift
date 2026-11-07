@@ -621,3 +621,186 @@ private func snapshot(_ used: Double, at: Date = t0, service: LimitService = .cl
         #expect(loaded.console.prompterSpeed == PrompterModule.defaultSpeed)
     }
 }
+
+@Suite struct DictationTests {
+    private let start = Date(timeIntervalSince1970: 1_000_000)
+
+    @Test func noModelMeansNoRecordingAndANotice() {
+        var module = DictationModule()
+        let recording = module.press(now: start, modelReady: false)
+        #expect(!recording)
+        #expect(module.phase == .idle)
+        #expect(module.capsule(now: start).text == "Скачай модель")
+        #expect(module.priority(now: start.addingTimeInterval(5)) == nil)
+    }
+
+    @Test func accidentalPressRecognizesNothing() {
+        var module = DictationModule()
+        let recording = module.press(now: start, modelReady: true)
+        #expect(recording)
+        let recognize = module.release(now: start.addingTimeInterval(0.29))
+        #expect(!recognize)
+        #expect(module.phase == .idle)
+    }
+
+    @Test func holdIsRecognizedAndQuietOnlyWhileRecording() {
+        var module = DictationModule()
+        _ = module.press(now: start, modelReady: true)
+        #expect(module.wantsQuiet(now: start))
+        #expect(module.capsule(now: start).wave)
+        #expect(module.capsule(now: start).text == nil)
+        #expect(module.priority(now: start) == .activeMode)
+        let recognize = module.release(now: start.addingTimeInterval(0.31))
+        #expect(recognize)
+        #expect(module.phase == .recognizing)
+        #expect(!module.wantsQuiet(now: start))
+        module.finish(now: start, notice: .inClipboard)
+        #expect(module.capsule(now: start).text == "Текст в буфере")
+    }
+
+    @Test func secondPressWhileRecognizingIsIgnored() {
+        var module = DictationModule()
+        _ = module.press(now: start, modelReady: true)
+        _ = module.release(now: start.addingTimeInterval(1))
+        let again = module.press(now: start.addingTimeInterval(1.1), modelReady: true)
+        #expect(!again)
+        #expect(module.phase == .recognizing)
+    }
+
+    @Test func recordingStopsAtLimit() {
+        var module = DictationModule()
+        _ = module.press(now: start, modelReady: true)
+        #expect(!module.reachedLimit(now: start.addingTimeInterval(299)))
+        #expect(module.reachedLimit(now: start.addingTimeInterval(300)))
+    }
+
+    @Test func rulesReplaceWholeWordsInAnyCase() {
+        #expect(DictationRules.apply("Сделай диплой и пул реквест на гитхаб") == "Сделай deploy и pull request на GitHub")
+        // Начало предложения остаётся началом предложения.
+        #expect(DictationRules.apply("Коммит готов") == "Commit готов")
+        // Часть слова не трогаем.
+        #expect(DictationRules.apply("коммитмент") == "коммитмент")
+    }
+
+    @Test func customRulesWinAndSpecialCharactersAreLiteral() {
+        let custom = [DictationRule(spoken: "коммит", written: "фиксация"), DictationRule(spoken: "си плюс плюс", written: "C++ $1")]
+        #expect(DictationRules.apply("коммит на си плюс плюс", custom: custom) == "фиксация на C++ $1")
+        #expect(DictationRules.apply("текст", custom: [DictationRule(spoken: "  ", written: "x")]) == "текст")
+    }
+
+    @Test func longRecordingIsCutAtTheQuietestPoint() {
+        var samples = [Float](repeating: 0.5, count: DictationChunks.limit + 8000)
+        let quiet = DictationChunks.limit - DictationChunks.sampleRate * 2
+        for index in quiet..<(quiet + 4000) { samples[index] = 0 }
+        let ranges = DictationChunks.ranges(of: samples)
+        #expect(ranges.count == 2)
+        #expect(ranges[0].upperBound >= quiet && ranges[0].upperBound <= quiet + 4000)
+        #expect(ranges[0].upperBound == ranges[1].lowerBound)
+        #expect(ranges[1].upperBound == samples.count)
+    }
+
+    @Test func chunksCoverEverySampleAndStayWithinLimit() {
+        let samples = [Float](repeating: 0.1, count: DictationChunks.limit * 4 + 123)
+        let ranges = DictationChunks.ranges(of: samples)
+        #expect(ranges.allSatisfy { $0.count <= DictationChunks.limit })
+        #expect(ranges.reduce(0) { $0 + $1.count } == samples.count)
+        #expect(DictationChunks.ranges(of: []).isEmpty)
+    }
+
+    @Test func insertPlanNeverLosesText() {
+        #expect(DictationInsertPlan.choose(accessibility: false, role: "AXTextArea") == .clipboard)
+        #expect(DictationInsertPlan.choose(accessibility: true, role: "AXTextArea") == .field)
+        #expect(DictationInsertPlan.choose(accessibility: true, role: "AXGroup") == .pasteKeepingClipboard)
+        #expect(DictationInsertPlan.choose(accessibility: true, role: nil) == .pasteKeepingClipboard)
+    }
+
+    @Test func historyKeepsThirtyDaysAndFileIsPrivate() throws {
+        let url = FileManager.default.temporaryDirectory.appending(path: UUID().uuidString + ".json")
+        defer { try? FileManager.default.removeItem(at: url) }
+        var history = DictationHistory()
+        history.add("старое", now: start)
+        history.add("новое", now: start.addingTimeInterval(29 * 86400))
+        history.save(to: url)
+        let mode = try FileManager.default.attributesOfItem(atPath: url.path(percentEncoded: false))[.posixPermissions] as? Int
+        #expect(mode == 0o600)
+        let loaded = DictationHistory.load(from: url, now: start.addingTimeInterval(31 * 86400))
+        #expect(loaded.entries.map(\.text) == ["новое"])
+        DictationHistory.erase(at: url)
+        #expect(DictationHistory.load(from: url).entries.isEmpty)
+    }
+
+    @Test func partialModelIsNotInstalled() throws {
+        let folder = FileManager.default.temporaryDirectory.appending(path: UUID().uuidString, directoryHint: .isDirectory)
+        try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: folder) }
+        for file in DictationModelSpec.files {
+            try Data(count: 1).write(to: folder.appending(path: file.name))
+        }
+        #expect(!DictationModelSpec.isInstalled(at: folder))
+    }
+
+    @Test func oldConfigGetsDictationOff() throws {
+        let config = try PulseConfig.decode(Data(#"{"console":{"prompter":false}}"#.utf8))
+        #expect(!config.console.dictation)
+        #expect(!config.console.accessibility)
+        #expect(!config.console.dictationHistory)
+        #expect(config.console.dictationLanguage == "ru")
+    }
+
+    @Test func activeLeaderLeavesAtOnceOthersHold() {
+        var director = ConsoleDirector()
+        let dictation = ConsoleCandidate(module: .dictation, priority: .activeMode)
+        let limits = ConsoleCandidate(module: .limits, priority: .limitsNormal)
+        director.update(candidates: [limits], now: start, agentWaiting: false, expanded: false)
+        director.update(candidates: [limits, dictation], now: start.addingTimeInterval(1), agentWaiting: false, expanded: false)
+        #expect(director.leader == dictation)
+        director.update(candidates: [limits], now: start.addingTimeInterval(2), agentWaiting: false, expanded: false)
+        #expect(director.leader == limits)
+    }
+}
+
+@Suite struct TranslateTests {
+    private let start = Date(timeIntervalSince1970: 1_000_000)
+
+    @Test func directionFollowsTheText() {
+        #expect(TranslateDirection.detect("Привет, мир") == .ruToEn)
+        #expect(TranslateDirection.detect("Hello, world") == .enToRu)
+        #expect(TranslateDirection.detect("Запусти deploy на сервере") == .ruToEn)
+        #expect(TranslateDirection.detect("Run деплой on the production server") == .enToRu)
+    }
+
+    @Test func selectionIsTranslatedAndReplaceable() {
+        var module = TranslateModule()
+        let text = module.press(selection: "  привет\n", clipboard: "буфер", now: start)
+        #expect(text == "привет")
+        #expect(module.replaceable)
+        module.finish(source: "привет", result: "hello")
+        #expect(module.state == .done(source: "привет", result: "hello"))
+    }
+
+    @Test func withoutSelectionSecondPressTakesClipboardOnly() {
+        var module = TranslateModule()
+        let first = module.press(selection: nil, clipboard: "буфер", now: start)
+        #expect(first == nil)
+        #expect(module.state == .askToCopy)
+        let second = module.press(selection: nil, clipboard: "буфер", now: start.addingTimeInterval(5))
+        #expect(second == "буфер")
+        #expect(!module.replaceable)
+    }
+
+    @Test func hintExpiresSoOldClipboardIsNotRead() {
+        var module = TranslateModule()
+        _ = module.press(selection: "", clipboard: nil, now: start)
+        let late = module.press(selection: nil, clipboard: "буфер", now: start.addingTimeInterval(61))
+        #expect(late == nil)
+        #expect(module.state == .askToCopy)
+    }
+
+    @Test func staleResultDoesNotOverwriteNewerRequest() {
+        var module = TranslateModule()
+        _ = module.press(selection: "первое", clipboard: nil, now: start)
+        _ = module.press(selection: "второе", clipboard: nil, now: start)
+        module.finish(source: "первое", result: "first")
+        #expect(module.state == .working(source: "второе"))
+    }
+}

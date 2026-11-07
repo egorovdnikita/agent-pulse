@@ -21,7 +21,8 @@ public struct ConsoleAlert: Sendable, Equatable {
     }
 }
 
-/// Решает, кто занимает свёрнутый Пульт. Лидер держится ≥ 8 s, кроме перехода вверх по списку.
+/// Решает, кто занимает свёрнутый Пульт. Лидер держится ≥ 8 s, кроме перехода вверх по списку
+/// и конца активного режима: кончившейся диктовке и суфлёру нечего показывать.
 /// Пока агент ждёт тебя, Пульт меняет лидера без анимации, а новые тревоги откладывает, разовые тоже.
 public struct ConsoleDirector: Sendable, Equatable {
     public static let leaderHold: TimeInterval = 8
@@ -46,7 +47,8 @@ public struct ConsoleDirector: Sendable, Equatable {
             case (.some(let new), .some(let old)): new.priority < old.priority
             default: leader == nil
             }
-            if upward || now.timeIntervalSince(leaderSince) >= Self.leaderHold {
+            let activeModeEnded = leader?.priority == .activeMode
+            if upward || activeModeEnded || now.timeIntervalSince(leaderSince) >= Self.leaderHold {
                 leader = best
                 leaderSince = now
                 quietChange = agentWaiting
