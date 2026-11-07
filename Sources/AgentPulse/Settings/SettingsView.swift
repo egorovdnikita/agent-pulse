@@ -159,7 +159,7 @@ private struct GeneralSettings: View {
                     ForEach(bots, id: \.bot) { Text($0.bot).tag($0.configValue) }
                 }
                 if bots.isEmpty {
-                    Text("Боты Agent Pals не установлены: scripts/install-agent-pals.sh путь/к/паку.zip")
+                    Text("Боты не установлены, маскот остаётся светящимся кругом")
                         .font(SettingsStyle.caption).foregroundStyle(SettingsStyle.muted)
                 } else if mode != .classic {
                     if mode == .shuffle {
@@ -195,8 +195,8 @@ private struct GeneralSettings: View {
                     Text("Отпущенный маскот падает на «пол» с отскоками").font(SettingsStyle.caption).foregroundStyle(SettingsStyle.muted)
                 }
                 Toggle("Запускать при входе", isOn: Binding(get: { model.launchAtLogin }, set: { app.setLaunchAtLogin($0) }))
-                if let error = model.serverError {
-                    Text("Сокет недоступен: \(error)").foregroundStyle(ConsoleStyle.red)
+                if model.serverError != nil {
+                    Text("Не вижу агентов. Перезапусти приложение").foregroundStyle(ConsoleStyle.red)
                 }
             }
             SettingsBlock("О программе") {
@@ -577,13 +577,13 @@ private struct ConsoleSettings: View {
             }
             SettingsBlock("Лимиты Codex") {
                 LabeledContent("Состояние", value: model.codexStatus ?? "ещё не проверялось")
-                LabeledContent("Путь к codex") {
-                    TextField("Путь к codex", text: Binding(get: { settings.codexPath ?? "" }, set: { app.setCodexPath($0) }),
+                LabeledContent("Где лежит Codex") {
+                    TextField("Где лежит Codex", text: Binding(get: { settings.codexPath ?? "" }, set: { app.setCodexPath($0) }),
                               prompt: Text("найти самому"))
                         .labelsHidden()
                         .frame(maxWidth: 280)
                 }
-                SettingsPicker("Аккаунт", selection: Binding(get: { settings.codexHome ?? "" }, set: { app.setCodexHome($0) })) {
+                SettingsPicker("Профиль Codex", selection: Binding(get: { settings.codexHome ?? "" }, set: { app.setCodexHome($0) })) {
                     Text("~/.codex").tag("")
                     ForEach(Array(CodexAppServer.accountHomes().enumerated()), id: \.element) { index, home in
                         Text("Orca, аккаунт \(index + 1)").tag(home)
@@ -618,7 +618,7 @@ private struct SourcesSettings: View {
             }
             SettingsBlock("Claude Cowork") {
                 Toggle(isOn: Binding(get: { model.config.sources.cowork }, set: { app.setCoworkEnabled($0) })) {
-                    Text("Следить за Cowork")
+                    Text("Cowork")
                     Text(coworkStatus(model)).font(SettingsStyle.caption).foregroundStyle(SettingsStyle.muted)
                 }
             }
@@ -629,7 +629,7 @@ private struct SourcesSettings: View {
             }
             SettingsBlock("Orca") {
                 Toggle(isOn: Binding(get: { model.config.sources.orca }, set: { app.setOrcaEnabled($0) })) {
-                    Text("Следить за агентами в Orca")
+                    Text("Агенты в Orca")
                     Text(orcaStatus(model)).font(SettingsStyle.caption).foregroundStyle(SettingsStyle.muted)
                 }
             }
@@ -648,8 +648,8 @@ private struct SourcesSettings: View {
             }
             SettingsBlock("Figma") {
                 Button("Показать плагин-компаньон") { app.revealFigmaPlugin() }
-                if let error = model.companionError {
-                    Text("Порт занят — \(error)").foregroundStyle(ConsoleStyle.red)
+                if model.companionError != nil {
+                    Text("Плагин Figma не подключился").foregroundStyle(ConsoleStyle.red)
                 }
             }
             SettingsBlock("Органы чувств") {
@@ -675,7 +675,7 @@ private struct SourcesSettings: View {
 
     private func coworkStatus(_ model: PulseModel) -> String {
         switch model.coworkWatching {
-        case true?: "Слежу" + Self.ago(model, .cowork)
+        case true?: "Подключено" + Self.ago(model, .cowork)
         case false?: "Cowork не найден"
         case nil: "Выключено"
         }

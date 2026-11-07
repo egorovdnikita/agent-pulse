@@ -61,29 +61,29 @@ struct DictationSettings: View {
     private func modelRow(_ models: DictationModelStore) -> some View {
         switch models.state {
         case .absent:
-            LabeledContent("Модель GigaAM") {
+            LabeledContent("Модель распознавания") {
                 Button("Скачать, \(DictationModelSpec.downloadMB) MB") { models.download() }
             }
             Text("На диске займёт \(DictationModelSpec.diskMB) MB, при работе до 650 MB памяти, через 2 минуты память освобождается")
                 .font(SettingsStyle.caption).foregroundStyle(SettingsStyle.muted)
         case .downloading(let fraction):
-            LabeledContent("Модель GigaAM") {
+            LabeledContent("Модель распознавания") {
                 HStack {
                     ProgressView(value: fraction).frame(width: 120)
                     Button("Отмена") { models.cancel() }
                 }
             }
         case .unpacking:
-            LabeledContent("Модель GigaAM", value: "Проверяю и распаковываю…")
+            LabeledContent("Модель распознавания", value: "Проверяю и распаковываю…")
         case .ready:
-            LabeledContent("Модель GigaAM") {
+            LabeledContent("Модель распознавания") {
                 HStack {
                     Text("Скачана").foregroundStyle(SettingsStyle.muted)
                     Button("Удалить") { models.remove() }
                 }
             }
         case .failed(let problem):
-            LabeledContent("Модель GigaAM") {
+            LabeledContent("Модель распознавания") {
                 Button("Скачать ещё раз") { models.download() }
             }
             Text(problem).font(SettingsStyle.caption).foregroundStyle(SettingsStyle.muted)
