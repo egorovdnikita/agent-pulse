@@ -293,33 +293,54 @@ struct ThinSlider: View {
     let value: Double
     let range: ClosedRange<Double>
     let label: String
+    /// Команда уходит при отпускании: плеер не должен дёргаться от каждого движения мыши.
+    let commitsOnEnd: Bool
     let onChange: (Double) -> Void
+    // Обычный @State без Xcode недоступен: его макрос лежит только там.
+    private let dragged = State<Double?>(initialValue: nil)
+
+    init(value: Double, range: ClosedRange<Double>, label: String, commitsOnEnd: Bool = false, onChange: @escaping (Double) -> Void) {
+        self.value = value
+        self.range = range
+        self.label = label
+        self.commitsOnEnd = commitsOnEnd
+        self.onChange = onChange
+    }
+
+    private var span: Double { max(range.upperBound - range.lowerBound, 0.001) }
 
     private var share: Double {
-        min(1, max(0, (value - range.lowerBound) / max(range.upperBound - range.lowerBound, 0.001)))
+        min(1, max(0, ((dragged.wrappedValue ?? value) - range.lowerBound) / span))
     }
 
     var body: some View {
         GeometryReader { space in
-            let span = max(range.upperBound - range.lowerBound, 0.001)
-            let fraction = min(1, max(0, (value - range.lowerBound) / span))
             ZStack(alignment: .leading) {
                 Capsule().fill(ConsoleStyle.track)
-                Capsule().fill(.white).frame(width: max(4, space.size.width * fraction))
+                Capsule().fill(.white).frame(width: max(4, space.size.width * share))
             }
             .frame(height: 4)
             .frame(maxHeight: .infinity)
             .contentShape(Rectangle())
-            .gesture(DragGesture(minimumDistance: 0).onChanged { drag in
-                onChange(range.lowerBound + span * min(1, max(0, drag.location.x / max(space.size.width, 1))))
-            })
+            .gesture(
+                DragGesture(minimumDistance: 0)
+                    .onChanged { drag in
+                        let place = range.lowerBound + span * min(1, max(0, drag.location.x / max(space.size.width, 1)))
+                        dragged.wrappedValue = place
+                        if !commitsOnEnd { onChange(place) }
+                    }
+                    .onEnded { _ in
+                        if commitsOnEnd, let place = dragged.wrappedValue { onChange(place) }
+                        dragged.wrappedValue = nil
+                    }
+            )
         }
         .frame(height: 16)
         .accessibilityElement()
         .accessibilityLabel(label)
         .accessibilityValue("\(Int(share * 100))%")
         .accessibilityAdjustableAction { direction in
-            let step = (range.upperBound - range.lowerBound) / 20
+            let step = span / 20
             switch direction {
             case .increment: onChange(min(range.upperBound, value + step))
             case .decrement: onChange(max(range.lowerBound, value - step))

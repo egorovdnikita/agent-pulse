@@ -524,7 +524,7 @@ struct MediaTab: View {
                 }
                 Spacer(minLength: 6)
                 if let duration = playing.duration {
-                    ThinSlider(value: playing.position(now: model.now), range: 0...duration, label: "Позиция") { model.onSeek?($0) }
+                    ThinSlider(value: playing.position(now: model.now), range: 0...duration, label: "Позиция", commitsOnEnd: true) { model.onSeek?($0) }
                     HStack {
                         Text(clock(playing.position(now: model.now)))
                         Spacer()
@@ -752,7 +752,8 @@ struct PrompterTab: View {
                 }
                 Spacer(minLength: 0)
                 ThinSlider(
-                    value: model.prompter.total > 0 ? model.prompter.elapsed / model.prompter.total : 0, range: 0...1, label: "Перемотка"
+                    value: model.prompter.total > 0 ? model.prompter.elapsed / model.prompter.total : 0, range: 0...1, label: "Перемотка",
+                    commitsOnEnd: true
                 ) { model.seekPrompter(toFraction: $0) }
                 HStack {
                     Text(PrompterModule.clock(model.prompter.elapsed))
