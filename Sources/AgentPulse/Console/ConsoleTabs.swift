@@ -601,13 +601,14 @@ struct PrompterTab: View {
             PrompterSmallButton(title: "Назад", wide: true) { model.prompterRecentOpen = false }
         } else {
             VStack(spacing: 8) {
+                // Кнопки стоят на своих местах всегда: недоступная гаснет, а не исчезает.
                 HStack(spacing: 8) {
-                    if !model.prompterLibrary.texts.isEmpty {
-                        PrompterSmallButton(title: "Недавние", wide: true) { model.prompterRecentOpen = true }
-                    }
-                    if hasText {
-                        PrompterSmallButton(title: "Очистить", wide: true) { model.prompterDraft = "" }
-                    }
+                    PrompterSmallButton(title: "Недавние", wide: true) { model.prompterRecentOpen = true }
+                        .disabled(model.prompterLibrary.texts.isEmpty)
+                        .opacity(model.prompterLibrary.texts.isEmpty ? 0.4 : 1)
+                    PrompterSmallButton(title: "Очистить", wide: true) { model.prompterDraft = "" }
+                        .disabled(!hasText)
+                        .opacity(hasText ? 1 : 0.4)
                 }
                 PrompterSmallButton(title: "Старт", strong: true, wide: true) { model.startPrompter() }
                     .disabled(!hasText)
