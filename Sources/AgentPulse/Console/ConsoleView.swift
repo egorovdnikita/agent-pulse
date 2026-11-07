@@ -148,14 +148,6 @@ private struct LimitCard: View {
                 HStack(spacing: 6) {
                     ServiceMark(service: service, size: 17)
                     Text(service.title).font(ConsoleStyle.font(15, .semibold)).foregroundStyle(.white).lineLimit(1)
-                    if model.mascotService() == service, let animator = model.mascotAnimator {
-                        // Маскот — деталь рядом с именем того, кто работает. Холст шире строки: запас под прыжки.
-                        let box = MascotView.boxSize(ConsoleLook.mascot)
-                        MascotView(animator: animator, diameter: ConsoleLook.mascot, paused: !model.expanded)
-                            .frame(width: box, height: box)
-                            .frame(width: 30, height: 20)
-                            .accessibilityHidden(true)
-                    }
                     Spacer(minLength: 0)
                     if readings.allSatisfy({ $0.reading == nil }) {
                         Button("Подключить") { model.onOpenSettings?("Лимиты \(service.title)") }

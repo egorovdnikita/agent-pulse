@@ -65,8 +65,6 @@ final class ConsoleModel {
     private(set) var contentShown = false
     @ObservationIgnored private var closeTask: Task<Void, Never>?
     /// Тот же маскот, что в углу: сидит у карточки сервиса, который сейчас работает.
-    @ObservationIgnored var mascotAnimator: MascotAnimator?
-    @ObservationIgnored var mascotService: () -> LimitService? = { nil }
     /// Система сдвинула видимую область экрана.
     @ObservationIgnored var placementChanged: () -> Bool = { false }
     /// Превью картинок на полке.
