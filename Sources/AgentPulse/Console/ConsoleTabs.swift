@@ -899,18 +899,25 @@ struct TranslateTab: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            HStack(spacing: 12) {
+        HStack(spacing: 8) {
+            source
+            ConsoleCard { output }
+        }
+    }
+
+    /// Левая карточка: направление, текст и «Очистить». Отдельная строка съедала бы высоту страницы.
+    private var source: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            HStack {
                 Button { model.flipTranslation() } label: {
                     Text(direction.title)
-                        .font(ConsoleStyle.font(13, .medium))
-                        .foregroundStyle(.white)
-                        .frame(height: 24)
+                        .font(ConsoleStyle.font(11, .semibold))
+                        .foregroundStyle(ConsoleStyle.caption)
+                        .frame(height: 20)
                         .contentShape(Rectangle())
                 }
                 .buttonStyle(ConsolePressStyle())
                 .help("Перевести в другую сторону")
-                Text("⌃⌥T переводит выделенное").font(noteFont).foregroundStyle(ConsoleStyle.caption).lineLimit(1)
                 Spacer(minLength: 0)
                 if !model.translateInput.isEmpty {
                     Button("Очистить") { model.clearTranslation() }
@@ -919,24 +926,18 @@ struct TranslateTab: View {
                         .foregroundStyle(ConsoleStyle.caption)
                 }
             }
-            .padding(.horizontal, 4)
-            HStack(spacing: 8) {
-                source
-                ConsoleCard { output }
-            }
-        }
-    }
-
-    private var source: some View {
-        ZStack(alignment: .topLeading) {
-            PrompterEditor(text: Binding(get: { model.translateInput }, set: { model.typeTranslation($0) }))
-            if model.translateInput.isEmpty {
-                Text("Введи или вставь текст")
-                    .font(ConsoleStyle.font(13))
-                    .foregroundStyle(ConsoleStyle.caption)
-                    .padding(.horizontal, 11)
-                    .padding(.vertical, 6)
-                    .allowsHitTesting(false)
+            .padding(.horizontal, 12)
+            .padding(.top, 8)
+            ZStack(alignment: .topLeading) {
+                PrompterEditor(text: Binding(get: { model.translateInput }, set: { model.typeTranslation($0) }))
+                if model.translateInput.isEmpty {
+                    Text("Введи текст или выдели его и нажми ⌃⌥T")
+                        .font(ConsoleStyle.font(13))
+                        .foregroundStyle(ConsoleStyle.caption)
+                        .padding(.horizontal, 11)
+                        .padding(.vertical, 6)
+                        .allowsHitTesting(false)
+                }
             }
         }
         .background(ConsoleStyle.card, in: RoundedRectangle(cornerRadius: ConsoleStyle.cardRadius, style: .continuous))
