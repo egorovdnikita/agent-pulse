@@ -139,11 +139,11 @@ private struct GeneralSettings: View {
                 HStack(alignment: .top, spacing: 16) {
                     MascotView(animator: model.animator, diameter: 48)
                         .frame(width: 104, height: 104)
-                        .background(Color(white: 0.1), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+                        .background(Color.black, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
                     VStack(alignment: .leading, spacing: 6) {
-                        Text(Self.now(model)).font(.headline)
+                        Text(Self.now(model)).font(ConsoleStyle.font(15, .semibold))
                         if let today = Self.today(model) {
-                            Text(today).font(.callout).foregroundStyle(SettingsStyle.muted)
+                            Text(today).font(SettingsStyle.body).foregroundStyle(SettingsStyle.muted)
                         }
                         MoodBars(mood: model.mood).padding(.top, 2)
                     }
@@ -199,7 +199,7 @@ private struct GeneralSettings: View {
                 }
                 Toggle("Запускать при входе", isOn: Binding(get: { model.launchAtLogin }, set: { app.setLaunchAtLogin($0) }))
                 if let error = model.serverError {
-                    Text("Сокет недоступен: \(error)").foregroundStyle(.red)
+                    Text("Сокет недоступен: \(error)").foregroundStyle(ConsoleStyle.red)
                 }
             }
             SettingsBlock("О программе") {
@@ -236,10 +236,10 @@ private struct MoodBars: View {
 
     var body: some View {
         Grid(alignment: .leading, horizontalSpacing: 8, verticalSpacing: 3) {
-            row("Бодрость", mood.energy, .orange)
-            row("Спокойствие", 1 - mood.stress, .teal)
-            row("Радость", mood.joy, .pink)
-            row("Общение", mood.social, .blue)
+            row("Бодрость", mood.energy, ConsoleStyle.orange)
+            row("Спокойствие", 1 - mood.stress, Color(hex: 0x64D2FF))
+            row("Радость", mood.joy, Color(hex: 0xFF375F))
+            row("Общение", mood.social, Color(hex: 0x0A84FF))
         }
         .font(SettingsStyle.caption)
     }
@@ -248,7 +248,7 @@ private struct MoodBars: View {
         GridRow {
             Text(title).foregroundStyle(SettingsStyle.muted)
             // Своя шкала: системная в неактивном окне теряет цвет.
-            Capsule().fill(Color.secondary.opacity(0.2))
+            Capsule().fill(ConsoleStyle.track)
                 .frame(width: 140, height: 6)
                 .overlay(alignment: .leading) {
                     Capsule().fill(color).frame(width: 140 * min(max(value, 0.03), 1), height: 6)
@@ -264,15 +264,15 @@ private struct CornerPicker: View {
     var body: some View {
         ZStack {
             RoundedRectangle(cornerRadius: 6, style: .continuous)
-                .fill(Color.secondary.opacity(0.12))
-                .overlay(RoundedRectangle(cornerRadius: 6, style: .continuous).strokeBorder(Color.secondary.opacity(0.35)))
+                .fill(ConsoleStyle.card)
+                .overlay(RoundedRectangle(cornerRadius: 6, style: .continuous).strokeBorder(ConsoleStyle.edge))
             // Dock внизу — ориентир.
-            Capsule().fill(Color.secondary.opacity(0.3)).frame(width: 40, height: 4)
+            Capsule().fill(ConsoleStyle.track).frame(width: 40, height: 4)
                 .frame(maxHeight: .infinity, alignment: .bottom).padding(.bottom, 4)
             ForEach(PulseConfig.Display.Anchor.allCases, id: \.self) { corner in
                 Button { anchor = corner } label: {
                     Circle()
-                        .fill(corner == anchor ? Color.accentColor : Color.secondary.opacity(0.35))
+                        .fill(corner == anchor ? ConsoleStyle.green : ConsoleStyle.edge)
                         .frame(width: 12, height: 12)
                         .padding(6)
                         .contentShape(Rectangle())
@@ -615,7 +615,7 @@ private struct SourcesSettings: View {
             SettingsBlock("Figma") {
                 Button("Показать плагин-компаньон") { app.revealFigmaPlugin() }
                 if let error = model.companionError {
-                    Text("Порт занят — \(error)").foregroundStyle(.red)
+                    Text("Порт занят — \(error)").foregroundStyle(ConsoleStyle.red)
                 }
             }
             SettingsBlock("Органы чувств") {

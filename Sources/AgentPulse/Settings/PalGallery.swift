@@ -68,7 +68,7 @@ struct PalGallery: View {
         LazyVStack(alignment: .leading, spacing: 10) {
             ForEach(Self.scenarios) { scenario in
                 VStack(alignment: .leading, spacing: 4) {
-                    Text(scenario.id).font(.caption.weight(.semibold)).foregroundStyle(.secondary)
+                    Text(scenario.id).font(ConsoleStyle.font(11, .semibold)).foregroundStyle(.secondary)
                     DesktopScene(skin: skin, scenario: scenario, diameter: diameter)
                 }
             }
