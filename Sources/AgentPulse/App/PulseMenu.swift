@@ -9,34 +9,33 @@ struct PulseMenuView: View {
     let app: AppDelegate
     let dismiss: () -> Void
 
-    static let width = 280.0
+    static let width = 260.0
 
     var body: some View {
         let model = app.model
-        VStack(alignment: .leading, spacing: 8) {
-            status(model)
+        VStack(alignment: .leading, spacing: 0) {
+            status(model).padding(.vertical, 4)
+            divider
             // Реакция без реплики: оценивать нечего, а её внутреннее имя показывать нельзя.
             if model.lastReaction != nil, let line = model.lastLine, !line.isEmpty {
-                reactionCard(model, line: line)
+                reaction(model, line: line).padding(.vertical, 6)
+                divider
             }
-            ConsoleCard(fills: false, padding: 4) {
-                VStack(spacing: 0) {
-                    PulseMenuSwitch(title: "Показывать маскота", isOn: model.overlayVisible) { app.setOverlayVisible($0) }
-                    PulseMenuSwitch(title: "Рассказывать новости", isOn: model.config.character.designNews) { app.setDesignNews($0) }
-                }
-            }
-            VStack(spacing: 0) {
-                PulseMenuRow(title: "Настройки", keys: "⌘,") { act { app.showSettings() } }
-                    .keyboardShortcut(",")
-                PulseMenuRow(title: "Выйти", keys: "⌘Q") { NSApp.terminate(nil) }
-                    .keyboardShortcut("q")
-            }
-            // Как поле карточки с переключателями: текст всех строк на одной линии.
-            .padding(.horizontal, 4)
+            PulseMenuSwitch(title: "Показывать маскота", isOn: model.overlayVisible) { app.setOverlayVisible($0) }
+            PulseMenuSwitch(title: "Рассказывать новости", isOn: model.config.character.designNews) { app.setDesignNews($0) }
+            divider
+            PulseMenuRow(title: "Настройки", keys: "⌘,") { act { app.showSettings() } }
+                .keyboardShortcut(",")
+            PulseMenuRow(title: "Выйти", keys: "⌘Q") { NSApp.terminate(nil) }
+                .keyboardShortcut("q")
         }
-        .padding(ConsoleStyle.inset)
+        .padding(5)
         .frame(width: Self.width, alignment: .topLeading)
-        .background(Color.black)
+        .background(SettingsStyle.window)
+    }
+
+    private var divider: some View {
+        Rectangle().fill(SettingsStyle.ring).frame(height: 1).padding(.horizontal, 9).padding(.vertical, 4)
     }
 
     private func act(_ action: () -> Void) {
@@ -49,48 +48,43 @@ struct PulseMenuView: View {
         let active = model.activeSessions
         VStack(alignment: .leading, spacing: 4) {
             if active.isEmpty {
-                Text("Сейчас никто не работает")
-                    .font(ConsoleStyle.font(13, .medium))
-                    .foregroundStyle(ConsoleStyle.caption)
+                Text("Сейчас никто не работает").font(SettingsStyle.body).foregroundStyle(SettingsStyle.muted)
             } else {
                 ForEach(active.prefix(6)) { session in
                     HStack(alignment: .top, spacing: 8) {
                         Circle().fill(ConsoleStyle.green).frame(width: 6, height: 6).padding(.top, 6)
                         VStack(alignment: .leading, spacing: 1) {
-                            Text(BubbleCategory.sessionTitle(session))
-                                .font(ConsoleStyle.font(13, .medium))
-                                .foregroundStyle(.white)
-                                .lineLimit(1)
-                            Text(session.phase.text).font(ConsoleStyle.font(11)).foregroundStyle(ConsoleStyle.caption).lineLimit(1)
+                            Text(BubbleCategory.sessionTitle(session)).font(SettingsStyle.bodyMedium).foregroundStyle(SettingsStyle.text).lineLimit(1)
+                            Text(session.phase.text).font(SettingsStyle.caption).foregroundStyle(SettingsStyle.muted).lineLimit(1)
                         }
                     }
                 }
             }
             if model.serverError != nil {
-                Text("Не вижу агентов. Перезапусти приложение").font(ConsoleStyle.font(11)).foregroundStyle(ConsoleStyle.red).lineLimit(2)
+                Text("Не вижу агентов. Перезапусти приложение").font(SettingsStyle.caption).foregroundStyle(SettingsStyle.destructive).lineLimit(2)
             }
             if !model.hooksInstalled {
-                PrompterSmallButton(title: "Подключить Claude Code") { act { app.showSettings(.sources) } }
+                Button("Подключить Claude Code") { act { app.showSettings(.sources) } }
+                    .buttonStyle(SettingsButtonStyle())
                     .padding(.top, 4)
             }
         }
-        .padding(.horizontal, 12)
-        .padding(.vertical, 4)
+        .padding(.horizontal, 9)
     }
 
-    private func reactionCard(_ model: PulseModel, line: String) -> some View {
-        ConsoleCard(fills: false, padding: 12) {
-            VStack(alignment: .leading, spacing: 8) {
-                VStack(alignment: .leading, spacing: 1) {
-                    Text("Как тебе эта реплика?").font(ConsoleStyle.font(11)).foregroundStyle(ConsoleStyle.caption)
-                    Text("«\(line)»").font(ConsoleStyle.font(13, .medium)).foregroundStyle(.white).lineLimit(2)
-                }
-                HStack(spacing: 8) {
-                    PrompterSmallButton(title: "Нравится", wide: true) { act { model.feedback("мило") } }
-                    PrompterSmallButton(title: "Больше не надо", wide: true) { act { model.feedback("бесит") } }
-                }
+    private func reaction(_ model: PulseModel, line: String) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            VStack(alignment: .leading, spacing: 1) {
+                Text("Как тебе эта реплика?").font(SettingsStyle.caption).foregroundStyle(SettingsStyle.muted)
+                Text("«\(line)»").font(SettingsStyle.bodyMedium).foregroundStyle(SettingsStyle.text).lineLimit(2)
             }
+            HStack(spacing: 6) {
+                Button("Нравится") { act { model.feedback("мило") } }
+                Button("Больше не надо") { act { model.feedback("бесит") } }
+            }
+            .buttonStyle(SettingsButtonStyle())
         }
+        .padding(.horizontal, 9)
     }
 }
 
@@ -103,9 +97,9 @@ private struct PulseMenuRow: View {
         Button(action: action) {
             PulseMenuHover {
                 HStack {
-                    Text(title).font(ConsoleStyle.font(13, .medium)).foregroundStyle(.white).lineLimit(1)
+                    Text(title).font(SettingsStyle.body).foregroundStyle(SettingsStyle.text).lineLimit(1)
                     Spacer(minLength: 8)
-                    if let keys { Text(keys).font(.system(size: 11)).foregroundStyle(ConsoleStyle.caption) }
+                    if let keys { Text(keys).font(.system(size: 12)).foregroundStyle(SettingsStyle.muted) }
                 }
             }
         }
@@ -122,9 +116,9 @@ private struct PulseMenuSwitch: View {
         Button { set(!isOn) } label: {
             PulseMenuHover {
                 HStack {
-                    Text(title).font(ConsoleStyle.font(13, .medium)).foregroundStyle(.white).lineLimit(1)
+                    Text(title).font(SettingsStyle.body).foregroundStyle(SettingsStyle.text).lineLimit(1)
                     Spacer(minLength: 8)
-                    ConsoleSwitch(isOn: isOn)
+                    ConsoleSwitch(isOn: isOn, on: SettingsStyle.accent, off: SettingsStyle.switchOff)
                 }
             }
         }
@@ -145,11 +139,11 @@ private struct PulseMenuHover<Content: View>: View {
 
     var body: some View {
         content
-            .padding(.horizontal, 8)
-            .frame(height: 32)
+            .padding(.horizontal, 9)
+            .frame(height: 28)
             .background(
-                hovering.wrappedValue ? ConsoleStyle.card : .clear,
-                in: RoundedRectangle(cornerRadius: 16, style: .continuous)
+                hovering.wrappedValue ? SettingsStyle.hover : .clear,
+                in: RoundedRectangle(cornerRadius: 7, style: .continuous)
             )
             .contentShape(Rectangle())
             .onHover { hovering.wrappedValue = $0 }
@@ -177,15 +171,16 @@ private struct PulseMenuSurface: View {
         let open = reveal.open
         let width = open ? reveal.size.width : Self.startSize
         let height = open ? reveal.size.height : Self.startSize
-        let shape = RoundedRectangle(cornerRadius: open ? ConsoleStyle.surfaceRadius : Self.startSize / 2, style: .continuous)
+        let shape = RoundedRectangle(cornerRadius: open ? 12 : Self.startSize / 2, style: .continuous)
         ZStack(alignment: .bottomTrailing) {
-            shape.fill(Color.black)
+            shape.fill(SettingsStyle.window)
                 .frame(width: width, height: height)
                 .consoleShadow()
             content
                 .opacity(reveal.contentShown ? 1 : 0)
                 .animation(ConsoleStyle.contentMotion(appearing: reveal.contentShown, reduced: reduce), value: reveal.contentShown)
                 .mask(alignment: .bottomTrailing) { shape.frame(width: width, height: height) }
+            shape.strokeBorder(SettingsStyle.ring, lineWidth: 1).frame(width: width, height: height)
             shape.strokeBorder(ConsoleStyle.edge, lineWidth: 1).frame(width: width, height: height)
         }
         .frame(width: reveal.size.width, height: reveal.size.height, alignment: .bottomTrailing)
