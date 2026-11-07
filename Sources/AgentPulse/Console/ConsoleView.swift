@@ -60,7 +60,7 @@ private struct CapsuleBody: View {
     let model: ConsoleModel
 
     var body: some View {
-        let accent = model.dropTargeted ? Color.white.opacity(0.7) : model.alert.map { Color(hex: $0.color) }
+        let accent = model.dropTargeted ? ConsoleStyle.dropAccent : model.alert.map { Color(hex: $0.color) }
         HStack(spacing: ConsoleLook.labelGap) {
             if model.showsDot {
                 Image(nsImage: SolarIcons.image("tuning-2") ?? NSImage())

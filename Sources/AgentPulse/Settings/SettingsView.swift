@@ -237,7 +237,7 @@ private struct MoodBars: View {
             row("Бодрость", mood.energy, ConsoleStyle.orange)
             row("Спокойствие", 1 - mood.stress, Color(hex: 0x64D2FF))
             row("Радость", mood.joy, Color(hex: 0xFF375F))
-            row("Общение", mood.social, Color(hex: 0x0A84FF))
+            row("Общение", mood.social, ConsoleStyle.blue)
         }
         .font(SettingsStyle.caption)
     }

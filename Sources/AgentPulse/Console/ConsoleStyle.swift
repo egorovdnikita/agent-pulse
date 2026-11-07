@@ -9,6 +9,9 @@ enum ConsoleStyle {
     static let yellow = Color(hex: 0xFFD60A)
     static let red = Color(hex: 0xFF453A)
     static let orange = Color(hex: 0xFF9F0A)
+    static let blue = Color(hex: 0x0A84FF)
+    /// Акцент, когда над Пультом несут файл.
+    static let dropAccent = Color.white.opacity(0.7)
 
     static let caption = Color.white.opacity(0x8C / 255)
     /// Приглушённый значок: та же яркость, что у подписи.
@@ -274,6 +277,13 @@ struct ConsoleSegments<Value: Hashable>: View {
 }
 
 /// Карточка: подложка всех страниц.
+extension View {
+    /// Тень всех чёрных форм, что парят над рабочим столом.
+    func consoleShadow() -> some View {
+        shadow(color: .black.opacity(0.45), radius: 12, y: 4)
+    }
+}
+
 struct ConsoleCard<Content: View>: View {
     var fills = true
     var padding = ConsoleStyle.cardPadding

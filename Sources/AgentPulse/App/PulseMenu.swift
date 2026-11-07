@@ -181,7 +181,7 @@ private struct PulseMenuSurface: View {
         ZStack(alignment: .bottomTrailing) {
             shape.fill(Color.black)
                 .frame(width: width, height: height)
-                .shadow(color: .black.opacity(0.45), radius: 12, y: 4)
+                .consoleShadow()
             content
                 .opacity(reveal.contentShown ? 1 : 0)
                 .animation(ConsoleStyle.contentMotion(appearing: reveal.contentShown, reduced: reduce), value: reveal.contentShown)

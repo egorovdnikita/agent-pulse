@@ -358,7 +358,7 @@ private extension ShelfFileKind {
         switch self {
         case .pdf: ConsoleStyle.red
         case .presentation: ConsoleStyle.orange
-        case .document: Color(hex: 0x0A84FF)
+        case .document: ConsoleStyle.blue
         case .spreadsheet: ConsoleStyle.green
         case .archive, .image, .other: Color(hex: 0x8E8E93)
         }
@@ -456,7 +456,7 @@ struct ShelfTab: View {
         .overlay {
             if model.dropTargeted {
                 RoundedRectangle(cornerRadius: ConsoleStyle.cardRadius, style: .continuous)
-                    .strokeBorder(.white.opacity(0.7), style: StrokeStyle(lineWidth: 1.5, dash: [5, 4]))
+                    .strokeBorder(ConsoleStyle.dropAccent, style: StrokeStyle(lineWidth: 1.5, dash: [5, 4]))
             }
         }
     }

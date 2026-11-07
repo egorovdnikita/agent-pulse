@@ -228,7 +228,7 @@ private struct PrompterSurface: View {
         ZStack(alignment: .top) {
             shape.fill(.black)
                 .frame(width: width, height: shown)
-                .shadow(color: .black.opacity(0.45), radius: 12, y: 4)
+                .consoleShadow()
             PrompterView(model: model)
                 .opacity(reveal.contentShown ? 1 : 0)
                 .animation(ConsoleStyle.contentMotion(appearing: reveal.contentShown, reduced: reduce), value: reveal.contentShown)
