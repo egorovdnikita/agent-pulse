@@ -13,7 +13,7 @@ enum SettingsStyle {
     static let title = ConsoleStyle.font(22, .semibold)
     static let body = ConsoleStyle.font(13)
     static let bodyMedium = ConsoleStyle.font(13, .medium)
-    static let caption = ConsoleStyle.font(12)
+    static let caption = ConsoleStyle.font(11)
 
     static func spring(reduced: Bool) -> Animation {
         reduced ? .easeInOut(duration: 0.15) : .spring(response: 0.3, dampingFraction: 0.75)
@@ -72,7 +72,7 @@ struct SettingsBlock<Content: View>: View {
         VStack(alignment: .leading, spacing: 8) {
             if let title {
                 Text(title)
-                    .font(ConsoleStyle.font(12, .medium))
+                    .font(ConsoleStyle.font(11, .medium))
                     .foregroundStyle(SettingsStyle.muted)
                     .padding(.leading, ConsoleStyle.cardPadding)
             }
@@ -190,7 +190,7 @@ struct SettingsButtonStyle: ButtonStyle {
 
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
-            .font(ConsoleStyle.font(12, .medium))
+            .font(ConsoleStyle.font(13, .medium))
             .foregroundStyle(.white)
             .padding(.horizontal, 12)
             .frame(height: 28)

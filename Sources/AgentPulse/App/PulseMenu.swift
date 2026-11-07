@@ -99,7 +99,7 @@ private struct PulseMenuRow: View {
                 HStack {
                     Text(title).font(ConsoleStyle.font(13, .medium)).foregroundStyle(.white).lineLimit(1)
                     Spacer(minLength: 8)
-                    if let keys { Text(keys).font(.system(size: 12)).foregroundStyle(ConsoleStyle.caption) }
+                    if let keys { Text(keys).font(.system(size: 11)).foregroundStyle(ConsoleStyle.caption) }
                 }
             }
         }

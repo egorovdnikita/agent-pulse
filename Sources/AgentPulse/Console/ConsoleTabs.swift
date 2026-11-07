@@ -73,7 +73,7 @@ private struct MonthGrid: View {
         let lead = (calendar.component(.weekday, from: start) + 5) % 7
         LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 0), count: 7), spacing: 1) {
             ForEach(["пн", "вт", "ср", "чт", "пт", "сб", "вс"], id: \.self) {
-                Text($0).font(ConsoleStyle.font(10)).foregroundStyle(ConsoleStyle.caption)
+                Text($0).font(ConsoleStyle.font(11)).foregroundStyle(ConsoleStyle.caption)
             }
             ForEach(0..<(lead + days), id: \.self) { index in
                 if index < lead {
@@ -265,7 +265,7 @@ struct ShelfTab: View {
                                         .buttonStyle(ConsolePressStyle()).accessibilityLabel("Убрать с полки")
                                 }
                             Text(item.name).font(ConsoleStyle.font(11, .medium)).foregroundStyle(.white).lineLimit(1).truncationMode(.middle)
-                            Text(detail(item.url)).font(ConsoleStyle.font(10)).foregroundStyle(ConsoleStyle.caption).lineLimit(1)
+                            Text(detail(item.url)).font(ConsoleStyle.font(11)).foregroundStyle(ConsoleStyle.caption).lineLimit(1)
                         }
                         .frame(maxWidth: .infinity)
                         .background(ShelfDragArea(url: item.url) { model.removeFromShelf($0) })
@@ -325,7 +325,7 @@ struct MediaTab: View {
             }
             .frame(width: 146, height: 146).clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
             VStack(alignment: .leading, spacing: 0) {
-                Text(playing.title).font(ConsoleStyle.font(17, .semibold)).foregroundStyle(.white).lineLimit(1)
+                Text(playing.title).font(ConsoleStyle.font(15, .semibold)).foregroundStyle(.white).lineLimit(1)
                 if let artist = playing.artist {
                     Text(artist).font(ConsoleStyle.font(13)).foregroundStyle(ConsoleStyle.caption).lineLimit(1).padding(.top, 2)
                 }
@@ -443,7 +443,7 @@ struct PrompterSmallButton: View {
     var body: some View {
         Button(action: action) {
             Text(title)
-                .font(ConsoleStyle.font(12, .medium))
+                .font(ConsoleStyle.font(13, .medium))
                 .foregroundStyle(strong || tint != nil ? .black : .white)
                 .lineLimit(1)
                 .fixedSize()
@@ -552,7 +552,7 @@ struct PrompterTab: View {
                     .foregroundStyle(model.prompter.mode == .paused ? ConsoleStyle.yellow : ConsoleStyle.green)
                 Spacer(minLength: 0)
                 Text("\(PrompterModule.clock(model.prompter.elapsed)) из \(PrompterModule.clock(model.prompter.total))")
-                    .font(ConsoleStyle.font(30, .semibold).monospacedDigit())
+                    .font(ConsoleStyle.font(26, .semibold).monospacedDigit())
                     .foregroundStyle(.white)
                 ProgressLine(fraction: model.prompter.total > 0 ? model.prompter.elapsed / model.prompter.total : 0)
                 Spacer(minLength: 0)
@@ -565,14 +565,14 @@ struct PrompterTab: View {
             HStack(spacing: 4) {
                 PrompterSmallButton(title: "−") { model.changePrompterSpeed(faster: false) }
                 Text("\(model.prompter.speed) сл/мин")
-                    .font(ConsoleStyle.font(12).monospacedDigit())
+                    .font(ConsoleStyle.font(13).monospacedDigit())
                     .foregroundStyle(ConsoleStyle.caption)
                     .lineLimit(1)
                     .frame(maxWidth: .infinity)
                 PrompterSmallButton(title: "+") { model.changePrompterSpeed(faster: true) }
             }
             HStack(spacing: 6) {
-                Text("За голосом").font(ConsoleStyle.font(12)).foregroundStyle(ConsoleStyle.caption).lineLimit(1)
+                Text("За голосом").font(ConsoleStyle.font(13)).foregroundStyle(ConsoleStyle.caption).lineLimit(1)
                 Spacer(minLength: 0)
                 Toggle("За голосом", isOn: Binding(
                     get: { model.prompter.followsVoice }, set: { model.onPrompterVoiceToggle?($0) }

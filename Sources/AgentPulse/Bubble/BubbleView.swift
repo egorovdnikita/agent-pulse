@@ -28,7 +28,7 @@ struct BubbleView: View {
                 }
             }
             Text(message.text)
-                .font(ConsoleStyle.font(12))
+                .font(ConsoleStyle.font(13))
                 .foregroundStyle(.white.opacity(0.75))
                 .multilineTextAlignment(.leading)
                 .lineLimit(4)

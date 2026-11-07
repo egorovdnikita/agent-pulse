@@ -157,14 +157,14 @@ struct LimitGauge: View {
                     .monospacedDigit()
                     .foregroundStyle(exhausted ? ConsoleStyle.red : reading == nil ? ConsoleStyle.caption : .white)
                 Text(kind.title)
-                    .font(ConsoleStyle.font(12))
+                    .font(ConsoleStyle.font(11))
                     .foregroundStyle(.white.opacity(0.6))
                     .lineLimit(1)
             }
             VStack {
                 Spacer()
                 Text(bottom)
-                    .font(ConsoleStyle.font(12))
+                    .font(ConsoleStyle.font(11))
                     .monospacedDigit()
                     .foregroundStyle(exhausted ? ConsoleStyle.red : ConsoleStyle.caption)
                     .lineLimit(1)
@@ -256,7 +256,7 @@ struct ConsoleSegments<Value: Hashable>: View {
             ForEach(values, id: \.self) { value in
                 Button { select(value) } label: {
                     Text(title(value))
-                        .font(ConsoleStyle.font(12, .medium))
+                        .font(ConsoleStyle.font(13, .medium))
                         .foregroundStyle(value == selected ? .white : ConsoleStyle.caption)
                         .lineLimit(1)
                         .frame(maxWidth: .infinity)
