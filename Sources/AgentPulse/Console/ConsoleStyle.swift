@@ -26,7 +26,7 @@ enum ConsoleStyle {
     static let surfaceRadius = cardRadius + inset
     static let cardPadding = 14.0
 
-    static let gaugeSize = 72.0
+    static let gaugeSize = 78.0
     static let gaugeLine = 6.0
 
     /// Открытие с лёгкой отдачей, закрытие без перелёта.
