@@ -379,6 +379,12 @@ enum ConsoleSheet {
         }
         model.calendarScope = .day
 
+        // Выделенные файлы.
+        model.tab = .shelf
+        model.selectAllShelf()
+        write(PanelPreview(model: model), size: panel, to: folder.appending(path: "shelf-selected.png"))
+        model.clearShelfSelection()
+
         // Меню маскота.
         write(PulseMenuView(app: app) {}, size: CGSize(width: PulseMenuView.width + 16, height: 340), to: folder.appending(path: "menu.png"))
 

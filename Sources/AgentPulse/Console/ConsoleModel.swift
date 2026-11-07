@@ -68,6 +68,11 @@ final class ConsoleModel {
     @ObservationIgnored var placementChanged: () -> Bool = { false }
     /// Превью картинок на полке.
     private(set) var shelfPreviews: [URL: NSImage] = [:]
+    private(set) var shelfSelection = ShelfSelection()
+    /// Рамка выделения, пока ведут мышью.
+    var shelfRubber: CGRect?
+    /// Где стоят плитки: по ним рамка понимает, что задела.
+    @ObservationIgnored var shelfFrames: [URL: CGRect] = [:]
     @ObservationIgnored private var mutedVolume = 0.5
     /// Что играло последним. Живёт только в памяти.
     private(set) var rememberedTrack: NowPlaying?
@@ -230,15 +235,60 @@ final class ConsoleModel {
     }
 
     func removeFromShelf(_ url: URL) {
-        shelf.remove(url)
+        removeFromShelf([url])
+    }
+
+    func removeFromShelf(_ urls: [URL]) {
+        shelf.remove(urls)
+        shelfSelection.keep(only: shelfOrder)
         if shelf.items.isEmpty { shelfThumbnail = nil } else if let last = shelf.items.last { loadThumbnail(last.url) }
         refresh(agentWaiting: false)
+    }
+
+    /// В том порядке, в каком плитки стоят на странице: новые первыми.
+    var shelfOrder: [URL] { shelf.items.reversed().map(\.url) }
+
+    func clickShelf(_ url: URL, flags: NSEvent.ModifierFlags) {
+        shelfSelection.click(url, order: shelfOrder, command: flags.contains(.command), shift: flags.contains(.shift))
+    }
+
+    func selectAllShelf() {
+        shelfSelection.selectAll(shelfOrder)
+    }
+
+    func clearShelfSelection() {
+        shelfSelection.clear()
+    }
+
+    func removeSelectedFiles() {
+        removeFromShelf(Array(shelfSelection.urls))
+    }
+
+    /// Рамка мышью: выбраны плитки, которых она касается.
+    func dragRubber(_ rect: CGRect?) {
+        shelfRubber = rect
+        guard let rect else { return }
+        shelfSelection.replace(with: Set(shelfFrames.filter { $0.value.intersects(rect) }.keys))
+    }
+
+    /// Системный выбор файлов: несколько сразу. Панель без фокуса, поэтому приложение сначала выходит вперёд.
+    func chooseFiles() {
+        let chooser = NSOpenPanel()
+        chooser.allowsMultipleSelection = true
+        chooser.canChooseDirectories = true
+        chooser.canChooseFiles = true
+        chooser.prompt = "Добавить"
+        NSApp.activate()
+        let answer = chooser.runModal()
+        setExpanded(true)
+        if answer == .OK { addToShelf(chooser.urls) }
     }
 
     func clearShelf() {
         shelf.clear()
         shelfThumbnail = nil
         shelfPreviews = [:]
+        shelfSelection.clear()
         refresh(agentWaiting: false)
     }
 
@@ -595,6 +645,7 @@ final class ConsoleModel {
 
     func setExpanded(_ on: Bool) {
         guard on != expanded else { return }
+        if !on { shelfSelection.clear() }
         if on {
             // Открываем то, что занимает капсулу.
             let ids = tabs.map(\.id)

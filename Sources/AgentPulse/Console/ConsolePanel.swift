@@ -141,6 +141,7 @@ final class ConsolePanel: NSPanel {
             }
             localMonitor = NSEvent.addLocalMonitorForEvents(matching: [.keyDown, .leftMouseDown]) { [weak self] event in
                 if event.type == .keyDown, MainActor.assumeIsolated({ self?.handlePageKey(event) == true }) { return nil }
+                if event.type == .keyDown, MainActor.assumeIsolated({ self?.handleShelfKey(event) == true }) { return nil }
                 // У приложения без меню ⌘V и остальные некому обработать: поле суфлёра осталось бы без вставки.
                 if event.type == .keyDown, event.modifierFlags.intersection(.deviceIndependentFlagsMask) == .command,
                    let key = event.charactersIgnoringModifiers?.lowercased(), let action = Self.editActions[key],
@@ -163,6 +164,21 @@ final class ConsolePanel: NSPanel {
             localMonitor = nil
             resignKey()
         }
+    }
+
+    /// ⌘A и Delete на странице «Файлы»: выделить всё и убрать выбранное.
+    private func handleShelfKey(_ event: NSEvent) -> Bool {
+        guard model.tab == .shelf else { return false }
+        let flags = event.modifierFlags.intersection(.deviceIndependentFlagsMask)
+        if flags == .command, event.charactersIgnoringModifiers?.lowercased() == "a" {
+            model.selectAllShelf()
+            return true
+        }
+        if event.keyCode == 51, !model.shelfSelection.isEmpty {
+            model.removeSelectedFiles()
+            return true
+        }
+        return false
     }
 
     private static let editActions: [String: Selector] = [

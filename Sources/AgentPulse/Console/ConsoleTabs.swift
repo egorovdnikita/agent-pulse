@@ -412,8 +412,12 @@ struct CalendarTab: View {
 /// Вид лежит поверх плитки и сам ловит нажатие: снизу до него мышь не доходит.
 private final class ShelfDragView: NSView, NSDraggingSource {
     var url: URL?
-    var onDropped: ((URL) -> Void)?
+    /// Что уносит перетаскивание: выбранное или один файл.
+    var payload: (() -> [URL])?
+    var onClick: ((NSEvent.ModifierFlags) -> Void)?
+    var onDropped: (([URL]) -> Void)?
     private var pressedAt: NSPoint?
+    private var carried: [URL] = []
 
     override func acceptsFirstMouse(for event: NSEvent?) -> Bool { true }
 
@@ -422,20 +426,28 @@ private final class ShelfDragView: NSView, NSDraggingSource {
     }
 
     override func mouseDragged(with event: NSEvent) {
-        guard let url, let start = pressedAt else { return }
+        guard let start = pressedAt else { return }
         let point = convert(event.locationInWindow, from: nil)
         guard hypot(point.x - start.x, point.y - start.y) > 3 else { return }
         pressedAt = nil
-        let item = NSDraggingItem(pasteboardWriter: url as NSURL)
+        carried = payload?() ?? []
         let side = 48.0
-        item.setDraggingFrame(
-            NSRect(x: point.x - side / 2, y: point.y - side / 2, width: side, height: side),
-            contents: NSWorkspace.shared.icon(forFile: url.path)
-        )
-        beginDraggingSession(with: [item], event: event, source: self)
+        let items = carried.enumerated().map { index, file in
+            let item = NSDraggingItem(pasteboardWriter: file as NSURL)
+            // Стопка: несколько файлов видно сразу, но за курсором она не разъезжается.
+            let shift = Double(min(index, 4)) * 4
+            item.setDraggingFrame(
+                NSRect(x: point.x - side / 2 + shift, y: point.y - side / 2 - shift, width: side, height: side),
+                contents: NSWorkspace.shared.icon(forFile: file.path)
+            )
+            return item
+        }
+        guard !items.isEmpty else { return }
+        beginDraggingSession(with: items, event: event, source: self).draggingFormation = .pile
     }
 
     override func mouseUp(with event: NSEvent) {
+        if pressedAt != nil { onClick?(event.modifierFlags) }
         pressedAt = nil
     }
 
@@ -444,19 +456,33 @@ private final class ShelfDragView: NSView, NSDraggingSource {
     }
 
     func draggingSession(_ session: NSDraggingSession, endedAt screenPoint: NSPoint, operation: NSDragOperation) {
-        if operation != [], let url { onDropped?(url) }
+        if operation != [] { onDropped?(carried) }
+        carried = []
     }
 }
 
 private struct ShelfDragArea: NSViewRepresentable {
     let url: URL
-    let onDropped: (URL) -> Void
+    let payload: () -> [URL]
+    let onClick: (NSEvent.ModifierFlags) -> Void
+    let onDropped: ([URL]) -> Void
 
     func makeNSView(context: Context) -> ShelfDragView { ShelfDragView() }
 
     func updateNSView(_ view: ShelfDragView, context: Context) {
         view.url = url
+        view.payload = payload
+        view.onClick = onClick
         view.onDropped = onDropped
+    }
+}
+
+/// Где стоят плитки: рамка выделения проверяет по ним, что задела.
+private struct ShelfFrames: PreferenceKey {
+    static let defaultValue: [URL: CGRect] = [:]
+
+    static func reduce(value: inout [URL: CGRect], nextValue: () -> [URL: CGRect]) {
+        value.merge(nextValue()) { $1 }
     }
 }
 
@@ -509,7 +535,19 @@ private struct ShelfTile: View {
     var body: some View {
         VStack(spacing: 6) {
             preview
-                .overlay { ShelfDragArea(url: item.url) { model.removeFromShelf($0) } }
+                .overlay {
+                    if model.shelfSelection.contains(item.url) {
+                        RoundedRectangle(cornerRadius: 12, style: .continuous).strokeBorder(.white, lineWidth: 2)
+                    }
+                }
+                .overlay {
+                    ShelfDragArea(
+                        url: item.url,
+                        payload: { model.shelfSelection.dragged(from: item.url, order: model.shelfOrder) },
+                        onClick: { model.clickShelf(item.url, flags: $0) },
+                        onDropped: { model.removeFromShelf($0) }
+                    )
+                }
                 .overlay(alignment: .topTrailing) {
                     if hovering.wrappedValue {
                         Button { model.removeFromShelf(item.url) } label: {
@@ -529,6 +567,9 @@ private struct ShelfTile: View {
                 .frame(width: Self.size, height: 28, alignment: .top)
         }
         .frame(width: Self.size)
+        .background {
+            GeometryReader { Color.clear.preference(key: ShelfFrames.self, value: [item.url: $0.frame(in: .named(ShelfTab.space))]) }
+        }
         .onHover { hovering.wrappedValue = $0 }
         .accessibilityElement(children: .contain)
         .accessibilityLabel(item.name)
@@ -569,12 +610,16 @@ private struct ShelfTile: View {
 
 struct ShelfTab: View {
     let model: ConsoleModel
+    fileprivate static let space = "shelf"
 
     var body: some View {
         Group {
             if model.shelf.items.isEmpty {
                 ConsoleCard {
                     ConsoleEmpty(icon: "folder-with-files", title: "Файлов нет", hint: "Брось файл на Пульт или на маскота")
+                }
+                .overlay(alignment: .bottomTrailing) {
+                    footerButton("Добавить") { model.chooseFiles() }.padding(14)
                 }
             } else {
                 files
@@ -588,6 +633,13 @@ struct ShelfTab: View {
         }
     }
 
+    private func footerButton(_ title: String, action: @escaping () -> Void) -> some View {
+        Button(title, action: action)
+            .buttonStyle(ConsolePressStyle())
+            .font(ConsoleStyle.font(11, .medium))
+            .foregroundStyle(.white)
+    }
+
     private var files: some View {
         VStack(alignment: .leading, spacing: 6) {
             ScrollView {
@@ -595,12 +647,52 @@ struct ShelfTab: View {
                     ForEach(model.shelf.items.reversed()) { ShelfTile(model: model, item: $0) }
                 }
                 .padding(.top, 6)
+                // Пустое место тоже страница: клик снимает выделение, тянешь — рамка.
+                .frame(maxWidth: .infinity, minHeight: 150, alignment: .topLeading)
+                .contentShape(Rectangle())
+                .onTapGesture { model.clearShelfSelection() }
+                .gesture(
+                    DragGesture(minimumDistance: 4, coordinateSpace: .named(Self.space))
+                        .onChanged { drag in
+                            model.dragRubber(CGRect(
+                                x: min(drag.startLocation.x, drag.location.x), y: min(drag.startLocation.y, drag.location.y),
+                                width: abs(drag.location.x - drag.startLocation.x), height: abs(drag.location.y - drag.startLocation.y)
+                            ))
+                        }
+                        .onEnded { _ in model.dragRubber(nil) }
+                )
+                .overlay(alignment: .topLeading) {
+                    if let rubber = model.shelfRubber {
+                        RoundedRectangle(cornerRadius: 4, style: .continuous)
+                            .fill(.white.opacity(0.1))
+                            .overlay(RoundedRectangle(cornerRadius: 4, style: .continuous).strokeBorder(.white.opacity(0.5), lineWidth: 1))
+                            .frame(width: rubber.width, height: rubber.height)
+                            .offset(x: rubber.minX, y: rubber.minY)
+                            .allowsHitTesting(false)
+                    }
+                }
+                .coordinateSpace(name: Self.space)
+                .onPreferenceChange(ShelfFrames.self) { frames in
+                    MainActor.assumeIsolated { model.shelfFrames = frames }
+                }
             }
-            HStack {
-                Text("Потяни файл, чтобы забрать").font(noteFont).foregroundStyle(ConsoleStyle.caption).lineLimit(1)
-                Spacer(minLength: 4)
-                Button("Очистить") { model.clearShelf() }
-                    .buttonStyle(ConsolePressStyle()).font(ConsoleStyle.font(11, .medium)).foregroundStyle(.white)
+            footer
+        }
+    }
+
+    private var footer: some View {
+        let selected = model.shelfSelection.count
+        return HStack(spacing: 14) {
+            Text(selected > 0 ? "Выбрано \(selected). Потяни, чтобы забрать" : "Потяни файл, чтобы забрать")
+                .font(noteFont)
+                .foregroundStyle(ConsoleStyle.caption)
+                .lineLimit(1)
+            Spacer(minLength: 4)
+            if selected > 0 {
+                footerButton("Убрать") { model.removeSelectedFiles() }
+            } else {
+                footerButton("Добавить") { model.chooseFiles() }
+                footerButton("Очистить") { model.clearShelf() }
             }
         }
     }
