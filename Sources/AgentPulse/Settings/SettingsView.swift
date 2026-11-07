@@ -460,6 +460,14 @@ private struct ConsoleSettings: View {
                         .font(SettingsStyle.caption).foregroundStyle(SettingsStyle.muted)
                 }
             }
+            SettingsBlock {
+                Toggle(isOn: Binding(get: { settings.sounds }, set: { app.setSounds($0) })) {
+                    Text("Звуки")
+                    Text("Файл на полке, текст вставлен, лимит на исходе, запись диктовки. Молчат при суфлёре, в созвон и в тихие часы")
+                        .font(SettingsStyle.caption).foregroundStyle(SettingsStyle.muted)
+                }
+                .disabled(!settings.enabled)
+            }
             SettingsBlock("Модули") {
                 Toggle("Лимиты", isOn: Binding(get: { settings.limits }, set: { app.setLimitsEnabled($0) }))
                     .disabled(!settings.enabled)

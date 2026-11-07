@@ -21,6 +21,8 @@ public struct PulseConfig: Codable, Sendable, Equatable {
     public struct Console: Codable, Sendable, Equatable {
         public var enabled = true
         public var limits = true
+        /// Короткие звуки Пульта.
+        public var sounds = true
         /// Окно лимита в капсуле: пусто — самое тесное.
         public var capsuleWindow = ""
         /// Календарь просит разрешение при включении, поэтому выключен, пока ты сам не включишь.
@@ -73,6 +75,13 @@ public struct PulseConfig: Codable, Sendable, Equatable {
         /// «HH:mm».
         public var quietFrom: String? = "23:30"
         public var quietTo: String? = "08:00"
+
+        /// Идут ли тихие часы.
+        public func isQuietHours(_ now: Date, calendar: Calendar = .current) -> Bool {
+            guard let from = Self.minutes(quietFrom), let to = Self.minutes(quietTo) else { return false }
+            let minutes = calendar.component(.hour, from: now) * 60 + calendar.component(.minute, from: now)
+            return from <= to ? (from..<to).contains(minutes) : (minutes >= from || minutes < to)
+        }
         /// «MM-dd».
         public var birthday: String?
         public var hideWhenIdle = true

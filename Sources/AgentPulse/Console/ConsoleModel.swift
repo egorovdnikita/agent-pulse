@@ -140,6 +140,7 @@ final class ConsoleModel {
     @ObservationIgnored var onTranslateReplace: ((String) -> Void)?
     /// Открыть настройки Пульта; значение — блок, к которому перейти.
     @ObservationIgnored var onOpenSettings: ((String?) -> Void)?
+    @ObservationIgnored var onSound: ((ConsoleSound) -> Void)?
     @ObservationIgnored private var prompterTimer: Timer?
     @ObservationIgnored private var dictationLimitTimer: Timer?
     @ObservationIgnored private var lastTick = Date.distantPast
@@ -222,6 +223,7 @@ final class ConsoleModel {
         guard shelfEnabled else { return }
         now = Date()
         apply(shelf.add(urls))
+        onSound?(.shelf)
         if let last = shelf.items.last { loadThumbnail(last.url) }
         urls.filter { ShelfFileKind(name: $0.lastPathComponent) == .image }.forEach(loadPreview)
         refresh(agentWaiting: false)
@@ -453,6 +455,7 @@ final class ConsoleModel {
             return
         }
         dictationLevels = [Float](repeating: 0, count: DictationLook.bars)
+        onSound?(.recordStart)
         onDictationStart?()
         dictationLimitTimer = Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { [weak self] _ in
             MainActor.assumeIsolated {
@@ -468,6 +471,7 @@ final class ConsoleModel {
         dictationLimitTimer = nil
         now = Date()
         let keep = dictation.release(now: now)
+        if keep { onSound?(.recordStop) }
         onDictationStop?(keep)
         settleDictation()
     }
@@ -475,6 +479,7 @@ final class ConsoleModel {
     func finishDictation(notice: DictationModule.Notice?) {
         now = Date()
         dictation.finish(now: now, notice: notice)
+        if notice == .inserted { onSound?(.inserted) }
         settleDictation()
         guard notice != nil else { return }
         // Сообщение ушло: лидер и показ поверх полного экрана возвращаются сразу, а не ждут случая.
@@ -580,6 +585,7 @@ final class ConsoleModel {
         for signal in signals {
             onSignal?(signal, now)
             if signal.isAlert { director.raiseAlert(color: ConsoleLook.alertColor) }
+            if case .limitCritical = signal { onSound?(.limitCritical) }
             if signal.drawsGlance { onLeaderChange?() }
         }
     }

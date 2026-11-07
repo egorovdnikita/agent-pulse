@@ -627,6 +627,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         model.console.setCapsuleWindow(LimitWindowKind(rawValue: value))
     }
 
+    func setSounds(_ on: Bool) {
+        model.config.console.sounds = on
+        try? model.config.save()
+    }
+
     func setLimitsEnabled(_ on: Bool) {
         model.config.console.limits = on
         try? model.config.save()

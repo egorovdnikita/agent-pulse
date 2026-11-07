@@ -168,6 +168,7 @@ final class PulseModel {
         console.calendarEnabled = config.console.calendar
         console.shelfEnabled = config.console.shelf
         console.musicEnabled = config.console.music
+        console.onSound = { [weak self] sound in self?.playSound(sound) }
         console.mascotAnimator = animator
         console.mascotService = { [weak self] in
             guard let self, self.state != .sleep else { return nil }
@@ -185,6 +186,16 @@ final class PulseModel {
     }
 
     /// В полном экране Пульта не видно: встреча через минуту и лимит «критично» приходят уведомлением, как «ждёт тебя».
+    /// Запись диктовки созвоном не считается: для её звуков созвон — это только занятая камера.
+    private func playSound(_ sound: ConsoleSound) {
+        let call = sound.isDictation ? QuietSense.cameraInUse() : quiet
+        guard ConsoleSound.allowed(
+            sound, enabled: config.console.sounds, prompter: console.prompter.isActive, call: call,
+            quietHours: config.character.isQuietHours(Date())
+        ) else { return }
+        ConsoleSounds.play(sound)
+    }
+
     private func notifyConsole(_ signal: ToolSignal) {
         guard overlayOccluded else { return }
         switch signal {
