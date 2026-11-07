@@ -410,14 +410,14 @@ private struct ShelfTile: View {
     private var preview: some View {
         let kind = ShelfFileKind(name: item.name)
         return ZStack {
-            RoundedRectangle(cornerRadius: 10, style: .continuous).fill(.white.opacity(0x1F / 255))
+            RoundedRectangle(cornerRadius: 12, style: .continuous).fill(ConsoleStyle.tile)
             if kind == .image, let image = model.shelfPreviews[item.url] {
                 Image(nsImage: image)
                     .resizable()
                     .aspectRatio(contentMode: .fill)
                     .frame(width: 56, height: 38)
-                    .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
-                    .overlay(RoundedRectangle(cornerRadius: 6, style: .continuous).strokeBorder(ConsoleStyle.edge, lineWidth: 1))
+                    .clipShape(RoundedRectangle(cornerRadius: 5, style: .continuous))
+                    .overlay(RoundedRectangle(cornerRadius: 5, style: .continuous).strokeBorder(.white.opacity(0.2), lineWidth: 1))
             } else {
                 PageGlyph()
                     .fill(.white.opacity(0.92))

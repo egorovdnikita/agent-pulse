@@ -17,6 +17,8 @@ enum ConsoleStyle {
     static let gaugeTrack = Color.white.opacity(0x26 / 255)
     static let card = Color.white.opacity(0x14 / 255)
     static let button = Color.white.opacity(0x33 / 255)
+    /// Плитка файла.
+    static let tile = Color.white.opacity(0x1F / 255)
     /// Край на тёмных обоях: у референса чёрное сливается со шторкой, Пульту сливаться не с чем.
     static let edge = Color.white.opacity(0.07)
 
