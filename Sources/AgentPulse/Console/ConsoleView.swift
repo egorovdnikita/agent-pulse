@@ -127,7 +127,8 @@ private struct CapsuleBody: View {
         .frame(width: model.capsuleWidth, height: model.capsuleHeight)
         .background(Color.black)
         .clipShape(Capsule())
-        .overlay { Capsule().strokeBorder(accent ?? ConsoleStyle.edge, lineWidth: accent == nil ? 1 : 1.5) }
+        // Края нет, как у меню: форму отделяет тень. Обводка — только сигнал.
+        .overlay { if let accent { Capsule().strokeBorder(accent, lineWidth: 1.5) } }
         .contentShape(Capsule())
         .accessibilityElement(children: .contain)
         .accessibilityLabel(model.capsule?.label ?? "Пульт")
@@ -309,7 +310,6 @@ private struct PanelSurface<Content: View>: View {
         ZStack(alignment: alignment) {
             shape.fill(Color.black).frame(width: width, height: height)
             content.mask(alignment: alignment) { shape.frame(width: width, height: height) }
-            shape.strokeBorder(ConsoleStyle.edge, lineWidth: 1).frame(width: width, height: height)
         }
         .frame(width: ConsoleLayout.expandedWidth, height: ConsoleLayout.expandedHeight, alignment: alignment)
         .offset(y: open ? 0 : model.expandedGap + model.capsuleHeight)
