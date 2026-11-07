@@ -1071,3 +1071,17 @@ private func snapshot(_ used: Double, at: Date = t0, service: LimitService = .cl
         #expect(module.priority(now: start.addingTimeInterval(2)) == nil)
     }
 }
+
+@Suite struct CapsuleWindowTests {
+    @Test func chosenWindowIsShownInsteadOfTightest() {
+        var module = LimitsModule()
+        let now = Date()
+        _ = module.book.ingest(LimitSnapshot(service: .claude, windows: [
+            LimitWindow(kind: .fiveHour, usedPercent: 20, resetsAt: now.addingTimeInterval(3600)),
+            LimitWindow(kind: .week, usedPercent: 70, resetsAt: now.addingTimeInterval(86_400)),
+        ], at: now), now: now)
+        #expect(module.capsule(now: now).rings.first?.figure == "70%")
+        module.capsuleWindow = .fiveHour
+        #expect(module.capsule(now: now).rings.first?.figure == "20%")
+    }
+}

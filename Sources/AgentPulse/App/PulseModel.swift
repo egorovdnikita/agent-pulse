@@ -162,6 +162,7 @@ final class PulseModel {
         console.setPrompterFollowsVoice(config.console.prompterVoice)
         console.prompterTextSize = config.console.prompterTextSize
         console.dictationEnabled = config.console.dictation
+        console.setCapsuleWindow(LimitWindowKind(rawValue: config.console.capsuleWindow))
         console.dictationRules = config.console.dictationRules
         console.translatorEnabled = config.console.translator && ConsoleTranslator.isAvailable
         console.calendarEnabled = config.console.calendar

@@ -601,6 +601,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         applyDictationHotKeys()
     }
 
+    func setCapsuleWindow(_ value: String) {
+        model.config.console.capsuleWindow = value
+        try? model.config.save()
+        model.console.setCapsuleWindow(LimitWindowKind(rawValue: value))
+    }
+
     func setLimitsEnabled(_ on: Bool) {
         model.config.console.limits = on
         try? model.config.save()

@@ -57,6 +57,10 @@ final class ConsoleModel {
     var expandedGap = ConsoleLayout.expandedGap
     /// С какой стороны въезжает новая страница: 1 — справа, −1 — слева, 0 — снизу, при раскрытии.
     private(set) var pageTravel = 0
+    /// Окно лимита в капсуле, из настроек.
+    func setCapsuleWindow(_ kind: LimitWindowKind?) {
+        limits.capsuleWindow = kind
+    }
     /// Панель в окне: ещё стоит, пока форма закрывается.
     private(set) var panelMounted = false
     /// Форма раскрыта. Двигается только она, содержимое стоит на месте.

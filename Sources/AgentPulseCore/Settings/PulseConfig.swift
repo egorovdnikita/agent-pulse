@@ -21,6 +21,8 @@ public struct PulseConfig: Codable, Sendable, Equatable {
     public struct Console: Codable, Sendable, Equatable {
         public var enabled = true
         public var limits = true
+        /// Окно лимита в капсуле: пусто — самое тесное.
+        public var capsuleWindow = ""
         /// Календарь просит разрешение при включении, поэтому выключен, пока ты сам не включишь.
         public var calendar = false
         public var shelf = true
