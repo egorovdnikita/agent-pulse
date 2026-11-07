@@ -20,6 +20,7 @@ public enum TranslateDirection: Sendable, Equatable {
     public var source: String { self == .ruToEn ? "ru" : "en" }
     public var target: String { self == .ruToEn ? "en" : "ru" }
     public var title: String { self == .ruToEn ? "Русский → английский" : "Английский → русский" }
+    public var opposite: TranslateDirection { self == .ruToEn ? .enToRu : .ruToEn }
 }
 
 /// Переводчик: выделил, ⌃⌥T — Пульт раскрывается с переводом. Видит только то, что ты дал нажатием.
@@ -44,6 +45,8 @@ public struct TranslateModule: ConsoleModule {
     public private(set) var state = State.idle
     /// Текст пришёл из выделения: его можно заменить.
     public private(set) var replaceable = false
+    /// Направление развёрнуто вручную.
+    public private(set) var flipped = false
     private var askedAt = Date.distantPast
 
     public init() {}
@@ -53,6 +56,7 @@ public struct TranslateModule: ConsoleModule {
         if let text = Self.cleaned(selection) {
             state = .working(source: text)
             replaceable = true
+            flipped = false
             return text
         }
         if state == .askToCopy, now.timeIntervalSince(askedAt) < Self.askToCopyLength, let text = Self.cleaned(clipboard) {
@@ -64,6 +68,26 @@ public struct TranslateModule: ConsoleModule {
         askedAt = now
         replaceable = false
         return nil
+    }
+
+    /// Текст введён на странице. Возвращает то, что пора переводить.
+    public mutating func type(_ text: String) -> String? {
+        replaceable = false
+        guard let text = Self.cleaned(text) else {
+            state = .idle
+            return nil
+        }
+        state = .working(source: text)
+        return text
+    }
+
+    public func direction(of text: String) -> TranslateDirection {
+        let found = TranslateDirection.detect(text)
+        return flipped ? found.opposite : found
+    }
+
+    public mutating func flip() {
+        flipped.toggle()
     }
 
     public mutating func finish(source: String, result: String) {
@@ -79,6 +103,7 @@ public struct TranslateModule: ConsoleModule {
     public mutating func reset() {
         state = .idle
         replaceable = false
+        flipped = false
     }
 
     private static func cleaned(_ text: String?) -> String? {

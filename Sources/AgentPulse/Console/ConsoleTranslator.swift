@@ -13,17 +13,10 @@ enum ConsoleTranslator {
 
     static let needsLanguages = "Скачай языки: Системные настройки → Основные → Язык и регион → Языки перевода"
 
-    /// Раздел «Язык и регион»: языки перевода скачиваются там.
-    @MainActor static func openLanguages() {
-        guard let url = URL(string: "x-apple.systempreferences:com.apple.Localization-Settings.extension") else { return }
-        NSWorkspace.shared.open(url)
-    }
-
     /// Возвращает перевод. Ошибка — текст для вкладки.
-    static func translate(_ text: String) async -> Result<String, TranslateProblem> {
+    static func translate(_ text: String, direction: TranslateDirection) async -> Result<String, TranslateProblem> {
         #if canImport(Translation)
         if #available(macOS 26, *) {
-            let direction = TranslateDirection.detect(text)
             let source = Locale.Language(identifier: direction.source)
             let target = Locale.Language(identifier: direction.target)
             guard await LanguageAvailability().status(from: source, to: target) == .installed else {

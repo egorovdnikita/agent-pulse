@@ -135,9 +135,7 @@ final class DictationController {
         // Буфер читаем только на втором нажатии: ты сам сказал взять его.
         let clipboard = console.translate.state == .askToCopy ? NSPasteboard.general.string(forType: .string) : nil
         guard let text = console.pressTranslate(selection: selection?.text, clipboard: clipboard) else { return }
-        Task { [console] in
-            console.finishTranslate(source: text, result: await ConsoleTranslator.translate(text))
-        }
+        Task { [console] in await console.runTranslation(text) }
     }
 
     private func replaceSelection(with text: String) {

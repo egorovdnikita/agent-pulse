@@ -640,7 +640,7 @@ struct MediaTab: View {
 // MARK: - Суфлёр
 
 /// Поле текста. Файлы принимает вкладка: NSTextView вставил бы вместо них путь.
-private struct PrompterEditor: NSViewRepresentable {
+struct PrompterEditor: NSViewRepresentable {
     final class TextView: NSTextView {
         override func updateDragTypeRegistration() { unregisterDraggedTypes() }
     }
@@ -886,46 +886,75 @@ struct PrompterTab: View {
     }
 }
 
-/// Вкладка «Перевод»: появляется по ⌃⌥T и уходит вместе с Пультом.
+/// Страница «Перевод»: слева текст, справа перевод. Ввести, вставить или принести выделение по ⌃⌥T.
 struct TranslateTab: View {
     let model: ConsoleModel
 
+    private var direction: TranslateDirection {
+        model.translate.direction(of: model.translateInput)
+    }
+
     var body: some View {
-        ConsoleCard {
-            switch model.translate.state {
-            case .idle:
-                EmptyView()
-            case .askToCopy:
-                ConsoleEmpty(icon: "translation", title: "Выделение не прочиталось", hint: TranslateModule.askToCopyHint)
-            case .working:
-                ConsoleEmpty(icon: "translation", title: "Перевожу…")
-            case .failed(let problem):
-                VStack(spacing: 10) {
-                    ConsoleEmpty(icon: "translation", title: "Перевод не вышел", hint: problem)
-                    if problem == ConsoleTranslator.needsLanguages {
-                        PrompterSmallButton(title: "Открыть настройки языка") { ConsoleTranslator.openLanguages() }
-                    }
+        VStack(alignment: .leading, spacing: 8) {
+            HStack(spacing: 12) {
+                Button { model.flipTranslation() } label: {
+                    Text(direction.title)
+                        .font(ConsoleStyle.font(13, .medium))
+                        .foregroundStyle(.white)
+                        .frame(height: 24)
+                        .contentShape(Rectangle())
                 }
-            case .done(let source, let result):
-                done(source: source, result: result)
+                .buttonStyle(ConsolePressStyle())
+                .help("Перевести в другую сторону")
+                Text("⌃⌥T переводит выделенное").font(noteFont).foregroundStyle(ConsoleStyle.caption).lineLimit(1)
+                Spacer(minLength: 0)
+                if !model.translateInput.isEmpty {
+                    Button("Очистить") { model.clearTranslation() }
+                        .buttonStyle(ConsolePressStyle())
+                        .font(ConsoleStyle.font(11, .medium))
+                        .foregroundStyle(ConsoleStyle.caption)
+                }
+            }
+            .padding(.horizontal, 4)
+            HStack(spacing: 8) {
+                source
+                ConsoleCard { output }
             }
         }
     }
 
-    private func done(source: String, result: String) -> some View {
-        HStack(alignment: .top, spacing: 16) {
-            VStack(alignment: .leading, spacing: 6) {
-                Text(TranslateDirection.detect(source).title)
-                    .font(ConsoleStyle.font(11, .semibold))
+    private var source: some View {
+        ZStack(alignment: .topLeading) {
+            PrompterEditor(text: Binding(get: { model.translateInput }, set: { model.typeTranslation($0) }))
+            if model.translateInput.isEmpty {
+                Text("Введи или вставь текст")
+                    .font(ConsoleStyle.font(13))
                     .foregroundStyle(ConsoleStyle.caption)
-                ScrollView {
-                    Text(source)
-                        .font(ConsoleStyle.font(13))
-                        .foregroundStyle(ConsoleStyle.caption)
-                        .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.horizontal, 11)
+                    .padding(.vertical, 6)
+                    .allowsHitTesting(false)
+            }
+        }
+        .background(ConsoleStyle.card, in: RoundedRectangle(cornerRadius: ConsoleStyle.cardRadius, style: .continuous))
+    }
+
+    @ViewBuilder
+    private var output: some View {
+        switch model.translate.state {
+        case .idle:
+            ConsoleEmpty(icon: "translation", title: "Здесь будет перевод")
+        case .askToCopy:
+            ConsoleEmpty(icon: "translation", title: "Выделение не прочиталось", hint: TranslateModule.askToCopyHint)
+        case .working:
+            ConsoleEmpty(icon: "translation", title: "Перевожу…")
+        case .failed(let problem):
+            VStack(spacing: 10) {
+                ConsoleEmpty(icon: "translation", title: "Перевод не вышел", hint: problem)
+                if problem == ConsoleTranslator.needsLanguages {
+                    PrompterSmallButton(title: "Скачать языки") { model.onOpenSettings?("Переводчик") }
                 }
             }
-            .frame(maxWidth: .infinity)
+        case .done(_, let result):
             VStack(alignment: .leading, spacing: 8) {
                 ScrollView {
                     Text(result)
@@ -943,7 +972,6 @@ struct TranslateTab: View {
                     }
                 }
             }
-            .frame(maxWidth: .infinity)
         }
     }
 }

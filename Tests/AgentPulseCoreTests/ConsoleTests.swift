@@ -1039,3 +1039,23 @@ private func snapshot(_ used: Double, at: Date = t0, service: LimitService = .cl
         #expect(module.position == 0)
     }
 }
+
+@Suite struct TranslatePageTests {
+    @Test func typedTextIsTranslatedAndEmptyClears() {
+        var module = TranslateModule()
+        #expect(module.type("  привет ") == "привет")
+        #expect(module.state == .working(source: "привет"))
+        #expect(!module.replaceable)
+        #expect(module.type("   ") == nil)
+        #expect(module.state == .idle)
+    }
+
+    @Test func flipTurnsDirectionUntilNewSelection() {
+        var module = TranslateModule()
+        #expect(module.direction(of: "привет") == .ruToEn)
+        module.flip()
+        #expect(module.direction(of: "привет") == .enToRu)
+        _ = module.press(selection: "привет", clipboard: nil, now: Date())
+        #expect(module.direction(of: "привет") == .ruToEn)
+    }
+}

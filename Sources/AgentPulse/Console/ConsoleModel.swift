@@ -74,6 +74,9 @@ final class ConsoleModel {
     @ObservationIgnored private var mutedVolume = 0.5
     /// Что играло последним. Живёт только в памяти.
     private(set) var rememberedTrack: NowPlaying?
+    /// Текст на странице перевода. Живёт в памяти, закрытие Пульта его не трогает.
+    var translateInput = ""
+    @ObservationIgnored private var translateTask: Task<Void, Never>?
     /// Перевод только что скопирован.
     var translateCopied = false
     var calendarEnabled = false
@@ -149,8 +152,7 @@ final class ConsoleModel {
         if calendarEnabled { list.append(calendar) }
         if shelfEnabled { list.append(shelf) }
         if musicEnabled { list.append(media) }
-        // Вкладка перевода есть, только пока есть что показать: шести вкладкам тесно.
-        if translatorEnabled, translate.state != .idle { list.append(translate) }
+        if translatorEnabled { list.append(translate) }
         return list
     }
 
@@ -505,10 +507,39 @@ final class ConsoleModel {
         guard translatorEnabled else { return nil }
         now = Date()
         let text = translate.press(selection: selection, clipboard: clipboard, now: now)
+        if let text { translateInput = text }
         tab = .translate
         setExpanded(true)
         tab = .translate
         return text
+    }
+
+    /// Текст на странице: перевод идёт, когда набор затихает.
+    func typeTranslation(_ text: String) {
+        translateInput = text
+        translateTask?.cancel()
+        guard let source = translate.type(text) else { return }
+        translateTask = Task { [weak self] in
+            try? await Task.sleep(for: .milliseconds(350))
+            guard !Task.isCancelled else { return }
+            await self?.runTranslation(source)
+        }
+    }
+
+    func runTranslation(_ text: String) async {
+        let result = await ConsoleTranslator.translate(text, direction: translate.direction(of: text))
+        finishTranslate(source: text, result: result)
+    }
+
+    func flipTranslation() {
+        translate.flip()
+        typeTranslation(translateInput)
+    }
+
+    func clearTranslation() {
+        translateTask?.cancel()
+        translateInput = ""
+        translate.reset()
     }
 
     func finishTranslate(source: String, result: Result<String, TranslateProblem>) {
@@ -516,11 +547,6 @@ final class ConsoleModel {
         case .success(let text): translate.finish(source: source, result: text)
         case .failure(let problem): translate.fail(source: source, problem: problem.text)
         }
-    }
-
-    /// Вкладка закрыта: разовый перевод больше не нужен.
-    private func forgetTranslation() {
-        translate.reset()
     }
 
     // MARK: - Тик
@@ -590,7 +616,6 @@ final class ConsoleModel {
             }
             onLeaderChange?()
         } else {
-            forgetTranslation()
             panelOpen = false
             contentShown = false
             closeTask = Task { [weak self] in
