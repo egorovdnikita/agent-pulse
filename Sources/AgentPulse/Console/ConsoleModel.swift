@@ -771,7 +771,7 @@ enum ConsoleLook {
     static let ringGap = 14.0
     static let mark = 15.0
     static let sideGap = 7.0
-    static let mascot = 16.0
+    static let mascot = 22.0
     /// Сколько панель стоит после закрытия: столько идёт пружина формы.
     static let closeMilliseconds = 520
     /// Настолько новая страница сдвинута в начале: чуть-чуть, без полёта через всю панель.

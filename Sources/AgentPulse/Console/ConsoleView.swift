@@ -152,7 +152,7 @@ private struct LimitCard: View {
                         let box = MascotView.boxSize(ConsoleLook.mascot)
                         MascotView(animator: animator, diameter: ConsoleLook.mascot, paused: !model.expanded)
                             .frame(width: box, height: box)
-                            .frame(width: 24, height: 20)
+                            .frame(width: 30, height: 20)
                             .accessibilityHidden(true)
                     }
                     Spacer(minLength: 0)
