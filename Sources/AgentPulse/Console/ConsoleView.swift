@@ -247,8 +247,7 @@ private struct ExpandedBody: View {
         let reduce = NSWorkspace.shared.accessibilityDisplayShouldReduceMotion
         VStack(alignment: .leading, spacing: 0) {
             PageTabs(model: model)
-                .padding(.leading, ConsoleStyle.inset - 2)
-                .padding(.trailing, ConsoleStyle.inset)
+                .padding(.horizontal, ConsoleStyle.inset)
                 .padding(.top, 12)
             ZStack(alignment: .topLeading) {
                 // Страница едет целиком: анимация не проваливается внутрь, иначе текст и подложка двигаются порознь.
