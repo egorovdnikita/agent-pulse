@@ -208,7 +208,8 @@ private struct PageTabs: View {
             ForEach(model.tabs, id: \.id) { tab in
                 Button { model.openPage(tab.id) } label: {
                     Text(tab.title)
-                        .font(ConsoleStyle.font(13, model.tab == tab.id ? .semibold : .medium))
+                        // Вес один: иначе при смене страницы соседние слова сдвигаются.
+                        .font(ConsoleStyle.font(13, .medium))
                         .foregroundStyle(model.tab == tab.id ? .white : ConsoleStyle.caption)
                         .lineLimit(1)
                         .fixedSize()
@@ -246,7 +247,10 @@ private struct ExpandedBody: View {
                 .padding(.horizontal, ConsoleStyle.inset + 4)
                 .padding(.top, ConsoleStyle.inset - 4)
             ZStack(alignment: .topLeading) {
+                // Страница едет целиком: анимация не проваливается внутрь, иначе текст и подложка двигаются порознь.
                 page
+                    .transaction { $0.animation = nil }
+                    .compositingGroup()
                     .id(model.tab)
                     .transition(pageTransition(reduced: reduce))
             }
