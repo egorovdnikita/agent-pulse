@@ -112,7 +112,9 @@ public struct PrompterModule: ConsoleModule {
     }
 
     public static let defaultSpeed = 130
-    public static let speedRange = 60...260
+    public static let speedRange = 65...260
+    /// Шаг множителя скорости.
+    static let multiplierStep = 0.25
     /// Сколько текст держится после последнего слова.
     static let endHold: TimeInterval = 3
     /// Голосом: столько тишины — стоп.
@@ -197,14 +199,27 @@ public struct PrompterModule: ConsoleModule {
         }
     }
 
-    /// Скорость ±10%, в пределах `speedRange`.
-    public mutating func changeSpeed(faster: Bool) {
-        let step = max(1, Int((Double(speed) * 0.1).rounded()))
-        speed = min(Self.speedRange.upperBound, max(Self.speedRange.lowerBound, speed + (faster ? step : -step)))
+    /// Скорость как множитель: 1.25x понятнее, чем слова в минуту.
+    public var multiplier: Double {
+        (Double(speed) / Double(Self.defaultSpeed) / Self.multiplierStep).rounded() * Self.multiplierStep
     }
 
+    public var multiplierText: String { String(format: "%.2fx", multiplier) }
+
+    /// Шаг 0.25x, от 0.5x до 2x.
+    public mutating func changeSpeed(faster: Bool) {
+        setMultiplier(multiplier + (faster ? Self.multiplierStep : -Self.multiplierStep))
+    }
+
+    /// Старое значение из настроек встаёт на ближайший шаг.
     public mutating func setSpeed(_ value: Int) {
         speed = min(Self.speedRange.upperBound, max(Self.speedRange.lowerBound, value))
+        setMultiplier(multiplier)
+    }
+
+    private mutating func setMultiplier(_ value: Double) {
+        let wanted = Int((value * Double(Self.defaultSpeed)).rounded())
+        speed = min(Self.speedRange.upperBound, max(Self.speedRange.lowerBound, wanted))
     }
 
     /// Перемотка: доля текста от 0 до 1.

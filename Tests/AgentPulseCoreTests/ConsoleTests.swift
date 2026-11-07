@@ -527,14 +527,19 @@ private func snapshot(_ used: Double, at: Date = t0, service: LimitService = .cl
         #expect(abs(module.position - 130.0 / 60) < 0.01)
     }
 
-    @Test func speedStepsTenPercentAndStaysInRange() {
+    @Test func speedStepsByQuarterAndStaysInRange() {
         var module = PrompterModule()
         module.changeSpeed(faster: true)
-        #expect(module.speed == 143)
+        #expect(module.multiplierText == "1.25x")
+        #expect(module.speed == 163)
         module.setSpeed(9999)
-        #expect(module.speed == PrompterModule.speedRange.upperBound)
+        #expect(module.multiplier == 2)
         module.changeSpeed(faster: true)
         #expect(module.speed == PrompterModule.speedRange.upperBound)
+        module.setSpeed(1)
+        #expect(module.multiplier == 0.5)
+        module.setSpeed(143)
+        #expect(module.multiplierText == "1.00x")
     }
 
     @Test func finishesAfterHoldAtEnd() {

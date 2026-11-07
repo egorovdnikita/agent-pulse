@@ -377,7 +377,7 @@ final class ConsoleModel {
 
     /// Строка в углу панели: пауза, ожидание голоса, новая скорость.
     var prompterStatus: String? {
-        if Date() < prompterSpeedShownUntil { return "\(prompter.speed) слов в минуту" }
+        if Date() < prompterSpeedShownUntil { return prompter.multiplierText }
         if prompter.mode == .paused { return "Пауза" }
         if prompter.voiceHolds(now: Date()) { return "Жду голос" }
         return nil

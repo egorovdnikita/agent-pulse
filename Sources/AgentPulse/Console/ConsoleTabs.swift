@@ -675,7 +675,7 @@ struct PrompterTab: View {
         VStack(alignment: .leading, spacing: 10) {
             HStack(spacing: 4) {
                 PrompterSmallButton(title: "−") { model.changePrompterSpeed(faster: false) }
-                Text("\(model.prompter.speed) сл/мин")
+                Text(model.prompter.multiplierText)
                     .font(ConsoleStyle.font(13).monospacedDigit())
                     .foregroundStyle(ConsoleStyle.caption)
                     .lineLimit(1)
