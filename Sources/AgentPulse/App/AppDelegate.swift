@@ -796,9 +796,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         let alert = NSAlert()
         alert.messageText = "Подключить лимиты Claude?"
         alert.informativeText = """
-            Agent Pulse обернёт команду statusLine в ~/.claude/settings.json. Ваша строка продолжит работать как раньше:             ей передаётся тот же ввод, её вывод не меняется. Рядом будет создана резервная копия файла,             отключение вернёт исходную команду.
+            Agent Pulse добавит одну запись в настройки Claude Code и сохранит их копию. \
+            Строка состояния Claude Code будет работать как раньше, отключить можно в любой момент.
 
-            Pulse берёт только проценты и время сброса. Ничего не уходит с машины.
+            Берутся только проценты и время сброса. Ничего не уходит с этого Mac.
             """
         alert.addButton(withTitle: "Подключить")
         alert.addButton(withTitle: "Отмена")
@@ -944,8 +945,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
             let alert = NSAlert()
             alert.messageText = "Следить за чатом в приложении Claude?"
             alert.informativeText = """
-                У приложения Claude нет канала событий, поэтому Agent Pulse смотрит на кнопки в его окне \
-                через «Универсальный доступ»: идёт ли ответ, ждёт ли Claude одобрения. Текст переписки не читается.
+                Agent Pulse будет смотреть на кнопки в окне Claude: идёт ли ответ, ждёт ли он твоего разрешения. \
+                Для этого нужен Универсальный доступ. Текст переписки не читается.
 
                 macOS попросит разрешение: Системные настройки → Конфиденциальность и безопасность → \
                 Универсальный доступ → включите Agent Pulse.
@@ -1205,11 +1206,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         let alert = NSAlert()
         alert.messageText = "Подключить Claude в браузере?"
         alert.informativeText = """
-            Agent Pulse зарегистрирует мост для расширения в Chrome и других Chromium-браузерах \
-            (файл в NativeMessagingHosts). Затем установите само расширение: \
-            chrome://extensions → «Режим разработчика» → «Загрузить распакованное» → папка, которая откроется.
+            Agent Pulse подключится к Chrome и похожим браузерам. Затем останется поставить расширение: \
+            открой chrome://extensions, включи «Режим разработчика», нажми «Загрузить распакованное» и выбери папку, которая откроется.
 
-            Расширение передаёт только состояние страницы (думает, ждёт, готово), без текста переписки.
+            Расширение передаёт только состояние страницы: думает, ждёт, готово. Текст переписки не читается.
             """
         alert.addButton(withTitle: "Подключить")
         alert.addButton(withTitle: "Отмена")
@@ -1251,11 +1251,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         let alert = NSAlert()
         alert.messageText = "Подключить Claude Code?"
         alert.informativeText = """
-            Agent Pulse добавит хуки в ~/.claude/settings.json, чтобы видеть, что делает агент. \
-            Рядом будет создана резервная копия файла. Ваши собственные хуки не изменятся, \
-            удаление вернёт файл к исходному виду.
+            Agent Pulse добавит одну запись в настройки Claude Code, чтобы видеть, что он делает, и сохранит их копию. \
+            Твои настройки не изменятся, отключение вернёт всё как было.
 
-            Ничего не уходит с машины, текст промптов не читается.
+            Ничего не уходит с этого Mac, текст запросов не читается.
             """
         alert.addButton(withTitle: "Подключить")
         alert.addButton(withTitle: "Отмена")
