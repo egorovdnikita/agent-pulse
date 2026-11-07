@@ -463,7 +463,7 @@ private struct ConsoleSettings: View {
             SettingsBlock {
                 Toggle(isOn: Binding(get: { settings.sounds }, set: { app.setSounds($0) })) {
                     Text("Звуки")
-                    Text("Файл на полке, текст вставлен, лимит на исходе, запись диктовки. Молчат при суфлёре, в созвон и в тихие часы")
+                    Text("Файл добавлен, текст вставлен, лимит на исходе, запись диктовки. Молчат при суфлёре, в созвон и в тихие часы")
                         .font(SettingsStyle.caption).foregroundStyle(SettingsStyle.muted)
                 }
                 .disabled(!settings.enabled)
@@ -512,12 +512,12 @@ private struct ConsoleSettings: View {
                         .font(SettingsStyle.caption).foregroundStyle(SettingsStyle.muted)
                 }
                 .disabled(!settings.enabled)
-                Toggle("Полка", isOn: Binding(get: { settings.shelf }, set: { app.setShelfEnabled($0) }))
+                Toggle("Файлы", isOn: Binding(get: { settings.shelf }, set: { app.setShelfEnabled($0) }))
                     .disabled(!settings.enabled)
                 if settings.shelf {
                     Toggle(isOn: Binding(get: { settings.shelfScreenshots }, set: { app.setShelfScreenshots($0) })) {
-                        Text("Новые снимки экрана — на полку")
-                        Text("Хранятся только ссылки на файлы, выход из приложения очищает полку")
+                        Text("Новые снимки экрана — в файлы")
+                        Text("Хранятся только ссылки на файлы, выход из приложения очищает список")
                             .font(SettingsStyle.caption).foregroundStyle(SettingsStyle.muted)
                     }
                     .padding(.leading, SettingsStyle.childIndent)

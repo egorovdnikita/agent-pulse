@@ -390,7 +390,7 @@ private struct ShelfTile: View {
                         }
                         .buttonStyle(ConsolePressStyle())
                         .offset(x: 5, y: -5)
-                        .accessibilityLabel("Убрать с полки")
+                        .accessibilityLabel("Убрать")
                     }
                 }
             Text(item.name)
@@ -447,7 +447,7 @@ struct ShelfTab: View {
         Group {
             if model.shelf.items.isEmpty {
                 ConsoleCard {
-                    ConsoleEmpty(icon: "folder-with-files", title: "Полка пуста", hint: "Брось файл на Пульт или на маскота")
+                    ConsoleEmpty(icon: "folder-with-files", title: "Файлов нет", hint: "Брось файл на Пульт или на маскота")
                 }
             } else {
                 files

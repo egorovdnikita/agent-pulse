@@ -13,7 +13,7 @@ public struct ShelfItem: Sendable, Equatable, Identifiable {
 /// Полка: ссылки на файлы, только в памяти. Выход из приложения очищает полку, сами файлы никто не трогает.
 public struct ShelfModule: ConsoleModule {
     public let id = ConsoleModuleID.shelf
-    public let title = "Полка"
+    public let title = "Файлы"
     public let accent: UInt32 = 0x5E5CE6
     public private(set) var items: [ShelfItem] = []
 
