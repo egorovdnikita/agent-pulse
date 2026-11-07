@@ -567,21 +567,6 @@ struct PrompterSmallButton: View {
     }
 }
 
-/// Полоса хода, без касаний: темп задают клавиши и голос.
-private struct ProgressLine: View {
-    let fraction: Double
-
-    var body: some View {
-        GeometryReader { space in
-            ZStack(alignment: .leading) {
-                Capsule().fill(ConsoleStyle.track)
-                Capsule().fill(.white).frame(width: max(4, space.size.width * min(1, max(0, fraction))))
-            }
-        }
-        .frame(height: 4)
-    }
-}
-
 /// Вкладка «Суфлёр»: слева текст, справа управление. Тексты хранятся только на этом Mac.
 struct PrompterTab: View {
     @Bindable var model: ConsoleModel
@@ -672,7 +657,9 @@ struct PrompterTab: View {
                     }
                 }
                 Spacer(minLength: 0)
-                ProgressLine(fraction: model.prompter.total > 0 ? model.prompter.elapsed / model.prompter.total : 0)
+                ThinSlider(
+                    value: model.prompter.total > 0 ? model.prompter.elapsed / model.prompter.total : 0, range: 0...1, label: "Перемотка"
+                ) { model.seekPrompter(toFraction: $0) }
                 HStack {
                     Text(PrompterModule.clock(model.prompter.elapsed))
                     Spacer()

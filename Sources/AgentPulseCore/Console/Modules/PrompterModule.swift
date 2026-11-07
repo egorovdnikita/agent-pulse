@@ -207,6 +207,26 @@ public struct PrompterModule: ConsoleModule {
         speed = min(Self.speedRange.upperBound, max(Self.speedRange.lowerBound, value))
     }
 
+    /// Перемотка: доля текста от 0 до 1.
+    public mutating func seek(toFraction fraction: Double, now: Date) {
+        guard isActive else { return }
+        move(to: Double(script.words.count) * min(1, max(0, fraction)), now: now)
+    }
+
+    /// Перемотка на строки. Назад всегда есть куда: сбился — вернулся к началу строки.
+    public mutating func jump(lines step: Int, in lines: [PrompterScript.Line], now: Date) {
+        guard isActive, !lines.isEmpty else { return }
+        let target = min(lines.count - 1, max(0, PrompterScript.lineIndex(of: word, in: lines) + step))
+        move(to: Double(lines[target].words.lowerBound), now: now)
+    }
+
+    private mutating func move(to place: Double, now: Date) {
+        position = place
+        lastTick = now
+        lastHeard = now
+        finishedAt = nil
+    }
+
     /// Новые распознанные слова. Назад место не уходит: распознавание само переписывает начало фразы.
     public mutating func hear(_ words: [String], now: Date) {
         guard followsVoice, mode == .running else { return }

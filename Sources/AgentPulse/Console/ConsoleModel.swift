@@ -326,6 +326,16 @@ final class ConsoleModel {
         }
     }
 
+    func seekPrompter(toFraction fraction: Double) {
+        prompter.seek(toFraction: fraction, now: Date())
+        updatePrompterPlace()
+    }
+
+    func jumpPrompter(lines step: Int) {
+        prompter.jump(lines: step, in: prompterLines, now: Date())
+        updatePrompterPlace()
+    }
+
     private func updatePrompterPlace() {
         let line = PrompterScript.lineIndex(of: prompter.word, in: prompterLines)
         if line != prompterLine { prompterLine = line }

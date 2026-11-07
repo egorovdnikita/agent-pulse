@@ -981,3 +981,53 @@ private func snapshot(_ used: Double, at: Date = t0, service: LimitService = .cl
         #expect(PrompterScript.scroll(position: 3, in: []) == 0)
     }
 }
+
+@Suite struct PrompterSeekTests {
+    private let start = Date(timeIntervalSince1970: 1_000_000)
+    private let lines = [
+        PrompterScript.Line(words: 0..<3, text: "раз два три"),
+        PrompterScript.Line(words: 3..<6, text: "четыре пять шесть"),
+    ]
+
+    private func running() -> PrompterModule {
+        var module = PrompterModule()
+        _ = module.start(text: "раз два три четыре пять шесть", now: start)
+        return module
+    }
+
+    @Test func seekMovesBothWays() {
+        var module = running()
+        module.seek(toFraction: 0.5, now: start)
+        #expect(module.position == 3)
+        module.seek(toFraction: 2, now: start)
+        #expect(module.position == 6)
+        module.seek(toFraction: 0, now: start)
+        #expect(module.position == 0)
+    }
+
+    @Test func jumpGoesToLineStartAndStopsAtEdges() {
+        var module = running()
+        module.jump(lines: 1, in: lines, now: start)
+        #expect(module.position == 3)
+        module.jump(lines: 5, in: lines, now: start)
+        #expect(module.position == 3)
+        module.jump(lines: -5, in: lines, now: start)
+        #expect(module.position == 0)
+    }
+
+    @Test func seekBackFromEndCancelsClosing() {
+        var module = running()
+        module.seek(toFraction: 1, now: start)
+        _ = module.advance(now: start)
+        module.seek(toFraction: 0, now: start)
+        let closed = module.advance(now: start.addingTimeInterval(10 * 60 / 130))
+        #expect(!closed)
+        #expect(module.isActive)
+    }
+
+    @Test func seekDoesNothingWhenIdle() {
+        var module = PrompterModule()
+        module.seek(toFraction: 1, now: start)
+        #expect(module.position == 0)
+    }
+}

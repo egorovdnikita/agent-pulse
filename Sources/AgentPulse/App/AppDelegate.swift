@@ -15,6 +15,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     private let prompterHotKey = ConsoleHotKey(id: 2)
     private let prompterFaster = ConsoleHotKey(id: 3)
     private let prompterSlower = ConsoleHotKey(id: 4)
+    private let prompterBack = ConsoleHotKey(id: 7)
+    private let prompterForward = ConsoleHotKey(id: 8)
     private let prompterVoice = PrompterVoice()
     private let dictationHotKey = ConsoleHotKey(id: 5)
     private let translateHotKey = ConsoleHotKey(id: 6)
@@ -462,6 +464,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
             // Стрелки заняты только на время суфлёра: они нужны и другим приложениям.
             self.prompterFaster.set(code: on ? kVK_UpArrow : nil) { [weak console] in console?.changePrompterSpeed(faster: true) }
             self.prompterSlower.set(code: on ? kVK_DownArrow : nil) { [weak console] in console?.changePrompterSpeed(faster: false) }
+            self.prompterBack.set(code: on ? kVK_LeftArrow : nil) { [weak console] in console?.jumpPrompter(lines: -1) }
+            self.prompterForward.set(code: on ? kVK_RightArrow : nil) { [weak console] in console?.jumpPrompter(lines: 1) }
             if on {
                 panel.show(fallback: self.consoleScreen, hiddenFromSharing: self.model.config.console.prompterHidden)
             } else {

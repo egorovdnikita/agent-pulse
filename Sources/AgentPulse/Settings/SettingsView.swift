@@ -518,6 +518,7 @@ private struct ConsoleSettings: View {
                 .disabled(!settings.enabled)
                 if settings.prompter { ShortcutRow(title: "Суфлёр: старт и стоп", keys: "⌃⌥P") }
                 if settings.prompter { ShortcutRow(title: "Суфлёр: скорость", keys: "⌃⌥↑ ⌃⌥↓") }
+                if settings.prompter { ShortcutRow(title: "Суфлёр: строка назад и вперёд", keys: "⌃⌥← ⌃⌥→") }
                 if settings.dictation { ShortcutRow(title: "Диктовка: держи и говори", keys: "⌃⌥D") }
                 if settings.translator, ConsoleTranslator.isAvailable { ShortcutRow(title: "Перевести выделенное", keys: "⌃⌥T") }
             }
