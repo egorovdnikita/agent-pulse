@@ -354,11 +354,11 @@ private struct CharacterSettings: View {
             }
             .onChange(of: form.known) { saveBirthday() }
             .onChange(of: form.date) { saveBirthday() }
-            SettingsBlock("Мило и бесит") {
+            SettingsBlock("Оценки реплик") {
                 LabeledContent("Сегодня") {
-                    Text("мило \(model.feedbackToday["мило", default: 0]) · бесит \(model.feedbackToday["бесит", default: 0])")
+                    Text("нравится \(model.feedbackToday["мило", default: 0]) · не надо \(model.feedbackToday["бесит", default: 0])")
                 }
-                LabeledContent("Молчат после двух «бесит» за неделю") {
+                LabeledContent("Отключено реплик") {
                     Text("\(model.mutedReactions.count)")
                 }
             }

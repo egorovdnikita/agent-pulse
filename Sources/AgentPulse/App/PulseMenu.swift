@@ -77,12 +77,12 @@ struct PulseMenuView: View {
         ConsoleCard(fills: false) {
             VStack(alignment: .leading, spacing: 8) {
                 VStack(alignment: .leading, spacing: 1) {
-                    Text("Последняя реакция").font(ConsoleStyle.font(11)).foregroundStyle(ConsoleStyle.caption)
-                    Text(line).font(ConsoleStyle.font(13, .medium)).foregroundStyle(.white).lineLimit(2)
+                    Text("Как тебе эта реплика?").font(ConsoleStyle.font(11)).foregroundStyle(ConsoleStyle.caption)
+                    Text("«\(line)»").font(ConsoleStyle.font(13, .medium)).foregroundStyle(.white).lineLimit(2)
                 }
                 HStack(spacing: 8) {
-                    PrompterSmallButton(title: "Мило", wide: true) { act { model.feedback("мило") } }
-                    PrompterSmallButton(title: "Бесит", wide: true) { act { model.feedback("бесит") } }
+                    PrompterSmallButton(title: "Нравится", wide: true) { act { model.feedback("мило") } }
+                    PrompterSmallButton(title: "Больше не надо", wide: true) { act { model.feedback("бесит") } }
                 }
             }
         }
