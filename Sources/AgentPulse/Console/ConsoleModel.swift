@@ -605,9 +605,11 @@ final class ConsoleModel {
         if on {
             // Открываем то, что занимает капсулу.
             let ids = tabs.map(\.id)
-            // На лидера — только если он важнее лимитов: иначе страница, где ты был, не теряется.
+            // По умолчанию «Файлы»; на другой раздел — только если он сейчас важнее: запись, встреча.
             if let leader = director.leader, leader.priority < .limitsNormal, ids.contains(leader.module) {
                 tab = leader.module
+            } else if ids.contains(.shelf) {
+                tab = .shelf
             } else if !ids.contains(tab), let first = ids.first {
                 tab = first
             }
