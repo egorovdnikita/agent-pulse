@@ -44,7 +44,6 @@ struct MascotLabView: View {
             .padding(.horizontal, 20)
             .padding(.top, 16)
             .frame(maxWidth: .infinity)
-            .background(Color(nsColor: .windowBackgroundColor))
 
             SettingsPage {
                 SettingsBlock("Состояние") {
