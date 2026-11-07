@@ -946,14 +946,14 @@ struct TranslateTab: View {
     private var output: some View {
         switch model.translate.state {
         case .idle:
-            ConsoleEmpty(icon: "translation", title: "Здесь будет перевод")
+            ConsoleEmpty(icon: "chat-round-dots", title: "Здесь будет перевод")
         case .askToCopy:
-            ConsoleEmpty(icon: "translation", title: "Выделение не прочиталось", hint: TranslateModule.askToCopyHint)
+            ConsoleEmpty(icon: "chat-round-dots", title: "Выделение не прочиталось", hint: TranslateModule.askToCopyHint)
         case .working:
-            ConsoleEmpty(icon: "translation", title: "Перевожу…")
+            ConsoleEmpty(icon: "chat-round-dots", title: "Перевожу…")
         case .failed(let problem):
             VStack(spacing: 10) {
-                ConsoleEmpty(icon: "translation", title: "Перевод не вышел", hint: problem)
+                ConsoleEmpty(icon: "chat-round-dots", title: "Перевод не вышел", hint: problem)
                 if problem == ConsoleTranslator.needsLanguages {
                     PrompterSmallButton(title: "Скачать языки") { model.onOpenSettings?("Переводчик") }
                 }

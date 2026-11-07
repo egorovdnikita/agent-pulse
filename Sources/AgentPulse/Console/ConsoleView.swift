@@ -9,7 +9,7 @@ private extension ConsoleModuleID {
         case .limits: "tuning-2"
         case .prompter, .dictation: "document-text"
         case .calendar: "calendar"
-        case .translate: "translation"
+        case .translate: "chat-round-dots"
         case .shelf: "folder-with-files"
         case .media: "music-note"
         }
