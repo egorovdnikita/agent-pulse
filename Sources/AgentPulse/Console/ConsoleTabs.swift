@@ -656,16 +656,30 @@ struct PrompterTab: View {
 
     private var running: some View {
         ConsoleCard {
-            VStack(alignment: .leading, spacing: 10) {
+            VStack(alignment: .leading, spacing: 8) {
                 Text(model.prompter.mode == .paused ? "Пауза" : model.prompter.followsVoice ? "Идёт за голосом" : "Идёт текст")
                     .font(ConsoleStyle.font(11, .semibold))
                     .foregroundStyle(model.prompter.mode == .paused ? ConsoleStyle.yellow : ConsoleStyle.green)
+                // Что сейчас и что дальше: панель у камеры видна не всегда.
+                VStack(alignment: .leading, spacing: 4) {
+                    ForEach(0..<3, id: \.self) { row in
+                        let index = model.prompterLine + row
+                        Text(model.prompterLines.indices.contains(index) ? model.prompterLines[index].text : " ")
+                            .font(ConsoleStyle.font(15, .medium))
+                            .foregroundStyle(.white)
+                            .opacity(PrompterLayout.lineOpacity(row: row))
+                            .lineLimit(1)
+                    }
+                }
                 Spacer(minLength: 0)
-                Text("\(PrompterModule.clock(model.prompter.elapsed)) из \(PrompterModule.clock(model.prompter.total))")
-                    .font(ConsoleStyle.font(26, .semibold).monospacedDigit())
-                    .foregroundStyle(.white)
                 ProgressLine(fraction: model.prompter.total > 0 ? model.prompter.elapsed / model.prompter.total : 0)
-                Spacer(minLength: 0)
+                HStack {
+                    Text(PrompterModule.clock(model.prompter.elapsed))
+                    Spacer()
+                    Text(PrompterModule.clock(model.prompter.total))
+                }
+                .font(noteFont)
+                .foregroundStyle(ConsoleStyle.caption)
             }
         }
     }
