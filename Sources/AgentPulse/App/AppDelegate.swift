@@ -22,6 +22,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     private let translateHotKey = ConsoleHotKey(id: 6)
     private(set) var dictation: DictationController?
     private var menuPanel: PulseMenuPanel?
+    let trackpadGesture = TrackpadGesture()
     private var prompterPanel: PrompterPanel?
     private var codexTimer: Timer?
     private var codexFetchedAt = Date.distantPast
@@ -308,6 +309,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         console.onConnectMusic = { [weak self] in self?.startScriptMedia() }
         startPrompter()
         startDictation()
+        trackpadGesture.onDoubleTap = { [weak console] in console?.toggle() }
+        applyTrackpadGesture()
         renderConsoleSheet()
         // Отладка: `--menu-demo` — показать меню маскота без правого клика.
         if CommandLine.arguments.contains("--menu-demo") {
@@ -625,6 +628,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         model.config.console.capsuleWindow = value
         try? model.config.save()
         model.console.setCapsuleWindow(LimitWindowKind(rawValue: value))
+    }
+
+    func applyTrackpadGesture() {
+        let config = model.config
+        trackpadGesture.setEnabled(config.console.enabled && config.senses.experimental && config.console.trackpadGesture)
+    }
+
+    func setTrackpadGesture(_ on: Bool) {
+        model.config.console.trackpadGesture = on
+        try? model.config.save()
+        applyTrackpadGesture()
     }
 
     func setSounds(_ on: Bool) {

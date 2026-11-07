@@ -544,6 +544,19 @@ private struct ConsoleSettings: View {
                 if settings.dictation { ShortcutRow(title: "Диктовка: держи и говори", keys: "⌃⌥D", busy: model.console.busyKeys.contains("dictation")) }
                 if settings.translator, ConsoleTranslator.isAvailable { ShortcutRow(title: "Перевести выделенное", keys: "⌃⌥T", busy: model.console.busyKeys.contains("translate")) }
             }
+            if model.config.senses.experimental {
+                SettingsBlock("Эксперимент") {
+                    Toggle(isOn: Binding(get: { settings.trackpadGesture }, set: { app.setTrackpadGesture($0) })) {
+                        Text("Двойное касание двумя пальцами")
+                        Text("Раскрывает Пульт. Читает касания через закрытый системный интерфейс, поэтому может перестать работать с обновлением macOS. ⌃⌥X работает всегда")
+                            .font(SettingsStyle.caption).foregroundStyle(SettingsStyle.muted)
+                    }
+                    .disabled(!settings.enabled)
+                    if settings.trackpadGesture {
+                        LabeledContent("Состояние", value: app.trackpadGesture.status.title)
+                    }
+                }
+            }
             SettingsBlock("Лимиты Claude") {
                 LabeledContent("Подключение") {
                     HStack(spacing: 10) {

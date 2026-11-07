@@ -21,6 +21,8 @@ public struct PulseConfig: Codable, Sendable, Equatable {
     public struct Console: Codable, Sendable, Equatable {
         public var enabled = true
         public var limits = true
+        /// Двойное касание двумя пальцами раскрывает Пульт. Эксперимент.
+        public var trackpadGesture = false
         /// Короткие звуки Пульта.
         public var sounds = true
         /// Окно лимита в капсуле: пусто — самое тесное.
