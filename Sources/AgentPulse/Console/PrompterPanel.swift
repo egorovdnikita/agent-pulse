@@ -187,9 +187,9 @@ struct PrompterView: View {
             }
         }
         .opacity(model.prompter.mode == .paused ? 0.6 : 1)
-        // Текст не обрывается по краю, а уходит в чёрное.
-        .mask(LinearGradient(stops: [.init(color: .black, location: 0.62), .init(color: .clear, location: 1)], startPoint: .top, endPoint: .bottom))
         .frame(width: PrompterLayout.width, height: PrompterLayout.textHeight, alignment: .topLeading)
+        // Текст не обрывается по краю, а уходит в чёрное. Маска — после размера: иначе она режет текст по его рамке.
+        .mask(LinearGradient(stops: [.init(color: .black, location: 0.62), .init(color: .clear, location: 1)], startPoint: .top, endPoint: .bottom))
         .clipped()
         .padding(.top, model.prompterNotch)
         .contentShape(shape)
