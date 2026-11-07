@@ -396,6 +396,7 @@ enum ConsoleSheet {
     }
 
     static func renderCapsule(_ model: ConsoleModel, to url: URL) {
+        try? FileManager.default.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
         write(CapsulePreview(model: model), size: CGSize(width: model.capsuleWidth + 16, height: 48), to: url)
     }
 
