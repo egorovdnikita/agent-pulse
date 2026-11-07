@@ -483,6 +483,58 @@ struct ShelfTab: View {
 
 // MARK: - Музыка
 
+/// Эквалайзер: семь полосок. Движение считает Core Animation, кадров на CPU нет.
+private struct EqualizerBars: NSViewRepresentable {
+    let moving: Bool
+
+    func makeNSView(context: Context) -> EqualizerView { EqualizerView() }
+    func updateNSView(_ view: EqualizerView, context: Context) { view.moving = moving }
+    func sizeThatFits(_ proposal: ProposedViewSize, nsView: EqualizerView, context: Context) -> CGSize? { EqualizerView.size }
+}
+
+final class EqualizerView: NSView {
+    static let size = CGSize(width: 32, height: 14)
+    private static let rest = 4.0
+    private var bars: [CALayer] = []
+
+    var moving = false {
+        didSet { if oldValue != moving { update() } }
+    }
+
+    override init(frame: NSRect) {
+        super.init(frame: frame)
+        wantsLayer = true
+        bars = (0..<7).map { index in
+            let bar = CALayer()
+            bar.backgroundColor = NSColor.white.cgColor
+            bar.cornerRadius = 1
+            bar.anchorPoint = CGPoint(x: 0.5, y: 0.5)
+            bar.frame = CGRect(x: Double(index) * 5, y: (Self.size.height - Self.rest) / 2, width: 2, height: Self.rest)
+            layer?.addSublayer(bar)
+            return bar
+        }
+    }
+
+    @available(*, unavailable)
+    required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
+
+    private func update() {
+        let reduce = NSWorkspace.shared.accessibilityDisplayShouldReduceMotion
+        for (index, bar) in bars.enumerated() {
+            bar.removeAllAnimations()
+            guard moving, !reduce else { continue }
+            let height = CABasicAnimation(keyPath: "bounds.size.height")
+            height.fromValue = Self.rest
+            height.toValue = 6 + Double((index * 5) % 9)
+            height.duration = 0.3 + Double((index * 3) % 5) * 0.07
+            height.autoreverses = true
+            height.repeatCount = .infinity
+            height.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
+            bar.add(height, forKey: "beat")
+        }
+    }
+}
+
 struct MediaTab: View {
     let model: ConsoleModel
 
@@ -518,7 +570,14 @@ struct MediaTab: View {
             }
             .frame(width: 178, height: 178).clipShape(RoundedRectangle(cornerRadius: ConsoleStyle.cardRadius, style: .continuous))
             VStack(alignment: .leading, spacing: 0) {
-                Text(playing.title).font(ConsoleStyle.font(15, .semibold)).foregroundStyle(.white).lineLimit(1).padding(.top, 8)
+                HStack(spacing: 10) {
+                    Text(playing.title).font(ConsoleStyle.font(15, .semibold)).foregroundStyle(.white).lineLimit(1)
+                    Spacer(minLength: 0)
+                    EqualizerBars(moving: playing.isPlaying).frame(width: EqualizerView.size.width, height: EqualizerView.size.height)
+                        .opacity(playing.isPlaying ? 1 : 0.4)
+                        .accessibilityHidden(true)
+                }
+                .padding(.top, 8)
                 if let artist = playing.artist {
                     Text(artist).font(ConsoleStyle.font(13)).foregroundStyle(ConsoleStyle.caption).lineLimit(1).padding(.top, 2)
                 }
