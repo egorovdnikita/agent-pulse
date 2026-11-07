@@ -1,5 +1,6 @@
 import AgentPulseCore
 import AppKit
+import Observation
 import SwiftUI
 
 /// Меню в строке меню и по правому клику на маскоте: только то, что нужно каждый день.
@@ -150,12 +151,54 @@ private struct PulseMenuHover<Content: View>: View {
     }
 }
 
+/// Состояние раскрытия меню.
+@MainActor
+@Observable
+private final class MenuReveal {
+    var open = false
+    var contentShown = false
+    var size = CGSize(width: PulseMenuView.width, height: 200)
+}
+
+/// Форма меню вырастает из точки клика, как Пульт из капсулы: содержимое стоит на месте и проявляется в ней.
+private struct PulseMenuSurface: View {
+    let reveal: MenuReveal
+    let content: PulseMenuView
+    static let shadowRoom = 24.0
+    static let startSize = 44.0
+
+    var body: some View {
+        let reduce = NSWorkspace.shared.accessibilityDisplayShouldReduceMotion
+        let open = reveal.open
+        let width = open ? reveal.size.width : Self.startSize
+        let height = open ? reveal.size.height : Self.startSize
+        let shape = RoundedRectangle(cornerRadius: open ? ConsoleStyle.cardRadius : Self.startSize / 2, style: .continuous)
+        ZStack(alignment: .bottomTrailing) {
+            shape.fill(Color.black)
+                .frame(width: width, height: height)
+                .shadow(color: .black.opacity(0.45), radius: 12, y: 4)
+            content
+                .opacity(reveal.contentShown ? 1 : 0)
+                .animation(ConsoleStyle.contentMotion(appearing: reveal.contentShown, reduced: reduce), value: reveal.contentShown)
+                .mask(alignment: .bottomTrailing) { shape.frame(width: width, height: height) }
+            shape.strokeBorder(ConsoleStyle.edge, lineWidth: 1).frame(width: width, height: height)
+        }
+        .frame(width: reveal.size.width, height: reveal.size.height, alignment: .bottomTrailing)
+        .animation(ConsoleStyle.panelMotion(opening: open, reduced: reduce), value: open)
+        .padding(Self.shadowRoom)
+    }
+}
+
 /// Меню по правому клику на маскоте. Закрывается кликом мимо и Esc, не активирует приложение.
 @MainActor
 final class PulseMenuPanel: NSPanel {
     private var monitors: [Any] = []
+    private let reveal = MenuReveal()
+    private let measuredMenu: PulseMenuView
+    private var hideTask: Task<Void, Never>?
 
     init(app: AppDelegate) {
+        measuredMenu = PulseMenuView(app: app) {}
         super.init(
             contentRect: NSRect(x: 0, y: 0, width: PulseMenuView.width, height: 200),
             styleMask: [.borderless, .nonactivatingPanel], backing: .buffered, defer: false
@@ -165,34 +208,38 @@ final class PulseMenuPanel: NSPanel {
         collectionBehavior = OverlayPanel.spaceBehavior.union(.fullScreenAuxiliary)
         isOpaque = false
         backgroundColor = .clear
-        hasShadow = true
+        hasShadow = false
         hidesOnDeactivate = false
-        let view = PulseMenuView(app: app) { [weak self] in self?.close() }
-            .clipShape(RoundedRectangle(cornerRadius: ConsoleStyle.cardRadius, style: .continuous))
-            .overlay {
-                RoundedRectangle(cornerRadius: ConsoleStyle.cardRadius, style: .continuous)
-                    .strokeBorder(ConsoleStyle.edge, lineWidth: 1)
-            }
+        let view = PulseMenuSurface(reveal: reveal, content: PulseMenuView(app: app) { [weak self] in self?.close() })
         contentView = NSHostingView(rootView: view)
     }
 
     override var canBecomeKey: Bool { true }
 
-    /// Стоит у курсора и не выходит за видимую часть экрана.
+    /// Стоит у курсора и не выходит за видимую часть экрана. Правый нижний угол меню — точка клика.
     func show(at point: NSPoint) {
-        guard let host = contentView else { return }
-        let size = host.fittingSize
+        hideTask?.cancel()
+        let measured = NSHostingView(rootView: measuredMenu).fittingSize
+        reveal.size = measured
+        reveal.open = false
+        reveal.contentShown = false
+        let room = PulseMenuSurface.shadowRoom
         let visible = NSScreen.screens.first { $0.frame.contains(point) }?.visibleFrame ?? NSScreen.main?.visibleFrame ?? .zero
-        let x = min(max(visible.minX + 8, point.x - size.width), visible.maxX - size.width - 8)
-        let y = min(max(visible.minY + 8, point.y), visible.maxY - size.height - 8)
-        setFrame(NSRect(x: x, y: y, width: size.width, height: size.height), display: true)
-        alphaValue = 0
+        let x = min(max(visible.minX + 8, point.x - measured.width), visible.maxX - measured.width - 8)
+        let y = min(max(visible.minY + 8, point.y), visible.maxY - measured.height - 8)
+        setFrame(
+            NSRect(x: x - room, y: y - room, width: measured.width + room * 2, height: measured.height + room * 2), display: true
+        )
         orderFrontRegardless()
         makeKey()
-        NSAnimationContext.runAnimationGroup { context in
-            context.duration = 0.12
-            animator().alphaValue = 1
+        DispatchQueue.main.async { [reveal] in
+            MainActor.assumeIsolated {
+                reveal.open = true
+                reveal.contentShown = true
+            }
         }
+        monitors.forEach(NSEvent.removeMonitor)
+        monitors = []
         if let outside = NSEvent.addGlobalMonitorForEvents(matching: [.leftMouseDown, .rightMouseDown], handler: { [weak self] _ in
             MainActor.assumeIsolated { self?.close() }
         }) { monitors.append(outside) }
@@ -203,9 +250,16 @@ final class PulseMenuPanel: NSPanel {
         }) { monitors.append(local) }
     }
 
+    /// На выходе форма уходит обратно в точку клика, и только потом окно прячется.
     override func close() {
         monitors.forEach(NSEvent.removeMonitor)
         monitors = []
-        orderOut(nil)
+        reveal.contentShown = false
+        reveal.open = false
+        hideTask = Task { [weak self] in
+            try? await Task.sleep(for: .milliseconds(ConsoleLook.closeMilliseconds))
+            guard !Task.isCancelled else { return }
+            self?.orderOut(nil)
+        }
     }
 }
