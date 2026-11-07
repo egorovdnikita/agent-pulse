@@ -193,13 +193,13 @@ private func snapshot(_ used: Double, at: Date = t0, service: LimitService = .cl
         #expect(module.priority(now: t0) == .limitCritical)
     }
 
-    @Test func capsuleShowsTightestWindowOfEachService() {
+    @Test func capsuleShowsFiveHoursOfEachService() {
         var module = LimitsModule()
         _ = module.book.ingest(LimitSnapshot(service: .claude, windows: [window(.fiveHour, 20), window(.week, 76)], at: t0), now: t0)
         _ = module.book.ingest(snapshot(30, service: .codex), now: t0)
         let capsule = module.capsule(now: t0)
         #expect(capsule.rings.map(\.service) == [.claude, .codex])
-        #expect(capsule.rings[0].fraction == 0.76)
+        #expect(capsule.rings[0].fraction == 0.2)
         #expect(capsule.label.hasPrefix("Claude · 76% · сброс"))
     }
 }
