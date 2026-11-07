@@ -81,13 +81,6 @@ enum ConsoleStyle {
     }
 }
 
-extension CapsuleRing {
-    /// Число в капсуле. Нет данных — прочерк, а не 0%.
-    var figure: String {
-        fraction.map { "\(Int(($0 * 100).rounded()))%" } ?? "—"
-    }
-}
-
 /// Значок сервиса: одного размера, чтобы строки не прыгали.
 struct ServiceMark: View {
     let service: LimitService

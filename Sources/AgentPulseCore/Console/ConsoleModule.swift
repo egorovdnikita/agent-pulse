@@ -29,6 +29,13 @@ public struct CapsuleRing: Sendable, Equatable, Identifiable {
     }
 }
 
+extension CapsuleRing {
+    /// Число в капсуле. Нет данных — прочерк, а не 0%.
+    public var figure: String {
+        fraction.map { "\(Int(($0 * 100).rounded()))%" } ?? "—"
+    }
+}
+
 /// Кнопка в капсуле.
 public enum CapsuleAction: Sendable, Equatable {
     case join(URL)
