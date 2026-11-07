@@ -1,3 +1,4 @@
+import AppKit
 import Foundation
 import Testing
 @testable import AgentPulseCore
@@ -1193,5 +1194,13 @@ private func snapshot(_ used: Double, at: Date = t0, service: LimitService = .cl
         _ = tap(&gesture, at: 0, x: 20)
         let result11 = tap(&gesture, at: 0.3, x: 90)
         #expect(!result11)
+    }
+}
+
+@Suite struct ConsoleSoundFileTests {
+    @Test func systemPlayerAcceptsEveryTone() {
+        for sound in ConsoleSound.allCases {
+            #expect(NSSound(data: sound.wav) != nil)
+        }
     }
 }
