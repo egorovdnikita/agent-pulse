@@ -271,6 +271,16 @@ public enum PrompterLayout {
     /// Отступ под строкой меню, когда выреза нет.
     public static let menuBarGap = 6.0
 
+    /// Яркость строки от читаемой вниз: глаз держится наверху, у камеры.
+    public static func lineOpacity(row: Int) -> Double {
+        switch row {
+        case ..<1: 1
+        case 1: 0.55
+        case 2: 0.25
+        default: max(0.25 * pow(0.82, Double(row - 2)), 0.1)
+        }
+    }
+
     /// `notch` — высота выреза; 0 — его нет. Координаты AppKit: начало внизу слева.
     public static func frame(
         screen: CGRect, visible: CGRect, notch: Double

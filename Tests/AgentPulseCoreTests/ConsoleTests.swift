@@ -958,3 +958,12 @@ private func snapshot(_ used: Double, at: Date = t0, service: LimitService = .cl
         #expect(ShelfFileKind.badge(name: "файл.torrent") == nil)
     }
 }
+
+@Suite struct PrompterLinesTests {
+    @Test func brightnessFallsFromReadLineDown() {
+        #expect(PrompterLayout.lineOpacity(row: 0) == 1)
+        #expect(PrompterLayout.lineOpacity(row: 1) == 0.55)
+        #expect(PrompterLayout.lineOpacity(row: 2) == 0.25)
+        #expect(PrompterLayout.lineOpacity(row: 9) >= 0.1)
+    }
+}

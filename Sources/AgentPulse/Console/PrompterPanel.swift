@@ -58,35 +58,20 @@ final class PrompterPanel: NSPanel {
     }
 }
 
-/// Строка суфлёра. Шрифт один: крупнее текущая становится масштабом, чтобы переход был плавным.
+/// Строка суфлёра.
 private struct PrompterLineView: View {
     let line: PrompterScript.Line
-    /// Сколько слов строки уже сказано голосом; nil — вся строка одного цвета.
-    let spoken: Int?
 
     var body: some View {
-        Text(attributed)
+        Text(line.text)
             .font(ConsoleStyle.font(PrompterLook.fontSize, .semibold))
+            .foregroundStyle(.white)
             .lineLimit(1)
             .fixedSize()
     }
-
-    private var attributed: AttributedString {
-        guard let spoken else {
-            var text = AttributedString(line.text)
-            text.foregroundColor = .white
-            return text
-        }
-        var result = AttributedString()
-        for (index, word) in line.text.split(separator: " ").enumerated() {
-            var part = AttributedString(index == 0 ? String(word) : " \(word)")
-            part.foregroundColor = index < spoken ? .white : .white.opacity(0.55)
-            result += part
-        }
-        return result
-    }
 }
 
+/// Текущая строка всегда верхняя, ближе всего к камере: взгляд не уходит вниз. Прочитанного на панели нет.
 struct PrompterView: View {
     let model: ConsoleModel
 
@@ -99,13 +84,11 @@ struct PrompterView: View {
             topLeadingRadius: notched ? 0 : 22, bottomLeadingRadius: 22, bottomTrailingRadius: 22,
             topTrailingRadius: notched ? 0 : 22, style: .continuous
         )
-        ZStack {
-            ForEach(lines.indices.filter { abs($0 - current) <= 2 }, id: \.self) { index in
-                let distance = index - current
-                PrompterLineView(line: lines[index], spoken: spoken(in: lines[index], isCurrent: distance == 0))
-                    .scaleEffect(distance == 0 ? 1 : PrompterLook.sideScale)
-                    .opacity(distance == 0 ? 1 : abs(distance) == 1 ? 0.45 : 0)
-                    .offset(y: Double(distance) * PrompterLook.lineStep)
+        ZStack(alignment: .topLeading) {
+            ForEach(lines.indices.filter { $0 >= current && $0 < current + PrompterLook.visibleLines }, id: \.self) { index in
+                PrompterLineView(line: lines[index])
+                    .opacity(PrompterLayout.lineOpacity(row: index - current))
+                    .offset(x: PrompterLook.textInset, y: PrompterLook.topInset + Double(index - current) * PrompterLook.lineStep)
             }
             if let status = model.prompterStatus {
                 Text(status)
@@ -117,7 +100,7 @@ struct PrompterView: View {
             }
         }
         .opacity(model.prompter.mode == .paused ? 0.6 : 1)
-        .frame(width: PrompterLayout.width, height: PrompterLayout.textHeight)
+        .frame(width: PrompterLayout.width, height: PrompterLayout.textHeight, alignment: .topLeading)
         .clipped()
         .padding(.top, model.prompterNotch)
         .background(shape.fill(.black))
@@ -127,18 +110,15 @@ struct PrompterView: View {
         .animation(reduce ? nil : .easeInOut(duration: 0.28), value: current)
         .accessibilityLabel("Суфлёр")
     }
-
-    private func spoken(in line: PrompterScript.Line, isCurrent: Bool) -> Int? {
-        guard model.prompter.followsVoice, isCurrent else { return nil }
-        return min(line.words.count, max(0, Int(model.prompter.position) - line.words.lowerBound))
-    }
 }
 
 enum PrompterLook {
     static let fontSize = 20.0
-    static let sideScale = 0.72
     static let lineStep = 28.0
-    static let textWidth = PrompterLayout.width - 36
+    static let visibleLines = 3
+    static let topInset = 10.0
+    static let textInset = 18.0
+    static let textWidth = PrompterLayout.width - textInset * 2
     @MainActor static let font = ConsoleStyle.nsFont(fontSize, .semibold)
 
     /// Запас: строка не должна упереться в край.
