@@ -179,13 +179,32 @@ struct LimitGauge: View {
     }
 }
 
-/// Нажатие чувствуется: кнопка чуть сжимается.
+/// Отклик кнопки: под курсором ярче, при нажатии чуть сжимается.
 struct ConsolePressStyle: ButtonStyle {
     func makeBody(configuration: Configuration) -> some View {
-        configuration.label
-            .scaleEffect(configuration.isPressed ? 0.94 : 1)
-            .opacity(configuration.isPressed ? 0.75 : 1)
-            .animation(.easeOut(duration: 0.1), value: configuration.isPressed)
+        ConsolePressBody(label: configuration.label, pressed: configuration.isPressed)
+    }
+}
+
+private struct ConsolePressBody<Label: View>: View {
+    let label: Label
+    let pressed: Bool
+    // Обычный @State без Xcode недоступен: его макрос лежит только там.
+    private let hovering = State(initialValue: false)
+
+    init(label: Label, pressed: Bool) {
+        self.label = label
+        self.pressed = pressed
+    }
+
+    var body: some View {
+        label
+            .brightness(hovering.wrappedValue ? 0.08 : 0)
+            .scaleEffect(pressed ? 0.94 : 1)
+            .opacity(pressed ? 0.75 : 1)
+            .onHover { hovering.wrappedValue = $0 }
+            .animation(.easeOut(duration: 0.1), value: pressed)
+            .animation(.easeOut(duration: 0.12), value: hovering.wrappedValue)
     }
 }
 

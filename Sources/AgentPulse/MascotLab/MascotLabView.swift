@@ -36,7 +36,7 @@ struct MascotLabView: View {
                     if let message = model.visibleMessage {
                         BubbleView(message: message, tailOnRight: false)
                     } else {
-                        Text("Облачко появится здесь").font(.caption).foregroundStyle(.secondary)
+                        Text("Облачко появится здесь").font(SettingsStyle.caption).foregroundStyle(.secondary)
                     }
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
@@ -68,7 +68,7 @@ struct MascotLabView: View {
                             .foregroundStyle(.secondary)
                     }
                     Text("Батарея 5% — batteryCritical; пятница 23:00 — сдвиньте часы системы. Бюджеты и кулдауны действуют.")
-                        .font(.caption).foregroundStyle(.secondary)
+                        .font(SettingsStyle.caption).foregroundStyle(.secondary)
                 }
                 Section("Реакции вручную") {
                     LazyVGrid(columns: [GridItem(.adaptive(minimum: 104), spacing: 8)], spacing: 8) {

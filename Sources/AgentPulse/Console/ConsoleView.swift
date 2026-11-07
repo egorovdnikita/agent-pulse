@@ -258,27 +258,48 @@ private struct ExpandedBody: View {
 
     var body: some View {
         ZStack(alignment: .bottom) {
-            VStack(alignment: .leading, spacing: 0) {
-                switch model.tab {
-                case .prompter: PrompterTab(model: model)
-                case .calendar: CalendarTab(model: model)
-                case .shelf: ShelfTab(model: model)
-                case .media: MediaTab(model: model)
-                case .translate: TranslateTab(model: model)
-                default: LimitsTab(model: model)
-                }
-                Spacer(minLength: 0)
-            }
-            .padding([.horizontal, .top], ConsoleStyle.inset)
-            .padding(.bottom, ConsoleLook.pagesClosed)
+            page
+                .id(model.tab)
+                .transition(pageTransition)
             PageSwitcher(model: model)
         }
         .frame(width: model.expandedWidth, height: ConsoleLayout.expandedHeight, alignment: .topLeading)
         .background(Color.black)
         .clipShape(RoundedRectangle(cornerRadius: ConsoleStyle.surfaceRadius, style: .continuous))
+        .animation(ConsoleStyle.motion(opening: true, reduced: reduce), value: model.tab)
         .overlay {
             RoundedRectangle(cornerRadius: ConsoleStyle.surfaceRadius, style: .continuous).strokeBorder(ConsoleStyle.edge, lineWidth: 1)
         }
+    }
+}
+
+private extension ExpandedBody {
+    var reduce: Bool { NSWorkspace.shared.accessibilityDisplayShouldReduceMotion }
+
+    var page: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            switch model.tab {
+            case .prompter: PrompterTab(model: model)
+            case .calendar: CalendarTab(model: model)
+            case .shelf: ShelfTab(model: model)
+            case .media: MediaTab(model: model)
+            case .translate: TranslateTab(model: model)
+            default: LimitsTab(model: model)
+            }
+            Spacer(minLength: 0)
+        }
+        .padding([.horizontal, .top], ConsoleStyle.inset)
+        .padding(.bottom, ConsoleLook.pagesClosed)
+    }
+
+    /// Страницы едут вслед за пальцами. Reduce Motion — только смена прозрачности.
+    var pageTransition: AnyTransition {
+        guard !reduce else { return .opacity }
+        let forward = model.pageTravel > 0
+        return .asymmetric(
+            insertion: .move(edge: forward ? .trailing : .leading).combined(with: .opacity),
+            removal: .move(edge: forward ? .leading : .trailing).combined(with: .opacity)
+        )
     }
 }
 

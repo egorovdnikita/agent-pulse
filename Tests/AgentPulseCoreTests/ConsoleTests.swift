@@ -816,3 +816,60 @@ private func snapshot(_ used: Double, at: Date = t0, service: LimitService = .cl
         #expect(later.contains("4"))
     }
 }
+
+@Suite struct PageSwipeTests {
+    private let start = Date(timeIntervalSince1970: 1_000_000)
+
+    private func run(_ events: [(Double, Double, PageSwipe.Phase)]) -> [Int] {
+        var swipe = PageSwipe()
+        var date = start
+        var steps: [Int] = []
+        for event in events {
+            date = date.addingTimeInterval(0.01)
+            if let step = swipe.feed(dx: event.0, dy: event.1, phase: event.2, at: date) { steps.append(step) }
+        }
+        return steps
+    }
+
+    @Test func longSwipeTurnsOnePage() {
+        let moves = Array(repeating: (12.0, 0.0, PageSwipe.Phase.moved), count: 30)
+        #expect(run([(1, 0, .began)] + moves + [(0, 0, .ended)]) == [1])
+    }
+
+    @Test func swipeBackGoesBack() {
+        #expect(run([(0, 0, .began), (-20, 0, .moved), (-20, 0, .moved)]) == [-1])
+    }
+
+    @Test func shortFlickIsFinishedByMomentum() {
+        let flick: [(Double, Double, PageSwipe.Phase)] = [(0, 0, .began), (9, 0, .moved), (9, 0, .moved), (0, 0, .ended), (8, 0, .momentum), (7, 0, .momentum)]
+        #expect(run(flick) == [1])
+    }
+
+    @Test func momentumDoesNotTurnSecondPage() {
+        let moves: [(Double, Double, PageSwipe.Phase)] = [(0, 0, .began), (40, 0, .moved), (0, 0, .ended)]
+        #expect(run(moves + Array(repeating: (40, 0, .momentum), count: 10)) == [1])
+    }
+
+    @Test func diagonalEventsStillCount() {
+        // Отдельные события косые, но весь жест — вбок.
+        let moves: [(Double, Double, PageSwipe.Phase)] = [(0, 0, .began), (6, 7, .moved), (14, -6, .moved), (8, 2, .moved), (10, -2, .moved)]
+        #expect(run(moves) == [1])
+    }
+
+    @Test func verticalScrollDoesNotTurnPage() {
+        let moves: [(Double, Double, PageSwipe.Phase)] = [(0, 0, .began), (2, 25, .moved), (30, 10, .moved), (30, 10, .moved)]
+        #expect(run(moves).isEmpty)
+    }
+
+    @Test func nextGestureWorksAfterTheFirst() {
+        let one: [(Double, Double, PageSwipe.Phase)] = [(0, 0, .began), (40, 0, .moved), (0, 0, .ended)]
+        #expect(run(one + one) == [1, 1])
+    }
+
+    @Test func wheelWaitsForPauseBeforeNextPage() {
+        var swipe = PageSwipe()
+        #expect(swipe.feed(dx: 40, dy: 0, phase: .wheel, at: start) == 1)
+        #expect(swipe.feed(dx: 40, dy: 0, phase: .wheel, at: start.addingTimeInterval(0.1)) == nil)
+        #expect(swipe.feed(dx: 40, dy: 0, phase: .wheel, at: start.addingTimeInterval(1)) == 1)
+    }
+}

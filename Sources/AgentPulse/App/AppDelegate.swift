@@ -801,9 +801,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         if settingsWindow == nil {
             let controller = NSHostingController(rootView: SettingsRoot(app: self, selection: settingsSelection))
             controller.sizingOptions = [.preferredContentSize]
+            // Заголовок прозрачный и лежит поверх содержимого: запас под него дал бы пустую полосу внизу окна.
+            controller.safeAreaRegions = []
             let window = NSWindow(contentViewController: controller)
             window.title = "Настройки"
-            window.styleMask = [.titled, .closable, .miniaturizable]
+            window.styleMask = [.titled, .closable, .miniaturizable, .fullSizeContentView]
+            window.titlebarAppearsTransparent = true
+            window.titleVisibility = .hidden
             window.isReleasedWhenClosed = false
             window.delegate = self
             window.center()

@@ -100,21 +100,31 @@ enum BubbleSheet {
 @MainActor
 enum SettingsSheet {
     static func render(app: AppDelegate, to directory: URL) {
-        for tab in SettingsNavigation.Tab.allCases {
-            let selection = SettingsSelection()
-            selection.tab = tab
-            let view = NSHostingView(rootView: SettingsRoot(app: app, selection: selection))
-            view.frame = NSRect(origin: .zero, size: view.fittingSize)
-            let window = NSWindow(contentRect: view.frame, styleMask: [.titled], backing: .buffered, defer: false)
-            window.contentView = view
-            window.setFrameOrigin(NSPoint(x: -10_000, y: -10_000))
-            window.orderBack(nil)
-            view.layoutSubtreeIfNeeded()
-            RunLoop.main.run(until: Date().addingTimeInterval(0.4))
-            guard let rep = view.bitmapImageRepForCachingDisplay(in: view.bounds) else { continue }
-            view.cacheDisplay(in: view.bounds, to: rep)
-            try? rep.representation(using: .png, properties: [:])?.write(to: directory.appending(path: "settings-\(tab.rawValue).png"))
-            window.orderOut(nil)
+        try? FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        for (suffix, appearance) in [("dark", NSAppearance.Name.darkAqua), ("light", .aqua)] {
+            for tab in SettingsNavigation.Tab.allCases {
+                let selection = SettingsSelection()
+                selection.tab = tab
+                let view = NSHostingView(rootView: SettingsRoot(app: app, selection: selection))
+                view.frame = NSRect(origin: .zero, size: SettingsWindow.size)
+                view.appearance = NSAppearance(named: appearance)
+                let window = NSWindow(contentRect: view.frame, styleMask: [.borderless], backing: .buffered, defer: false)
+                window.contentView = view
+                window.setFrameOrigin(NSPoint(x: -10_000, y: -10_000))
+                window.orderBack(nil)
+                view.layoutSubtreeIfNeeded()
+                RunLoop.main.run(until: Date().addingTimeInterval(0.4))
+                let size = view.bounds.size
+                guard let rep = NSBitmapImageRep(
+                    bitmapDataPlanes: nil, pixelsWide: Int(size.width * 2), pixelsHigh: Int(size.height * 2), bitsPerSample: 8,
+                    samplesPerPixel: 4, hasAlpha: true, isPlanar: false, colorSpaceName: .deviceRGB, bytesPerRow: 0, bitsPerPixel: 0
+                ) else { continue }
+                rep.size = size
+                view.cacheDisplay(in: view.bounds, to: rep)
+                try? rep.representation(using: .png, properties: [:])?
+                    .write(to: directory.appending(path: "settings-\(tab.rawValue)-\(suffix).png"))
+                window.orderOut(nil)
+            }
         }
     }
 }

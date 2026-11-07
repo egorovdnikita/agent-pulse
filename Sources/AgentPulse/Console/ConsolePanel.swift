@@ -46,8 +46,7 @@ final class ConsolePanel: NSPanel {
     private var shrinkTask: Task<Void, Never>?
     private var outsideMonitor: Any?
     private var localMonitor: Any?
-    private var swipe = 0.0
-    private static let swipeDistance = 60.0
+    private var swipe = PageSwipe()
 
     init(model: ConsoleModel) {
         self.model = model
@@ -162,12 +161,24 @@ final class ConsolePanel: NSPanel {
 
     /// Горизонтальный свайп листает страницы; вертикальный остаётся спискам.
     private func handleScroll(_ event: NSEvent) {
-        if event.phase == .began { swipe = 0 }
-        guard event.momentumPhase == [], abs(event.scrollingDeltaX) > abs(event.scrollingDeltaY) else { return }
-        swipe += event.isDirectionInvertedFromDevice ? -event.scrollingDeltaX : event.scrollingDeltaX
-        guard abs(swipe) >= Self.swipeDistance else { return }
-        model.movePage(by: swipe > 0 ? 1 : -1)
-        swipe = 0
+        guard event.window === self else { return }
+        let phase: PageSwipe.Phase
+        if !event.momentumPhase.isEmpty {
+            phase = .momentum
+        } else if event.phase.isEmpty {
+            phase = .wheel
+        } else if event.phase.contains(.began) || event.phase.contains(.mayBegin) {
+            phase = .began
+        } else if event.phase.contains(.ended) || event.phase.contains(.cancelled) {
+            phase = .ended
+        } else {
+            phase = .moved
+        }
+        // Вперёд — движение пальцев влево, при любом направлении прокрутки в системе.
+        let forward = event.isDirectionInvertedFromDevice ? -event.scrollingDeltaX : event.scrollingDeltaX
+        if let step = swipe.feed(dx: forward, dy: event.scrollingDeltaY, phase: phase, at: Date()) {
+            model.movePage(by: step)
+        }
     }
 
     /// ← → и цифры листают страницы, если ты не пишешь в поле.
