@@ -212,21 +212,24 @@ private struct PageSwitcher: View {
             }
         }
         .frame(maxWidth: .infinity)
+        // Настройки — вместе с кнопками: в покое у панели только точки, как у референса.
         .overlay(alignment: .trailing) {
-            Button {
-                model.setExpanded(false)
-                model.onOpenSettings?(nil)
-            } label: {
-                Image(nsImage: SolarIcons.image("settings") ?? NSImage())
-                    .resizable()
-                    .frame(width: 15, height: 15)
-                    .foregroundStyle(.white)
-                    .opacity(0.45)
-                    .frame(width: 22, height: 22)
-                    .contentShape(Rectangle())
+            if open {
+                Button {
+                    model.setExpanded(false)
+                    model.onOpenSettings?(nil)
+                } label: {
+                    Image(nsImage: SolarIcons.image("settings") ?? NSImage())
+                        .resizable()
+                        .frame(width: 15, height: 15)
+                        .foregroundStyle(.white)
+                        .opacity(0.6)
+                        .frame(width: 22, height: 22)
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(ConsolePressStyle())
+                .accessibilityLabel("Настройки")
             }
-            .buttonStyle(ConsolePressStyle())
-            .accessibilityLabel("Настройки")
         }
         .padding(.horizontal, ConsoleStyle.inset + 2)
         .frame(height: open ? ConsoleLayout.pagesRow + ConsoleLayout.pagesGrowth : ConsoleLayout.pagesRow)
