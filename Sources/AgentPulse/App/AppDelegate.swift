@@ -307,6 +307,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         startPrompter()
         startDictation()
         renderConsoleSheet()
+        // Отладка: `--menu-demo` — показать меню маскота без правого клика.
+        if CommandLine.arguments.contains("--menu-demo") {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 2) { [weak self] in self?.showMenu() }
+        }
         if model.config.console.calendar { startCalendar() }
         startMedia()
         startScreenshots()
