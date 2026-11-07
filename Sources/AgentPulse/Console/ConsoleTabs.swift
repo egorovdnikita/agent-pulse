@@ -11,271 +11,398 @@ private let noteFont = ConsoleStyle.font(11).monospacedDigit()
 
 // MARK: - Календарь
 
-private enum CalendarText {
-    static func formatter(_ format: String) -> DateFormatter {
-        let formatter = DateFormatter()
-        formatter.locale = Locale(identifier: "ru_RU")
-        formatter.dateFormat = format
-        return formatter
-    }
+/// Размеры страницы: заголовок, под ним вид. Как у CapaTheNotch (MIT), вид выше, потому что страница выше.
+private enum CalendarLook {
+    static let header = 18.0
+    static let belowHeader = 8.0
+    static var view: Double { ConsoleLayout.pageHeight - header - belowHeader }
+    static let listRow = 18.0
+    static let listRows = 6
+    static let listTime = 66.0
+    static let box = 5.0
+    static let monthWidth = 236.0
+    static let faint = Color.white.opacity(0x59 / 255)
 
-    /// «Сегодня», «Завтра», дальше — день недели и число.
-    static func day(_ date: Date, now: Date) -> String {
-        let calendar = Calendar.current
-        if calendar.isDate(date, inSameDayAs: now) { return "Сегодня" }
-        if let next = calendar.date(byAdding: .day, value: 1, to: now), calendar.isDate(date, inSameDayAs: next) { return "Завтра" }
-        return formatter("EE, d MMMM").string(from: date)
+    static func color(_ hex: UInt32?) -> Color {
+        hex.map { Color(hex: $0) } ?? .white.opacity(0.6)
     }
 }
 
-private struct EventRow: View {
+/// «Войти»: зелёная капсула.
+private struct CalendarJoinButton: View {
     let model: ConsoleModel
-    let event: MeetingEvent
+    let link: MeetingLink
 
     var body: some View {
-        let running = event.start <= model.now && event.end > model.now
-        let over = event.end <= model.now
-        HStack(spacing: 10) {
-            Capsule()
-                .fill(event.color.map { Color(hex: $0) } ?? ConsoleStyle.track)
-                .frame(width: 3, height: 30)
-            VStack(alignment: .leading, spacing: 1) {
-                Text(event.title).font(tabFont).foregroundStyle(.white).lineLimit(1)
-                Text(detail(running: running)).font(noteFont).foregroundStyle(running ? ConsoleStyle.green : ConsoleStyle.caption).lineLimit(1)
-            }
-            Spacer(minLength: 4)
-            if let link = event.link, !over {
-                PrompterSmallButton(title: "Войти", tint: ConsoleStyle.orange) { model.onJoin?(link.url) }
-            }
-        }
-        .opacity(over ? 0.5 : 1)
-    }
-
-    private func detail(running: Bool) -> String {
-        EventWords.detail(event, now: model.now)
-    }
-}
-
-private enum EventWords {
-    /// «Через 8 мин · Zoom», «Идёт, ещё 12 мин», «21:20 – 21:50».
-    static func detail(_ event: MeetingEvent, now: Date) -> String {
-        if event.isAllDay { return "Весь день" }
-        let running = event.start <= now && event.end > now
-        let minutes = Int(event.start.timeIntervalSince(now) / 60)
-        let clock = CalendarText.formatter("HH:mm")
-        let time: String
-        if running {
-            time = "Идёт, ещё \(max(1, Int(event.end.timeIntervalSince(now) / 60))) мин"
-        } else if minutes >= 0, minutes < 60 {
-            time = "Через \(max(1, minutes)) мин"
-        } else {
-            time = "\(clock.string(from: event.start)) – \(clock.string(from: event.end))"
-        }
-        return [time, event.link?.service.title].compactMap(\.self).joined(separator: " · ")
-    }
-}
-
-/// Карточка ближайшей встречи: главное в календаре видно сразу, а не строкой в списке.
-private struct FeaturedEvent: View {
-    let model: ConsoleModel
-    let event: MeetingEvent
-
-    var body: some View {
-        let running = event.start <= model.now
-        VStack(alignment: .leading, spacing: 6) {
+        Button { model.onJoin?(link.url) } label: {
             HStack(spacing: 6) {
-                Circle().fill(event.color.map { Color(hex: $0) } ?? ConsoleStyle.green).frame(width: 6, height: 6)
-                Text(EventWords.detail(event, now: model.now))
-                    .font(noteFont)
-                    .foregroundStyle(running ? ConsoleStyle.green : ConsoleStyle.caption)
-                    .lineLimit(1)
+                solar("videocamera-record", 16)
+                Text("Войти").font(ConsoleStyle.font(13, .semibold))
             }
-            Text(event.title).font(ConsoleStyle.font(15, .semibold)).foregroundStyle(.white).lineLimit(2)
-            Spacer(minLength: 0)
-            if let link = event.link {
-                PrompterSmallButton(title: "Войти", tint: ConsoleStyle.orange) { model.onJoin?(link.url) }
-            }
+            .foregroundStyle(.black)
+            .padding(.horizontal, 12)
+            .frame(height: 30)
+            .background(ConsoleStyle.green, in: Capsule())
+            .contentShape(Capsule())
         }
+        .buttonStyle(ConsolePressStyle())
+        .fixedSize()
+        .accessibilityLabel("Войти: \(link.service.title)")
     }
 }
 
-private struct MonthGrid: View {
+/// Пусто: что дальше.
+private struct CalendarNothingBox: View {
+    let title: String
+    let detail: String
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Text(title).font(ConsoleStyle.font(17, .semibold)).foregroundStyle(.white).lineLimit(1)
+            Text(detail).font(ConsoleStyle.font(12)).foregroundStyle(ConsoleStyle.caption).lineLimit(1)
+        }
+        .padding(.horizontal, 14)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
+        .background(ConsoleStyle.card, in: RoundedRectangle(cornerRadius: CalendarLook.box, style: .continuous))
+    }
+}
+
+private struct CalendarListRow: View {
+    let model: ConsoleModel
+    let event: MeetingEvent
+
+    var body: some View {
+        let running = event.isRunning(at: model.now) && !event.isAllDay
+        HStack(spacing: 8) {
+            Text(event.isAllDay ? "Весь день" : running ? "Сейчас" : CalendarWords.time(event.start))
+                .font(ConsoleStyle.font(12))
+                .monospacedDigit()
+                .foregroundStyle(running ? .white : ConsoleStyle.caption)
+                .lineLimit(1)
+                .frame(width: CalendarLook.listTime, alignment: .leading)
+            Circle().fill(CalendarLook.color(event.color)).frame(width: 6, height: 6)
+            Text(event.title).font(tabFont).foregroundStyle(.white).lineLimit(1).frame(maxWidth: .infinity, alignment: .leading)
+            Group {
+                if let link = event.link {
+                    Button { model.onJoin?(link.url) } label: {
+                        solar("videocamera-record", 14).foregroundStyle(ConsoleStyle.green).contentShape(Rectangle())
+                    }
+                    .buttonStyle(ConsolePressStyle())
+                    .accessibilityLabel("Войти: \(link.service.title)")
+                } else {
+                    Color.clear
+                }
+            }
+            .frame(width: 14)
+        }
+        .frame(height: CalendarLook.listRow)
+    }
+}
+
+/// События дня по строке: шесть, последняя — «и ещё N».
+private struct CalendarList: View {
+    let model: ConsoleModel
+    let events: [MeetingEvent]
+
+    var body: some View {
+        let overflow = events.count > CalendarLook.listRows
+        let shown = overflow ? Array(events.prefix(CalendarLook.listRows - 1)) : events
+        VStack(alignment: .leading, spacing: 6) {
+            if events.isEmpty {
+                Text("Больше сегодня ничего").font(ConsoleStyle.font(12)).foregroundStyle(ConsoleStyle.caption).frame(height: CalendarLook.listRow)
+            }
+            ForEach(shown) { CalendarListRow(model: model, event: $0) }
+            if overflow {
+                Text("и ещё \(events.count - shown.count)")
+                    .font(tabFont)
+                    .foregroundStyle(ConsoleStyle.caption)
+                    .padding(.leading, CalendarLook.listTime + 22)
+                    .frame(height: CalendarLook.listRow)
+            }
+        }
+        .padding(.top, 2)
+        .frame(maxWidth: .infinity, alignment: .topLeading)
+    }
+}
+
+private struct CalendarDayView: View {
     let model: ConsoleModel
 
     var body: some View {
-        let calendar = Calendar.current
-        let today = calendar.startOfDay(for: model.now)
-        let first = calendar.date(from: calendar.dateComponents([.year, .month], from: today)) ?? today
-        let start = calendar.date(byAdding: .month, value: model.calendarMonth, to: first) ?? first
-        let days = calendar.range(of: .day, in: .month, for: start)?.count ?? 30
-        // Понедельник — первая колонка.
-        let lead = (calendar.component(.weekday, from: start) + 5) % 7
-        LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 0), count: 7), spacing: 0) {
-            ForEach(["пн", "вт", "ср", "чт", "пт", "сб", "вс"], id: \.self) {
-                Text($0).font(ConsoleStyle.font(11)).foregroundStyle(ConsoleStyle.caption)
+        let events = model.calendar.events
+        let day = CalendarDayPlan(events: events, at: model.now)
+        if day.isEmpty {
+            CalendarNothingBox(title: "На сегодня всё", detail: CalendarWords.hint(CalendarAhead.first(after: model.now, in: events), at: model.now))
+        } else if let event = day.featured {
+            HStack(alignment: .top, spacing: 12) {
+                featured(event).frame(minWidth: 0, maxWidth: .infinity)
+                CalendarList(model: model, events: day.rest).frame(minWidth: 0, maxWidth: .infinity)
             }
-            ForEach(0..<(lead + days), id: \.self) { index in
-                if index < lead {
-                    Color.clear.frame(height: 19)
-                } else if let day = calendar.date(byAdding: .day, value: index - lead, to: start) {
-                    cell(day, number: index - lead + 1, isToday: calendar.isDate(day, inSameDayAs: today))
+        } else {
+            CalendarList(model: model, events: day.rest)
+        }
+    }
+
+    private func featured(_ event: MeetingEvent) -> some View {
+        VStack(alignment: .leading, spacing: 0) {
+            VStack(alignment: .leading, spacing: 4) {
+                HStack(spacing: 6) {
+                    Circle().fill(CalendarLook.color(event.color)).frame(width: 6, height: 6)
+                    Text("\(CalendarWords.relative(event, at: model.now)) · \(CalendarWords.range(event))")
+                        .font(ConsoleStyle.font(12, .medium))
+                        .foregroundStyle(ConsoleStyle.caption)
+                        .lineLimit(1)
                 }
+                .frame(height: 16)
+                Text(event.title).font(ConsoleStyle.font(17, .semibold)).tracking(-0.17).foregroundStyle(.white).lineLimit(2)
+            }
+            Spacer(minLength: 0)
+            if let link = event.link { CalendarJoinButton(model: model, link: link) }
+        }
+        .padding(14)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+        .background(ConsoleStyle.card, in: RoundedRectangle(cornerRadius: ConsoleStyle.calendarRadius, style: .continuous))
+    }
+}
+
+private struct CalendarWeekDate: View {
+    let day: CalendarGridDay
+
+    var body: some View {
+        HStack(spacing: 5) {
+            Text(CalendarWords.weekday(day.weekdayIndex))
+                .font(ConsoleStyle.font(11, .medium))
+                .foregroundStyle(day.isToday || day.isWeekend ? ConsoleStyle.red : ConsoleStyle.caption)
+            Text("\(day.number)")
+                .font(ConsoleStyle.font(13, .semibold))
+                .foregroundStyle(!day.isToday && day.isWeekend ? ConsoleStyle.red : .white)
+                .frame(width: 22, height: 22)
+                .background { if day.isToday { Circle().fill(ConsoleStyle.red) } }
+        }
+        .frame(height: 24)
+    }
+}
+
+private struct CalendarChip: View {
+    let event: MeetingEvent
+
+    var body: some View {
+        let color = CalendarLook.color(event.color)
+        VStack(alignment: .leading, spacing: 0) {
+            Text(event.isAllDay ? "Весь день" : CalendarWords.time(event.start))
+                .font(ConsoleStyle.font(10))
+                .monospacedDigit()
+                .foregroundStyle(ConsoleStyle.caption)
+                .lineLimit(1)
+                .frame(height: 12)
+            Text(event.title).font(ConsoleStyle.font(11, .medium)).foregroundStyle(.white).lineLimit(1).frame(height: 13)
+        }
+        .padding(.vertical, 2)
+        .padding(.leading, 7)
+        .padding(.trailing, 5)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(color.opacity(0x38 / 255))
+        .overlay(alignment: .leading) { color.frame(width: 2) }
+        .clipShape(RoundedRectangle(cornerRadius: CalendarLook.box, style: .continuous))
+    }
+}
+
+private struct CalendarWeekView: View {
+    let model: ConsoleModel
+
+    var body: some View {
+        let week = CalendarWeekPlan(events: model.calendar.events, at: model.now)
+        if week.isFree {
+            VStack(spacing: 3) {
+                HStack(spacing: 6) {
+                    ForEach(week.days) { CalendarWeekDate(day: $0).frame(maxWidth: .infinity, alignment: .leading) }
+                }
+                CalendarNothingBox(title: "Неделя свободна", detail: CalendarWords.hint(week.next, at: model.now))
+            }
+        } else {
+            HStack(alignment: .top, spacing: 6) {
+                ForEach(week.days) { column($0) }
             }
         }
     }
 
-    private func isWeekend(_ day: Date) -> Bool {
-        Calendar.current.isDateInWeekend(day)
-    }
-
-    private func cell(_ day: Date, number: Int, isToday: Bool) -> some View {
-        Button {
-            model.calendarDay = day
-            model.calendarScope = .day
-        } label: {
-            ZStack {
-                if isToday { Circle().fill(ConsoleStyle.red).frame(width: 18, height: 18) }
-                if !isToday, model.calendarScope == .day, Calendar.current.isDate(day, inSameDayAs: model.calendarDay) {
-                    Circle().strokeBorder(.white, lineWidth: 1).frame(width: 18, height: 18)
-                }
-                Text("\(number)").font(noteFont).foregroundStyle(isToday ? .white : isWeekend(day) ? ConsoleStyle.red : .white)
-                if !model.calendar.events(on: day).isEmpty {
-                    Circle().fill(isToday ? Color.white : ConsoleStyle.orange).frame(width: 3, height: 3).offset(y: 7)
+    private func column(_ day: CalendarGridDay) -> some View {
+        let fit = CalendarChips.fit(day.events)
+        return VStack(alignment: .leading, spacing: 3) {
+            CalendarWeekDate(day: day)
+            if day.events.isEmpty {
+                Text("свободно")
+                    .font(ConsoleStyle.font(11))
+                    .foregroundStyle(CalendarLook.faint)
+                    .frame(height: 14)
+                    .padding(.leading, 7)
+                    .padding(.top, 4)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+                    .background(ConsoleStyle.card, in: RoundedRectangle(cornerRadius: CalendarLook.box, style: .continuous))
+            } else {
+                ForEach(fit.shown) { CalendarChip(event: $0) }
+                if fit.more > 0 {
+                    Text("ещё \(fit.more)").font(ConsoleStyle.font(11)).foregroundStyle(ConsoleStyle.caption).padding(.leading, 7).frame(height: 14)
                 }
             }
-            .frame(maxWidth: .infinity, minHeight: 19)
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+    }
+}
+
+private struct CalendarMonthView: View {
+    let model: ConsoleModel
+
+    var body: some View {
+        let events = model.calendar.events
+        let month = CalendarMonthPlan(events: events, at: model.now)
+        let selected = month.selected(model.calendarDay)
+        HStack(alignment: .top, spacing: 20) {
+            grid(month, selected: selected?.start).frame(width: CalendarLook.monthWidth)
+            if let selected, selected.events.isEmpty {
+                free(selected, events: events)
+            } else {
+                CalendarList(model: model, events: selected?.events ?? [])
+            }
+        }
+    }
+
+    private func free(_ day: CalendarGridDay, events: [MeetingEvent]) -> some View {
+        let after = day.isToday ? model.now : Calendar.current.date(byAdding: .day, value: 1, to: day.start) ?? day.start
+        return VStack(alignment: .leading, spacing: 4) {
+            Text(CalendarWords.date(day.start))
+                .font(ConsoleStyle.font(12, .medium))
+                .foregroundStyle(day.isWeekend ? ConsoleStyle.red : ConsoleStyle.caption)
+                .lineLimit(1)
+            Text(day.isToday ? "На сегодня всё" : "Свободный день").font(ConsoleStyle.font(17, .semibold)).foregroundStyle(.white).lineLimit(1)
+            Text(CalendarWords.hint(CalendarAhead.first(after: after, in: events), at: model.now))
+                .font(ConsoleStyle.font(12))
+                .foregroundStyle(ConsoleStyle.caption)
+                .lineLimit(2)
+        }
+        .padding(.top, 14)
+        .frame(maxWidth: .infinity, alignment: .topLeading)
+    }
+
+    private func grid(_ month: CalendarMonthPlan, selected: Date?) -> some View {
+        let metrics = CalendarMonthMetrics(weeks: month.weeks.count, height: CalendarLook.view)
+        return VStack(spacing: 0) {
+            HStack(spacing: 0) {
+                ForEach(0..<7, id: \.self) { index in
+                    Text(CalendarWords.weekday(index))
+                        .font(ConsoleStyle.font(10, .medium))
+                        .foregroundStyle(index >= 5 ? ConsoleStyle.red : ConsoleStyle.caption)
+                        .frame(maxWidth: .infinity)
+                        .frame(height: metrics.weekdayHeight)
+                }
+            }
+            ForEach(month.weeks.indices, id: \.self) { row in
+                HStack(spacing: 0) {
+                    ForEach(month.weeks[row]) { cell($0, isSelected: $0.start == selected, metrics: metrics) }
+                }
+                .frame(height: metrics.rowHeight)
+            }
+        }
+        .frame(maxHeight: .infinity, alignment: .top)
+    }
+
+    private func cell(_ day: CalendarGridDay, isSelected: Bool, metrics: CalendarMonthMetrics) -> some View {
+        Button { model.calendarDay = day.start } label: {
+            VStack(spacing: 1) {
+                Text("\(day.number)")
+                    .font(ConsoleStyle.font(12, day.isToday || isSelected ? .semibold : .medium))
+                    .lineLimit(1)
+                    .fixedSize()
+                    .foregroundStyle(numberColor(day, isSelected: isSelected))
+                    .frame(width: metrics.numberFrame, height: metrics.numberFrame)
+                    .background {
+                        if day.isToday {
+                            Circle().fill(ConsoleStyle.red)
+                        } else if isSelected {
+                            Circle().fill(.white)
+                        }
+                    }
+                HStack(spacing: 2) {
+                    ForEach(Array(day.dots.enumerated()), id: \.offset) { _, color in
+                        Circle().fill(CalendarLook.color(color)).frame(width: CalendarMonthMetrics.dotSize, height: CalendarMonthMetrics.dotSize)
+                    }
+                }
+                .frame(height: CalendarMonthMetrics.dotSize)
+            }
+            .frame(maxWidth: .infinity)
+            .frame(height: metrics.rowHeight)
             .contentShape(Rectangle())
         }
         .buttonStyle(ConsolePressStyle())
-        .accessibilityLabel(CalendarText.day(day, now: model.now))
+        .accessibilityLabel(CalendarWords.date(day.start))
+        .accessibilityAddTraits(isSelected ? [.isButton, .isSelected] : [.isButton])
+    }
+
+    private func numberColor(_ day: CalendarGridDay, isSelected: Bool) -> Color {
+        if day.isToday { return .white }
+        if isSelected { return .black }
+        let base = day.isWeekend ? ConsoleStyle.red : Color.white
+        return day.isInMonth ? base : base.opacity(0x59 / 255)
     }
 }
 
+/// Страница: слева что показано, по центру «День, Неделя, Месяц», под ними вид.
 struct CalendarTab: View {
     let model: ConsoleModel
 
     var body: some View {
-        HStack(spacing: 8) {
-            ConsoleCard(padding: 12, radius: ConsoleStyle.calendarRadius) {
-                VStack(alignment: .leading, spacing: 2) {
-                    HStack(spacing: 2) {
-                        Text(CalendarText.formatter("LLLL yyyy").string(from: shownMonth).capitalized)
-                            .font(ConsoleStyle.font(13, .semibold))
-                            .foregroundStyle(.white)
-                            .lineLimit(1)
-                        Spacer(minLength: 0)
-                        monthButton("alt-arrow-left", "Предыдущий месяц", -1)
-                        monthButton("alt-arrow-right", "Следующий месяц", 1)
-                    }
-                    .frame(height: 18)
-                    MonthGrid(model: model)
+        VStack(spacing: CalendarLook.belowHeader) {
+            header
+            Group {
+                switch model.calendarScope {
+                case .day: CalendarDayView(model: model)
+                case .week: CalendarWeekView(model: model)
+                case .month: CalendarMonthView(model: model)
                 }
             }
-            .frame(width: 236)
-            VStack(spacing: 6) {
-                ConsoleSegments(values: [CalendarScope.day, .week], selected: model.calendarScope, title: \.title) { scope in
-                    model.calendarDay = model.now
-                    model.calendarScope = scope
-                }
-                ConsoleCard(radius: ConsoleStyle.calendarRadius) {
-                    if model.calendarScope == .week { weekPage } else { dayPage }
-                }
-            }
+            .frame(maxWidth: .infinity, alignment: .topLeading)
+            .frame(height: CalendarLook.view, alignment: .top)
         }
     }
 
-    private var shownMonth: Date {
-        Calendar.current.date(byAdding: .month, value: model.calendarMonth, to: model.now) ?? model.now
-    }
-
-    private func monthButton(_ icon: String, _ label: String, _ step: Int) -> some View {
-        let target = model.calendarMonth + step
-        let allowed = (0...2).contains(target)
-        return Button {
-            if allowed { model.calendarMonth = target }
-        } label: {
-            solar(icon, 12).opacity(allowed ? 1 : 0.3).frame(width: 18, height: 18).contentShape(Rectangle())
+    private var heading: (title: String, detail: String) {
+        switch model.calendarScope {
+        case .day:
+            return ("Сегодня", CalendarWords.date(model.now))
+        case .week:
+            let week = CalendarWeekPlan(events: model.calendar.events, at: model.now)
+            return (CalendarWords.weekRange(week), CalendarWords.count(week.eventCount))
+        case .month:
+            let month = CalendarMonthPlan(events: [], at: model.now)
+            return (CalendarWords.month(month.month), String(month.year))
         }
-        .buttonStyle(ConsolePressStyle())
-        .accessibilityLabel(label)
     }
 
-    private var dayPage: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            HStack(spacing: 4) {
-                Text(CalendarText.day(model.calendarDay, now: model.now))
-                    .font(ConsoleStyle.font(13, .semibold))
-                    .foregroundStyle(.white)
-                    .lineLimit(1)
-                if !Calendar.current.isDate(model.calendarDay, inSameDayAs: model.now) {
-                    Button("Сегодня") {
+    private var header: some View {
+        ZStack {
+            HStack(alignment: .firstTextBaseline, spacing: 8) {
+                Text(heading.title).font(ConsoleStyle.font(15, .semibold)).foregroundStyle(.white).lineLimit(1)
+                Text(heading.detail).font(ConsoleStyle.font(12)).foregroundStyle(ConsoleStyle.caption).lineLimit(1)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            HStack(spacing: 8) {
+                ForEach(CalendarScope.allCases, id: \.self) { scope in
+                    Button {
                         model.calendarDay = model.now
-                        model.calendarMonth = 0
+                        model.calendarScope = scope
+                    } label: {
+                        Text(scope.title)
+                            .font(tabFont)
+                            .foregroundStyle(model.calendarScope == scope ? .white : ConsoleStyle.caption)
+                            .frame(height: 16)
+                            .contentShape(Rectangle())
                     }
                     .buttonStyle(ConsolePressStyle())
-                    .font(ConsoleStyle.font(11, .medium))
-                    .foregroundStyle(ConsoleStyle.caption)
-                    .padding(.leading, 6)
-                }
-                Spacer(minLength: 4)
-                dayButton("alt-arrow-left", "Предыдущий день", -1)
-                dayButton("alt-arrow-right", "Следующий день", 1)
-            }
-            let events = model.calendar.events(on: model.calendarDay)
-            let isToday = Calendar.current.isDate(model.calendarDay, inSameDayAs: model.now)
-            let next = isToday ? events.first { !$0.isAllDay && $0.end > model.now } : nil
-            let rest = events.filter { $0.id != next?.id }
-            if events.isEmpty {
-                ConsoleEmpty(icon: "calendar", title: "Встреч нет")
-            } else {
-                HStack(alignment: .top, spacing: 12) {
-                    if let next { FeaturedEvent(model: model, event: next).frame(maxWidth: .infinity, alignment: .leading) }
-                    if !rest.isEmpty {
-                        ScrollView {
-                            VStack(alignment: .leading, spacing: 10) {
-                                ForEach(rest) { EventRow(model: model, event: $0) }
-                            }
-                        }
-                        .frame(maxWidth: .infinity)
-                    }
                 }
             }
+            .fixedSize()
         }
-    }
-
-    private func dayButton(_ icon: String, _ label: String, _ step: Int) -> some View {
-        Button {
-            model.calendarDay = Calendar.current.date(byAdding: .day, value: step, to: model.calendarDay) ?? model.calendarDay
-        } label: {
-            solar(icon, 14).frame(width: 24, height: 24).contentShape(Rectangle())
-        }
-        .buttonStyle(ConsolePressStyle())
-        .accessibilityLabel(label)
-    }
-
-    private var weekPage: some View {
-        let calendar = Calendar.current
-        let start = calendar.startOfDay(for: model.now)
-        let days = (0..<7).compactMap { calendar.date(byAdding: .day, value: $0, to: start) }
-            .filter { !model.calendar.events(on: $0).isEmpty }
-        return Group {
-            if days.isEmpty {
-                ConsoleEmpty(icon: "calendar", title: "На неделе встреч нет")
-            } else {
-                ScrollView {
-                    VStack(alignment: .leading, spacing: 10) {
-                        ForEach(days, id: \.self) { day in
-                            VStack(alignment: .leading, spacing: 6) {
-                                Text(CalendarText.day(day, now: model.now))
-                                    .font(ConsoleStyle.font(11, .semibold))
-                                    .foregroundStyle(ConsoleStyle.caption)
-                                ForEach(model.calendar.events(on: day)) { EventRow(model: model, event: $0) }
-                            }
-                        }
-                    }
-                }
-            }
-        }
+        .frame(height: CalendarLook.header)
     }
 }
 
