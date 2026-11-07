@@ -296,6 +296,7 @@ private struct ExpandedBody: View {
             }
             .frame(height: ConsoleLayout.pageHeight, alignment: .topLeading)
             .padding(.top, ConsoleStyle.inset)
+            .padding(.bottom, 4)
             .clipped()
             PageSwitcher(model: model)
         }

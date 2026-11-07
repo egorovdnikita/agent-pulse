@@ -52,7 +52,8 @@ public enum ConsoleLayout {
     public static let pageHeight = 178.0
     public static let pagesRow = 20.0
     public static let pagesGrowth = 14.0
-    public static let expandedHeight = 12 + pageHeight + pagesRow
+    /// Поле сверху и зазор до точек.
+    public static let expandedHeight = 16 + pageHeight + 4 + pagesRow
     /// Запас окна: пружина формы слегка заходит за её размер, и край не должен обрезаться.
     public static let overshoot = 40.0
     /// Наименьший зазор между панелью и капсулой, если Dock скрыт.

@@ -21,7 +21,7 @@ enum ConsoleStyle {
     static let edge = Color.white.opacity(0.07)
 
     /// Отступ страницы от края панели и радиусы: внутренний и внешний концентричны.
-    static let inset = 12.0
+    static let inset = 16.0
     static let cardRadius = 20.0
     static let surfaceRadius = cardRadius + inset
     static let cardPadding = 14.0
