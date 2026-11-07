@@ -536,15 +536,19 @@ private struct ConsoleSettings: View {
                 if settings.translator, ConsoleTranslator.isAvailable { ShortcutRow(title: "Перевести выделенное", keys: "⌃⌥T", busy: model.console.busyKeys.contains("translate")) }
             }
             SettingsBlock("Лимиты Claude") {
-                LabeledContent("Подключение", value: model.statuslineInstalled ? "подключена" : "не подключена")
+                LabeledContent("Подключение") {
+                    HStack(spacing: 10) {
+                        Text(model.statuslineInstalled ? "подключено" : "не подключено")
+                        if model.statuslineInstalled {
+                            Button("Отключить") { app.uninstallStatusline() }
+                        } else {
+                            Button("Подключить…") { app.installStatusline() }
+                        }
+                    }
+                }
                 if model.statuslineBroken {
                     Text("Исходная команда ссылается на скрипт Orca, которого больше нет. Отключите и подключите снова")
                         .font(SettingsStyle.caption).foregroundStyle(SettingsStyle.muted)
-                }
-                if model.statuslineInstalled {
-                    Button("Отключить") { app.uninstallStatusline() }
-                } else {
-                    Button("Подключить…") { app.installStatusline() }
                 }
                 Text("Данные приходят только с подпиской Pro или Max и после первого ответа в сессии")
                     .font(SettingsStyle.caption).foregroundStyle(SettingsStyle.muted)
@@ -575,11 +579,15 @@ private struct SourcesSettings: View {
         @Bindable var model = app.model
         SettingsPage {
             SettingsBlock("Claude Code") {
-                LabeledContent("Подключение", value: model.hooksInstalled ? "подключено" + Self.ago(model, .claudeCode) : "не подключено")
-                if model.hooksInstalled {
-                    Button("Отключить") { app.uninstallHooks() }
-                } else {
-                    Button("Подключить…") { app.installHooks() }
+                LabeledContent("Подключение") {
+                    HStack(spacing: 10) {
+                        Text(model.hooksInstalled ? "подключено" + Self.ago(model, .claudeCode) : "не подключено")
+                        if model.hooksInstalled {
+                            Button("Отключить") { app.uninstallHooks() }
+                        } else {
+                            Button("Подключить…") { app.installHooks() }
+                        }
+                    }
                 }
             }
             SettingsBlock("Claude Cowork") {
