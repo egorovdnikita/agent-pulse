@@ -469,6 +469,11 @@ private struct ConsoleSettings: View {
                 }
                 .disabled(!settings.enabled)
                 if settings.prompter {
+                    SettingsPicker("Размер текста", selection: Binding(get: { settings.prompterTextSize }, set: { app.setPrompterTextSize($0) })) {
+                        ForEach(PrompterTextSize.allCases, id: \.self) { Text($0.title).tag($0) }
+                    }
+                    .padding(.leading, SettingsStyle.childIndent)
+                    .disabled(!settings.enabled)
                     Toggle(isOn: Binding(get: { settings.prompterHidden }, set: { app.setPrompterHidden($0) })) {
                         Text("Скрывать суфлёр при показе экрана")
                         Text("В Zoom на macOS 15 и новее суфлёр может быть виден. Meet, Teams, Телемост и QuickTime не проверены")

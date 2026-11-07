@@ -101,10 +101,11 @@ private struct PrompterLineView: View {
     let line: PrompterScript.Line
     /// Какое слово строки сейчас говорится; nil — строка идёт по часам.
     let litWord: Int?
+    let points: Double
 
     var body: some View {
         Text(line.text)
-            .font(ConsoleStyle.font(PrompterLook.fontSize, .semibold))
+            .font(ConsoleStyle.font(points, .semibold))
             .foregroundStyle(.white)
             .lineLimit(1)
             .fixedSize()
@@ -112,7 +113,7 @@ private struct PrompterLineView: View {
                 if let litWord, let spot = spot(litWord) {
                     RoundedRectangle(cornerRadius: 6, style: .continuous)
                         .fill(ConsoleStyle.green.opacity(0.35))
-                        .frame(width: spot.width + 8, height: PrompterLook.lineStep - 2)
+                        .frame(width: spot.width + 8, height: PrompterLook.lineStep(points) - 2)
                         .offset(x: spot.start - 4)
                         .animation(.easeOut(duration: 0.14), value: litWord)
                 }
@@ -123,7 +124,7 @@ private struct PrompterLineView: View {
     private func spot(_ index: Int) -> (start: Double, width: Double)? {
         let words = line.text.split(separator: " ").map(String.init)
         guard words.indices.contains(index) else { return nil }
-        let measure = { (text: String) in (text as NSString).size(withAttributes: [.font: PrompterLook.font]).width }
+        let measure = { (text: String) in (text as NSString).size(withAttributes: [.font: PrompterLook.font(points)]).width }
         let before = index == 0 ? "" : words[..<index].joined(separator: " ") + " "
         return (measure(before), measure(words[index]))
     }
@@ -136,6 +137,8 @@ struct PrompterView: View {
     var body: some View {
         let reduce = NSWorkspace.shared.accessibilityDisplayShouldReduceMotion
         let current = model.prompterLine
+        let points = model.prompterTextSize.points
+        let step = PrompterLook.lineStep(points)
         // Положение меняется пять раз в секунду, а движение между ними считает Core Animation: текст едет без кадров на CPU.
         let scroll = reduce ? Double(current) : model.prompterScroll
         let notched = model.prompterNotch > 0
@@ -146,9 +149,9 @@ struct PrompterView: View {
         )
         ZStack(alignment: .topLeading) {
             ForEach(lines.indices.filter { $0 >= current - 1 && $0 < current + PrompterLook.visibleLines + 1 }, id: \.self) { index in
-                PrompterLineView(line: lines[index], litWord: index == current ? litWord(in: lines[index]) : nil)
+                PrompterLineView(line: lines[index], litWord: index == current ? litWord(in: lines[index]) : nil, points: points)
                     .opacity(index < current ? 0 : PrompterLayout.lineOpacity(row: index - current))
-                    .offset(x: PrompterLook.textInset, y: PrompterLook.topInset + (Double(index) - scroll) * PrompterLook.lineStep)
+                    .offset(x: PrompterLook.textInset, y: PrompterLook.topInset + (Double(index) - scroll) * step)
             }
             // Кнопки стоят на месте, пока текст едет.
             VStack(spacing: 2) {
@@ -157,7 +160,7 @@ struct PrompterView: View {
                         .resizable()
                         .frame(width: 15, height: 15)
                         .foregroundStyle(.white)
-                        .frame(width: PrompterLook.controlsWidth, height: PrompterLook.lineStep)
+                        .frame(width: PrompterLook.controlsWidth, height: step)
                         .contentShape(Rectangle())
                 }
                 .accessibilityLabel(model.prompter.mode == .paused ? "Дальше" : "Пауза")
@@ -166,7 +169,7 @@ struct PrompterView: View {
                         .resizable()
                         .frame(width: 16, height: 16)
                         .foregroundStyle(ConsoleStyle.red)
-                        .frame(width: PrompterLook.controlsWidth, height: PrompterLook.lineStep)
+                        .frame(width: PrompterLook.controlsWidth, height: step)
                         .contentShape(Rectangle())
                 }
                 .accessibilityLabel("Стоп")
@@ -240,10 +243,9 @@ private struct PrompterSurface: View {
 }
 
 enum PrompterLook {
-    static let fontSize = 20.0
     /// Шаг таймера суфлёра.
     static let tick = 0.2
-    static let lineStep = 28.0
+    static func lineStep(_ points: Double) -> Double { (points * 1.4).rounded() }
     static let visibleLines = 5
     static let topInset = 10.0
     /// Колонка кнопок слева и текст за ней.
@@ -251,10 +253,10 @@ enum PrompterLook {
     static let controlsWidth = 22.0
     static let textInset = controlsInset + controlsWidth + 10
     static let textWidth = PrompterLayout.width - textInset - 18
-    @MainActor static let font = ConsoleStyle.nsFont(fontSize, .semibold)
+    @MainActor static func font(_ points: Double) -> NSFont { ConsoleStyle.nsFont(points, .semibold) }
 
     /// Запас: строка не должна упереться в край.
-    @MainActor static func fits(_ text: String) -> Bool {
-        (text as NSString).size(withAttributes: [.font: font]).width * 1.04 <= textWidth
+    @MainActor static func fits(_ text: String, points: Double) -> Bool {
+        (text as NSString).size(withAttributes: [.font: font(points)]).width * 1.04 <= textWidth
     }
 }

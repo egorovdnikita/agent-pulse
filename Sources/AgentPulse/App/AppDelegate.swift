@@ -521,6 +521,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         applyPrompterHotKey()
     }
 
+    func setPrompterTextSize(_ size: PrompterTextSize) {
+        model.config.console.prompterTextSize = size
+        try? model.config.save()
+        model.console.prompterTextSize = size
+    }
+
     func setPrompterHidden(_ on: Bool) {
         model.config.console.prompterHidden = on
         try? model.config.save()

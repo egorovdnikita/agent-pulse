@@ -307,6 +307,27 @@ public struct PrompterLibrary: Codable, Sendable, Equatable {
     }
 }
 
+/// Размер текста: расстояние до экрана у всех разное.
+public enum PrompterTextSize: String, CaseIterable, Sendable, Codable {
+    case small, medium, large
+
+    public var points: Double {
+        switch self {
+        case .small: 17
+        case .medium: 20
+        case .large: 24
+        }
+    }
+
+    public var title: String {
+        switch self {
+        case .small: "Маленький"
+        case .medium: "Средний"
+        case .large: "Большой"
+        }
+    }
+}
+
 /// Где встаёт суфлёр. Камера встроена в экран ноутбука: на нём панель выше всего, ближе к объективу.
 public enum PrompterLayout {
     public static let width = 560.0

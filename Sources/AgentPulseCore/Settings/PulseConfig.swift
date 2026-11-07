@@ -34,6 +34,7 @@ public struct PulseConfig: Codable, Sendable, Equatable {
         public var prompterVoice = false
         /// Слова в минуту.
         public var prompterSpeed = PrompterModule.defaultSpeed
+        public var prompterTextSize = PrompterTextSize.medium
         /// Диктовка: выключена, пока ты сам не включишь: ей нужны модель и микрофон.
         public var dictation = false
         /// Язык диктовки: `ru` (GigaAM) или `en` (системный распознаватель, macOS 26+).

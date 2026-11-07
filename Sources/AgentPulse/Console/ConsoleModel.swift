@@ -87,6 +87,7 @@ final class ConsoleModel {
     private(set) var prompterLine = 0
     /// Прочитанные строки с дробной частью: текст едет, а не прыгает.
     private(set) var prompterScroll = 0.0
+    var prompterTextSize = PrompterTextSize.medium
     /// Высота выреза экрана, под которым стоит суфлёр.
     var prompterNotch = 0.0
     /// Голос недоступен: почему.
@@ -287,7 +288,8 @@ final class ConsoleModel {
         guard prompter.start(text: text, now: now) else { return }
         prompterLibrary.remember(text)
         prompterLibrary.save()
-        prompterLines = prompter.script.lines(fits: PrompterLook.fits)
+        let points = prompterTextSize.points
+        prompterLines = prompter.script.lines { PrompterLook.fits($0, points: points) }
         prompterLine = 0
         prompterScroll = 0
         setExpanded(false)
