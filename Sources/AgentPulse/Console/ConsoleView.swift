@@ -229,10 +229,12 @@ private struct PageTabs: View {
                     .frame(width: 18, height: 18)
                     .foregroundStyle(.white)
                     .opacity(0.55)
-                    .frame(width: ConsoleLook.tabs, height: ConsoleLook.tabs)
+                    .frame(width: ConsoleLook.tabs, height: ConsoleLook.tabs, alignment: .trailing)
                     .contentShape(Rectangle())
             }
             .buttonStyle(ConsolePressStyle())
+            // У значка своё поле 2 pt: иначе он не встаёт по правому краю карточек.
+            .offset(x: 2)
             .accessibilityLabel("Настройки")
         }
     }
@@ -245,8 +247,9 @@ private struct ExpandedBody: View {
         let reduce = NSWorkspace.shared.accessibilityDisplayShouldReduceMotion
         VStack(alignment: .leading, spacing: 0) {
             PageTabs(model: model)
-                .padding(.horizontal, ConsoleStyle.inset + 4)
-                .padding(.top, ConsoleStyle.inset - 4)
+                .padding(.leading, ConsoleStyle.inset - 2)
+                .padding(.trailing, ConsoleStyle.inset)
+                .padding(.top, 12)
             ZStack(alignment: .topLeading) {
                 // Страница едет целиком: анимация не проваливается внутрь, иначе текст и подложка двигаются порознь.
                 page

@@ -468,7 +468,6 @@ struct ShelfTab: View {
                     ForEach(model.shelf.items.reversed()) { ShelfTile(model: model, item: $0) }
                 }
                 .padding(.top, 6)
-                .padding(.horizontal, 4)
             }
             HStack {
                 Text("Потяни файл, чтобы забрать").font(noteFont).foregroundStyle(ConsoleStyle.caption).lineLimit(1)
@@ -476,7 +475,6 @@ struct ShelfTab: View {
                 Button("Очистить") { model.clearShelf() }
                     .buttonStyle(ConsolePressStyle()).font(ConsoleStyle.font(11, .medium)).foregroundStyle(.white)
             }
-            .padding(.horizontal, 4)
         }
     }
 }
@@ -610,7 +608,6 @@ struct MediaTab: View {
                 }
                 .padding(.bottom, 8)
             }
-            .padding(.trailing, 4)
         }
     }
 
