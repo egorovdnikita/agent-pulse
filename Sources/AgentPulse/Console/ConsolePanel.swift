@@ -53,7 +53,8 @@ final class ConsolePanel: NSPanel {
         collectionBehavior = OverlayPanel.spaceBehavior
         isOpaque = false
         backgroundColor = .clear
-        hasShadow = false
+        // Чёрное на тёмных окнах держится на тени: одного тонкого края мало.
+        hasShadow = true
         hidesOnDeactivate = false
         isMovable = false
         let host = ConsoleHostingView(rootView: ConsoleRootView(model: model))
@@ -98,6 +99,7 @@ final class ConsolePanel: NSPanel {
         let grows = target.width >= frame.width && target.height >= frame.height
         if grows {
             setFrame(target, display: true)
+            refreshShadow()
             return
         }
         let union = NSRect(
@@ -109,6 +111,15 @@ final class ConsolePanel: NSPanel {
             try? await Task.sleep(for: .milliseconds(420))
             guard !Task.isCancelled else { return }
             self?.setFrame(target, display: true)
+            self?.refreshShadow()
+        }
+    }
+
+    /// Тень считается по содержимому окна, поэтому обновляется после анимации формы.
+    private func refreshShadow() {
+        invalidateShadow()
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.55) { [weak self] in
+            MainActor.assumeIsolated { self?.invalidateShadow() }
         }
     }
 

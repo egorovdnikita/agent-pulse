@@ -27,7 +27,7 @@ final class PrompterPanel: NSPanel {
         collectionBehavior = OverlayPanel.spaceBehavior.union(.fullScreenAuxiliary)
         isOpaque = false
         backgroundColor = .clear
-        hasShadow = false
+        hasShadow = true
         hidesOnDeactivate = false
         isMovable = false
         let host = Host(rootView: PrompterView(model: model))
