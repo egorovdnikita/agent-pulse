@@ -613,26 +613,16 @@ private struct SourcesSettings: View {
                 }
             }
             SettingsBlock("Claude в браузере") {
-                LabeledContent("Мост для расширения", value: model.browserBridgeInstalled ? "установлен" + Self.ago(model, .claudeChat) : "не установлен")
-                if model.browserBridgeInstalled {
-                    HStack {
-                        Button("Показать расширение") { app.revealExtension() }
-                        Button("Отключить") { app.uninstallBrowserBridge() }
+                LabeledContent("Подключение") {
+                    HStack(spacing: 10) {
+                        Text(model.browserBridgeInstalled ? "подключено" + Self.ago(model, .claudeChat) : "не подключено")
+                        if model.browserBridgeInstalled {
+                            Button("Показать расширение") { app.revealExtension() }
+                            Button("Отключить") { app.uninstallBrowserBridge() }
+                        } else {
+                            Button("Подключить…") { app.installBrowserBridge() }
+                        }
                     }
-                } else {
-                    Button("Подключить…") { app.installBrowserBridge() }
-                }
-            }
-            SettingsBlock("Claude Chat в приложении") {
-                Toggle(isOn: Binding(get: { model.config.sources.claudeChat }, set: { app.setChatWindowEnabled($0) })) {
-                    Text("Следить за чатом")
-                    Text(model.config.sources.claudeChat && !model.accessibilityTrusted
-                         ? "Нужен «Универсальный доступ» в Системных настройках"
-                         : "Через «Универсальный доступ»: видно только, что Claude отвечает")
-                        .font(SettingsStyle.caption).foregroundStyle(SettingsStyle.muted)
-                }
-                if model.config.sources.claudeChat && model.accessibilityTrusted {
-                    Button("Снимок окна Claude для настройки") { app.saveChatWindowSnapshot() }
                 }
             }
             SettingsBlock("Figma") {
