@@ -200,6 +200,7 @@ private struct GeneralSettings: View {
                 }
             }
             SettingsBlock("О программе") {
+                LabeledContent("Версия", value: Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "—")
                 Text("Иконки категорий — Solar Icons, 480 Design, лицензия CC BY 4.0. Анимации ботов играет Lottie от Airbnb, лицензия Apache 2.0. «Музыка» работает через mediaremote-adapter, Jonas van den Berg, лицензия BSD-3. Диктовка: GigaAM (лицензия MIT), sherpa-onnx (Apache 2.0), ONNX Runtime (MIT).")
                     .font(SettingsStyle.caption).foregroundStyle(SettingsStyle.muted)
                 Button("Лицензии") {
