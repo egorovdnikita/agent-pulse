@@ -96,9 +96,11 @@ final class PrompterPanel: NSPanel {
     }
 }
 
-/// Строка суфлёра.
+/// Строка суфлёра. За голосом за текущим словом плывёт мягкая плашка.
 private struct PrompterLineView: View {
     let line: PrompterScript.Line
+    /// Какое слово строки сейчас говорится; nil — строка идёт по часам.
+    let litWord: Int?
 
     var body: some View {
         Text(line.text)
@@ -106,6 +108,24 @@ private struct PrompterLineView: View {
             .foregroundStyle(.white)
             .lineLimit(1)
             .fixedSize()
+            .background(alignment: .leading) {
+                if let litWord, let spot = spot(litWord) {
+                    RoundedRectangle(cornerRadius: 6, style: .continuous)
+                        .fill(ConsoleStyle.green.opacity(0.35))
+                        .frame(width: spot.width + 8, height: PrompterLook.lineStep - 2)
+                        .offset(x: spot.start - 4)
+                        .animation(.easeOut(duration: 0.14), value: litWord)
+                }
+            }
+    }
+
+    /// Где слово стоит в строке. Меряется тем же шрифтом, каким нарисовано.
+    private func spot(_ index: Int) -> (start: Double, width: Double)? {
+        let words = line.text.split(separator: " ").map(String.init)
+        guard words.indices.contains(index) else { return nil }
+        let measure = { (text: String) in (text as NSString).size(withAttributes: [.font: PrompterLook.font]).width }
+        let before = index == 0 ? "" : words[..<index].joined(separator: " ") + " "
+        return (measure(before), measure(words[index]))
     }
 }
 
@@ -126,7 +146,7 @@ struct PrompterView: View {
         )
         ZStack(alignment: .topLeading) {
             ForEach(lines.indices.filter { $0 >= current - 1 && $0 < current + PrompterLook.visibleLines + 1 }, id: \.self) { index in
-                PrompterLineView(line: lines[index])
+                PrompterLineView(line: lines[index], litWord: index == current ? litWord(in: lines[index]) : nil)
                     .opacity(index < current ? 0 : PrompterLayout.lineOpacity(row: index - current))
                     .offset(x: PrompterLook.textInset, y: PrompterLook.topInset + (Double(index) - scroll) * PrompterLook.lineStep)
             }
@@ -173,6 +193,13 @@ struct PrompterView: View {
         .onTapGesture { model.togglePrompterPause() }
         .animation(reduce ? nil : .linear(duration: PrompterLook.tick), value: scroll)
         .accessibilityLabel("Суфлёр")
+    }
+}
+
+private extension PrompterView {
+    func litWord(in line: PrompterScript.Line) -> Int? {
+        guard model.prompter.followsVoice else { return nil }
+        return min(line.words.count - 1, max(0, Int(model.prompter.position) - line.words.lowerBound))
     }
 }
 
