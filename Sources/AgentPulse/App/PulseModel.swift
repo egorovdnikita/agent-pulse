@@ -167,7 +167,10 @@ final class PulseModel {
         console.shelfEnabled = config.console.shelf
         console.musicEnabled = config.console.music
         console.mascotAnimator = animator
-        console.mascotLine = { [weak self] in self?.restingMessage(now: Date()).text ?? "Я тут" }
+        console.mascotService = { [weak self] in
+            guard let self, self.state != .sleep else { return nil }
+            return self.dominant?.source == .codex ? .codex : .claude
+        }
         console.onSignal = { [weak self] signal, now in
             if let brain = signal.signal(at: now) { inbox.yield(.signal(brain)) }
             self?.notifyConsole(signal)

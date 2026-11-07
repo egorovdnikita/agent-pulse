@@ -46,8 +46,9 @@ public enum ConsoleLayout {
     public static let maxWidth = 220.0
     /// Капсула активного режима: волна диктовки.
     public static let activeWidth = 240.0
-    public static let expandedWidth = 460.0
-    public static let expandedHeight = 400.0
+    /// Широкая и низкая: сервисы и колонки страниц стоят рядом, а не друг под другом.
+    public static let expandedWidth = 640.0
+    public static let expandedHeight = 250.0
     /// Наименьший зазор между панелью и капсулой, если Dock скрыт.
     public static let expandedGap = 8.0
     /// Нижний отступ капсулы, если полосы Dock нет.

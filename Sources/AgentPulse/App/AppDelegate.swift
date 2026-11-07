@@ -332,9 +332,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
                 LimitWindow(kind: .week, usedPercent: 41, resetsAt: now.addingTimeInterval(4 * 86_400)),
             ], at: now))
         }
-        if arguments.contains("--console-hover") {
-            DispatchQueue.main.asyncAfter(deadline: .now() + 1) { console.setHover(true) }
-        }
         if arguments.contains("--console-open") {
             DispatchQueue.main.asyncAfter(deadline: .now() + 1) { console.setExpanded(true) }
         }

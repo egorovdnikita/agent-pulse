@@ -27,7 +27,6 @@ final class ConsoleModel {
     private(set) var media = MediaModule()
     private(set) var director = ConsoleDirector()
     private(set) var now = Date()
-    private(set) var hovering = false
     private(set) var expanded = false
     /// Открытая вкладка.
     var tab = ConsoleModuleID.limits
@@ -58,9 +57,9 @@ final class ConsoleModel {
     private(set) var pageTravel = 0
     /// Содержимое проявляется на такт позже панели: форма открывает его, а не пустоту.
     var contentShown = false
-    /// Тот же маскот, что в углу, и то, что он сказал бы при наведении.
+    /// Тот же маскот, что в углу: сидит у карточки сервиса, который сейчас работает.
     @ObservationIgnored var mascotAnimator: MascotAnimator?
-    @ObservationIgnored var mascotLine: () -> String = { "Я тут" }
+    @ObservationIgnored var mascotService: () -> LimitService? = { nil }
     /// Система сдвинула видимую область экрана.
     @ObservationIgnored var placementChanged: () -> Bool = { false }
     /// Перевод только что скопирован.
@@ -119,7 +118,6 @@ final class ConsoleModel {
     @ObservationIgnored private var prompterTimer: Timer?
     @ObservationIgnored private var dictationLimitTimer: Timer?
     @ObservationIgnored private var lastTick = Date.distantPast
-    @ObservationIgnored private var hoverTask: Task<Void, Never>?
     @ObservationIgnored private var quietOn = false
     /// Размер, под который уже выложена панель.
     @ObservationIgnored var placedSize = CGSize.zero
@@ -501,21 +499,6 @@ final class ConsoleModel {
 
     // MARK: - Состояния
 
-    func setHover(_ inside: Bool) {
-        hoverTask?.cancel()
-        guard inside else {
-            hovering = false
-            onLayoutChange?()
-            return
-        }
-        hoverTask = Task { [weak self] in
-            try? await Task.sleep(for: .milliseconds(150))
-            guard !Task.isCancelled, let self else { return }
-            self.hovering = true
-            self.onLayoutChange?()
-        }
-    }
-
     func setExpanded(_ on: Bool) {
         guard on != expanded else { return }
         if on {
@@ -545,11 +528,10 @@ final class ConsoleModel {
     func toggle() { setExpanded(!expanded) }
 
     /// Соседняя страница: клавиши и свайп. По кругу не идёт: край страниц должен чувствоваться.
-    func movePage(by step: Int, fromSwipe: Bool = false) {
+    func movePage(by step: Int) {
         let ids = tabs.map(\.id)
         guard let index = ids.firstIndex(of: tab), ids.indices.contains(index + step) else { return }
-        // Пальцы вправо — следующая страница: она приходит с той стороны, откуда её тянут.
-        openPage(ids[index + step], enteringFrom: fromSwipe ? -step : step)
+        openPage(ids[index + step])
     }
 
     func selectPage(number: Int) {
@@ -557,14 +539,14 @@ final class ConsoleModel {
         if ids.indices.contains(number - 1) { openPage(ids[number - 1]) }
     }
 
-    /// Открыть страницу: новая приходит со стороны, где стоит её название.
-    func openPage(_ id: ConsoleModuleID, enteringFrom side: Int? = nil) {
+    /// Открыть страницу: следующая появляется справа, предыдущая слева, откуда бы ни пришла команда.
+    func openPage(_ id: ConsoleModuleID) {
         let ids = tabs.map(\.id)
         guard id != tab, let old = ids.firstIndex(of: tab), let new = ids.firstIndex(of: id) else {
             tab = id
             return
         }
-        pageTravel = side ?? (new > old ? 1 : -1)
+        pageTravel = new > old ? 1 : -1
         tab = id
     }
 
@@ -585,10 +567,9 @@ final class ConsoleModel {
         return capsule == nil
     }
 
-    /// Кольца в капсуле; при подписи — одно, того, о ком она.
+    /// Кольца в капсуле; если на два нет места — самое тесное.
     var visibleRings: [CapsuleRing] {
         let rings = capsule?.rings ?? []
-        if showsLabel { return rings.filter { $0.service == capsule?.labelService } }
         guard ringsWidth(rings) + ConsoleLook.padding * 2 > capsuleLimit,
               let tightest = rings.max(by: { ($0.fraction ?? -1) < ($1.fraction ?? -1) }) else { return rings }
         return [tightest]
@@ -609,16 +590,10 @@ final class ConsoleModel {
         return sides.reduce(0, +) + Double(max(0, sides.count - 1)) * ConsoleLook.ringGap
     }
 
-    /// Показать подпись: курсор над капсулой и хватает места. У встречи и трека строка видна и так.
-    var showsLabel: Bool {
-        guard hovering, !expanded, capsule != nil, capsule?.text == nil, capsule?.wave != true, case .full = fit else { return false }
-        return true
-    }
-
     /// Строка в капсуле, если на неё хватает места.
     var capsuleText: String? {
         guard case .full = fit else { return nil }
-        return capsule?.text ?? (showsLabel ? capsule?.label : nil)
+        return capsule?.text
     }
 
     /// Ширина капсулы по содержимому: 96–220 pt; Dock может её сузить.
@@ -663,12 +638,10 @@ enum ConsoleLook {
     static let ringGap = 14.0
     static let mark = 15.0
     static let sideGap = 7.0
-    static let header = 44.0
-    static let mascot = 30.0
-    /// Настолько новая страница сдвинута в начале: заметно, но без полёта через всю панель.
-    static let pageShift = 28.0
-    static let tabs = 28.0
-    static let dots = 22.0
+    static let mascot = 16.0
+    /// Настолько новая страница сдвинута в начале: чуть-чуть, без полёта через всю панель.
+    static let pageShift = 24.0
+    static let tabs = 30.0
     static let labelGap = 8.0
     static let padding = 12.0
     static let joinWidth = 40.0

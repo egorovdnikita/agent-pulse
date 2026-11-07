@@ -4,7 +4,6 @@ import SwiftUI
 
 /// Вид Пульта: сообщает о курсоре и принимает первый клик, не активируя приложение.
 private final class ConsoleHostingView<Content: View>: NSHostingView<Content> {
-    var onHover: ((Bool) -> Void)?
     var onDropTarget: ((Bool) -> Void)?
     var onDrop: (([URL]) -> Void)?
     var acceptsFiles: (() -> Bool)?
@@ -25,17 +24,6 @@ private final class ConsoleHostingView<Content: View>: NSHostingView<Content> {
     }
 
     override func acceptsFirstMouse(for event: NSEvent?) -> Bool { true }
-
-    override func updateTrackingAreas() {
-        super.updateTrackingAreas()
-        trackingAreas.filter { $0.owner === self }.forEach(removeTrackingArea)
-        addTrackingArea(NSTrackingArea(
-            rect: .zero, options: [.mouseEnteredAndExited, .activeAlways, .inVisibleRect], owner: self
-        ))
-    }
-
-    override func mouseEntered(with event: NSEvent) { onHover?(true) }
-    override func mouseExited(with event: NSEvent) { onHover?(false) }
 }
 
 /// Панель Пульта. Как у маскота, но раскрытая становится key: иначе не работает Esc, а дальше и поле суфлёра.
@@ -70,7 +58,6 @@ final class ConsolePanel: NSPanel {
         isMovable = false
         let host = ConsoleHostingView(rootView: ConsoleRootView(model: model))
         host.sizingOptions = []
-        host.onHover = { [weak model] inside in model?.setHover(inside) }
         host.registerForDraggedTypes([.fileURL])
         host.acceptsFiles = { [weak model] in model?.shelfEnabled == true || model?.prompterTabOpen == true }
         host.onDropTarget = { [weak model] on in model?.dropTargeted = on }
@@ -220,7 +207,7 @@ final class ConsolePanel: NSPanel {
         // Пальцы вправо — следующая страница, при любом направлении прокрутки в системе.
         let forward = event.isDirectionInvertedFromDevice ? event.scrollingDeltaX : -event.scrollingDeltaX
         if let step = swipe.feed(dx: forward, dy: event.scrollingDeltaY, phase: phase, at: Date()) {
-            model.movePage(by: step, fromSwipe: true)
+            model.movePage(by: step)
         }
     }
 

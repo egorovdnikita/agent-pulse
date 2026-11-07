@@ -123,10 +123,18 @@ private struct LimitCard: View {
     var body: some View {
         let readings = LimitWindowKind.allCases.map { (kind: $0, reading: model.limits.book.reading(service, $0, now: model.now)) }
         ConsoleCard {
-            VStack(alignment: .leading, spacing: 4) {
+            VStack(alignment: .leading, spacing: 8) {
                 HStack(spacing: 6) {
                     ServiceMark(service: service, size: 17)
                     Text(service.title).font(ConsoleStyle.font(15, .semibold)).foregroundStyle(.white).lineLimit(1)
+                    if model.mascotService() == service, let animator = model.mascotAnimator {
+                        // Маскот — деталь рядом с именем того, кто работает. Холст шире строки: запас под прыжки.
+                        let box = MascotView.boxSize(ConsoleLook.mascot)
+                        MascotView(animator: animator, diameter: ConsoleLook.mascot, paused: !model.expanded)
+                            .frame(width: box, height: box)
+                            .frame(width: 24, height: 20)
+                            .accessibilityHidden(true)
+                    }
                     Spacer(minLength: 0)
                     if readings.allSatisfy({ $0.reading == nil }) {
                         Button("Подключить") { model.onOpenSettings?() }
@@ -138,11 +146,13 @@ private struct LimitCard: View {
                     }
                 }
                 .frame(height: 20)
+                Spacer(minLength: 0)
                 HStack(spacing: 12) {
                     ForEach(readings, id: \.kind) { item in
                         LimitGauge(reading: item.reading, kind: item.kind, now: model.now).frame(maxWidth: .infinity)
                     }
                 }
+                Spacer(minLength: 0)
             }
         }
     }
@@ -161,36 +171,9 @@ private struct LimitsTab: View {
     let model: ConsoleModel
 
     var body: some View {
-        VStack(spacing: 8) {
+        HStack(spacing: 8) {
             ForEach(LimitService.allCases, id: \.self) { LimitCard(model: model, service: $0) }
         }
-    }
-}
-
-/// Шапка: тот же маскот, что живёт в углу, и то, что он сказал бы при наведении.
-private struct MascotHeader: View {
-    let model: ConsoleModel
-
-    var body: some View {
-        // Фраза перечитывается раз в секунду: `now` обновляет тик.
-        let _ = model.now
-        HStack(spacing: 8) {
-            if let animator = model.mascotAnimator {
-                // У маскота холст с запасом под «Zzz» и прыжки: он шире строки, это нормально.
-                let box = MascotView.boxSize(ConsoleLook.mascot)
-                MascotView(animator: animator, diameter: ConsoleLook.mascot, paused: !model.expanded)
-                    .frame(width: box, height: box)
-                    .frame(width: ConsoleLook.header, height: ConsoleLook.header)
-                    .accessibilityHidden(true)
-            }
-            Text(model.mascotLine())
-                .font(ConsoleStyle.font(13, .medium))
-                .foregroundStyle(.white)
-                .lineLimit(2)
-                .fixedSize(horizontal: false, vertical: true)
-            Spacer(minLength: 0)
-        }
-        .frame(height: ConsoleLook.header)
     }
 }
 
@@ -213,6 +196,7 @@ private struct PageTabs: View {
                 .buttonStyle(ConsolePressStyle())
             }
             Spacer(minLength: 0)
+            PageDots(model: model)
         }
     }
 }
@@ -228,14 +212,13 @@ private struct PageDots: View {
                     Circle()
                         .fill(Color.white.opacity(model.tab == tab.id ? 0xB3 / 255 : 0x3D / 255))
                         .frame(width: 6, height: 6)
-                        .frame(width: 14, height: ConsoleLook.dots)
+                        .frame(width: 14, height: ConsoleLook.tabs)
                         .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
                 .accessibilityLabel(tab.title)
             }
         }
-        .frame(maxWidth: .infinity)
     }
 }
 
@@ -245,24 +228,20 @@ private struct ExpandedBody: View {
     var body: some View {
         let reduce = NSWorkspace.shared.accessibilityDisplayShouldReduceMotion
         VStack(alignment: .leading, spacing: 0) {
-            VStack(alignment: .leading, spacing: 0) {
-                MascotHeader(model: model)
-                PageTabs(model: model)
-            }
-            .padding(.horizontal, ConsoleStyle.inset + 4)
-            .padding(.top, ConsoleStyle.inset - 4)
+            PageTabs(model: model)
+                .padding(.horizontal, ConsoleStyle.inset + 4)
+                .padding(.top, ConsoleStyle.inset - 4)
             ZStack(alignment: .topLeading) {
                 page
                     .id(model.tab)
                     .transition(pageTransition(reduced: reduce))
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-            .padding(.top, 6)
+            .padding(.top, 4)
+            .padding(.bottom, ConsoleStyle.inset)
             .clipped()
-            PageDots(model: model)
         }
         .opacity(model.contentShown ? 1 : 0)
-        .offset(y: model.contentShown || reduce ? 0 : 8)
         .animation(ConsoleStyle.contentMotion(appearing: model.contentShown, reduced: reduce), value: model.contentShown)
         .animation(ConsoleStyle.pageMotion(reduced: reduce), value: model.tab)
         .frame(width: ConsoleLayout.expandedWidth, height: ConsoleLayout.expandedHeight, alignment: .topLeading)
@@ -283,18 +262,32 @@ private struct ExpandedBody: View {
             case .translate: TranslateTab(model: model)
             default: LimitsTab(model: model)
             }
-            Spacer(minLength: 0)
         }
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         .padding(.horizontal, ConsoleStyle.inset)
     }
 
-    /// Старая страница просто гаснет, новая приходит сбоку: одновременно двигается только одна, глаз не теряет её.
+    /// Следующая страница чуть выходит справа, предыдущая слева; старая просто гаснет: движется только одна.
     private func pageTransition(reduced: Bool) -> AnyTransition {
         guard !reduced else { return .opacity }
         return .asymmetric(
             insertion: .opacity.combined(with: .offset(x: Double(model.pageTravel) * ConsoleLook.pageShift)),
-            removal: .opacity.animation(.easeOut(duration: 0.09))
+            removal: .opacity.animation(.easeOut(duration: 0.08))
         )
+    }
+}
+
+/// Форма панели по пути из капсулы и обратно. Содержимое в это время скрыто, поэтому сжатия не видно.
+private struct PanelMorph: ViewModifier {
+    var scaleX: Double
+    var scaleY: Double
+    var offset: Double
+    let anchor: UnitPoint
+
+    func body(content: Content) -> some View {
+        content
+            .scaleEffect(x: scaleX, y: scaleY, anchor: anchor)
+            .offset(y: offset)
     }
 }
 
@@ -320,14 +313,18 @@ struct PanelPreview: View {
 struct ConsoleRootView: View {
     let model: ConsoleModel
 
-    /// Панель вырастает из капсулы, из своего угла, и уходит туда же, но быстрее.
+    /// Панель не появляется, а вырастает из самой капсулы: в начале она точно на её месте и её размера.
     private func panelTransition(reduced: Bool) -> AnyTransition {
         guard !reduced else { return .opacity }
-        let anchor: UnitPoint = model.onLeft ? .bottomLeading : .bottomTrailing
-        return .asymmetric(
-            insertion: .scale(scale: 0.88, anchor: anchor).combined(with: .opacity),
-            removal: .scale(scale: 0.95, anchor: anchor).combined(with: .opacity)
+        let collapsed = PanelMorph(
+            scaleX: model.capsuleWidth / ConsoleLayout.expandedWidth, scaleY: model.capsuleHeight / ConsoleLayout.expandedHeight,
+            offset: model.expandedGap + model.capsuleHeight, anchor: model.onLeft ? .bottomLeading : .bottomTrailing
         )
+        var open = collapsed
+        open.scaleX = 1
+        open.scaleY = 1
+        open.offset = 0
+        return .modifier(active: collapsed, identity: open)
     }
 
     var body: some View {
