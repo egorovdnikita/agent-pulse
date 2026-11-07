@@ -166,9 +166,6 @@ private struct GeneralSettings: View {
                         Text("Новая задача любого агента или пробуждение — новый бот, не чаще раза в 3 мин. Все \(bots.count) по очереди, без повторов")
                             .font(SettingsStyle.caption).foregroundStyle(SettingsStyle.muted)
                     }
-                    if let skin = model.animator.skin, bots.contains(skin) {
-                        DisclosureGroup("Сценарии: анимации и облачка") { PalGallery(skin: skin, diameter: model.config.display.mascotSize) }
-                    }
                 }
             }
             SettingsBlock("Где живёт") {

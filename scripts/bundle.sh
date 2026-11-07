@@ -17,7 +17,6 @@ cp Resources/Info.plist "$APP/Contents/Info.plist"
 mkdir -p "$APP/Contents/Resources"
 cp Resources/AppIcon.icns "$APP/Contents/Resources/AppIcon.icns"
 cp Resources/Fonts/Geist.ttf Resources/OpenAIBlossom.svg "$APP/Contents/Resources/"
-cp Resources/Scenes/DeskCorner.png "$APP/Contents/Resources/DeskCorner.png"
 cp -R Extensions/Chrome "$APP/Contents/Resources/ChromeExtension"
 cp -R FigmaCompanion "$APP/Contents/Resources/FigmaCompanion"
 # Авторы и лицензии чужих материалов: Solar Icons (CC BY 4.0), Lottie (Apache 2.0).
