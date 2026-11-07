@@ -40,11 +40,68 @@ public struct ShelfModule: ConsoleModule {
         items.removeAll { $0.url == url }
     }
 
+    public mutating func remove(_ urls: [URL]) {
+        let gone = Set(urls)
+        items.removeAll { gone.contains($0.url) }
+    }
+
     public mutating func clear() {
         items.removeAll()
     }
 
     public mutating func tick(now: Date) -> [ToolSignal] { [] }
+}
+
+/// Выделение файлов: как в Finder. Клик — один файл, ⌘ — добавить или убрать, ⇧ — диапазон от последнего клика.
+public struct ShelfSelection: Equatable, Sendable {
+    public private(set) var urls: Set<URL> = []
+    private var anchor: URL?
+
+    public init() {}
+
+    public var count: Int { urls.count }
+    public var isEmpty: Bool { urls.isEmpty }
+
+    public func contains(_ url: URL) -> Bool { urls.contains(url) }
+
+    public mutating func click(_ url: URL, order: [URL], command: Bool = false, shift: Bool = false) {
+        if shift, let anchor, let from = order.firstIndex(of: anchor), let to = order.firstIndex(of: url) {
+            urls = Set(order[min(from, to)...max(from, to)])
+            return
+        }
+        if command {
+            if urls.remove(url) == nil { urls.insert(url) }
+        } else {
+            urls = [url]
+        }
+        anchor = url
+    }
+
+    public mutating func selectAll(_ order: [URL]) {
+        urls = Set(order)
+        anchor = order.first
+    }
+
+    /// Рамка мышью: выбрано то, что она задела сейчас.
+    public mutating func replace(with touched: Set<URL>) {
+        urls = touched
+    }
+
+    public mutating func clear() {
+        urls = []
+        anchor = nil
+    }
+
+    /// Файлов не стало — выделение их не помнит.
+    public mutating func keep(only order: [URL]) {
+        urls.formIntersection(order)
+        if let anchor, !order.contains(anchor) { self.anchor = nil }
+    }
+
+    /// Что уносит перетаскивание: всё выбранное, если потянули за выбранный файл, иначе только его.
+    public func dragged(from url: URL, order: [URL]) -> [URL] {
+        urls.contains(url) ? order.filter(urls.contains) : [url]
+    }
 }
 
 /// Вид файла на полке: по расширению, содержимое не читается.

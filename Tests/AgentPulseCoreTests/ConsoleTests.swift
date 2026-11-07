@@ -1320,3 +1320,60 @@ private func snapshot(_ used: Double, at: Date = t0, service: LimitService = .cl
         #expect(CalendarWords.relative(event("a", now.addingTimeInterval(-300)), at: now) == "Сейчас, ещё 25 мин")
     }
 }
+
+@Suite struct ShelfSelectionTests {
+    private let files = ["a", "b", "c", "d", "e"].map { URL(filePath: "/tmp/\($0).txt") }
+
+    @Test func plainClickSelectsOnlyThatFile() {
+        var selection = ShelfSelection()
+        selection.click(files[0], order: files)
+        selection.click(files[1], order: files)
+        #expect(selection.urls == [files[1]])
+    }
+
+    @Test func commandClickAddsAndRemoves() {
+        var selection = ShelfSelection()
+        selection.click(files[0], order: files)
+        selection.click(files[2], order: files, command: true)
+        #expect(selection.urls == [files[0], files[2]])
+        selection.click(files[0], order: files, command: true)
+        #expect(selection.urls == [files[2]])
+    }
+
+    @Test func shiftClickTakesRangeEitherWay() {
+        var selection = ShelfSelection()
+        selection.click(files[3], order: files)
+        selection.click(files[1], order: files, shift: true)
+        #expect(selection.urls == Set(files[1...3]))
+        selection.click(files[4], order: files, shift: true)
+        #expect(selection.urls == Set(files[3...4]))
+    }
+
+    @Test func shiftWithoutAnchorActsAsClick() {
+        var selection = ShelfSelection()
+        selection.click(files[2], order: files, shift: true)
+        #expect(selection.urls == [files[2]])
+    }
+
+    @Test func draggingSelectedTakesAllInOrderOtherwiseOne() {
+        var selection = ShelfSelection()
+        selection.click(files[3], order: files)
+        selection.click(files[0], order: files, command: true)
+        #expect(selection.dragged(from: files[3], order: files) == [files[0], files[3]])
+        #expect(selection.dragged(from: files[1], order: files) == [files[1]])
+    }
+
+    @Test func removedFilesLeaveSelection() {
+        var selection = ShelfSelection()
+        selection.selectAll(files)
+        selection.keep(only: Array(files[0...1]))
+        #expect(selection.count == 2)
+    }
+
+    @Test func shelfRemovesSeveralAtOnce() {
+        var shelf = ShelfModule()
+        _ = shelf.add(files)
+        shelf.remove(Array(files[1...3]))
+        #expect(shelf.items.map(\.url) == [files[0], files[4]])
+    }
+}
