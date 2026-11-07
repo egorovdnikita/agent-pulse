@@ -135,61 +135,65 @@ private struct CapsuleBody: View {
     }
 }
 
-/// Карточка сервиса в закреплённой колонке: имя слева, два окна рядом. Процент — расход, как в капсуле.
+/// Карточка сервиса: заголовок и два окна. Процент — расход, как в капсуле.
 private struct LimitCard: View {
     let model: ConsoleModel
     let service: LimitService
 
     var body: some View {
         let readings = LimitWindowKind.allCases.map { (kind: $0, reading: model.limits.book.reading(service, $0, now: model.now)) }
-        ConsoleCard(padding: 10) {
-            HStack(spacing: 6) {
-                VStack(alignment: .leading, spacing: 2) {
+        ConsoleCard {
+            VStack(alignment: .leading, spacing: 8) {
+                HStack(spacing: 6) {
                     ServiceMark(service: service, size: 17)
-                    Text(service.title).font(ConsoleStyle.font(13, .semibold)).foregroundStyle(.white).lineLimit(1)
-                    status(readings.map(\.reading))
+                    Text(service.title).font(ConsoleStyle.font(15, .semibold)).foregroundStyle(.white).lineLimit(1)
                     if model.mascotService() == service, let animator = model.mascotAnimator {
                         // Маскот — деталь рядом с именем того, кто работает. Холст шире строки: запас под прыжки.
                         let box = MascotView.boxSize(ConsoleLook.mascot)
                         MascotView(animator: animator, diameter: ConsoleLook.mascot, paused: !model.expanded)
                             .frame(width: box, height: box)
-                            .frame(width: 26, height: 20)
+                            .frame(width: 30, height: 20)
                             .accessibilityHidden(true)
                     }
                     Spacer(minLength: 0)
+                    if readings.allSatisfy({ $0.reading == nil }) {
+                        Button("Подключить") { model.onOpenSettings?("Лимиты \(service.title)") }
+                            .buttonStyle(ConsolePressStyle())
+                            .font(.system(size: 11, weight: .semibold))
+                            .foregroundStyle(.white)
+                    } else {
+                        // Процент — расход: у похожих приложений такое же число значит остаток.
+                        Text("использовано").font(ConsoleStyle.font(11)).foregroundStyle(ConsoleStyle.caption).lineLimit(1)
+                        chip(readings.map(\.reading))
+                    }
                 }
-                .frame(width: 70, alignment: .leading)
-                ForEach(readings, id: \.kind) { item in
-                    LimitGauge(reading: item.reading, kind: item.kind, now: model.now).frame(maxWidth: .infinity)
+                .frame(height: 20)
+                Spacer(minLength: 0)
+                HStack(spacing: 12) {
+                    ForEach(readings, id: \.kind) { item in
+                        LimitGauge(reading: item.reading, kind: item.kind, now: model.now).frame(maxWidth: .infinity)
+                    }
                 }
+                Spacer(minLength: 0)
             }
         }
     }
 
-    @ViewBuilder
-    private func status(_ readings: [LimitReading?]) -> some View {
+    private func chip(_ readings: [LimitReading?]) -> some View {
         let known = readings.compactMap { $0 }
-        if known.isEmpty {
-            Button("Подключить") { model.onOpenSettings?("Лимиты \(service.title)") }
-                .buttonStyle(ConsolePressStyle())
-                .font(ConsoleStyle.font(11, .semibold))
-                .foregroundStyle(.white)
-        } else {
-            Text(known.contains(where: \.stale) ? "устарело" : "использовано")
-                .font(ConsoleStyle.font(11))
-                .foregroundStyle(ConsoleStyle.caption)
-                .lineLimit(1)
-                .minimumScaleFactor(0.85)
-        }
+        let title = known.isEmpty ? "Нет данных" : known.contains(where: \.stale) ? "Устарело" : "Свежие"
+        return Text(title)
+            .font(.system(size: 11, weight: .semibold))
+            .foregroundStyle(title == "Свежие" ? ConsoleStyle.green : ConsoleStyle.caption)
+            .lineLimit(1)
     }
 }
 
-/// Лимиты закреплены слева: видны на любой странице.
-private struct LimitsColumn: View {
+private struct LimitsTab: View {
     let model: ConsoleModel
 
     var body: some View {
-        VStack(spacing: 8) {
+        HStack(spacing: 8) {
             ForEach(LimitService.allCases, id: \.self) { LimitCard(model: model, service: $0) }
         }
     }
@@ -240,30 +244,20 @@ private struct ExpandedBody: View {
     var body: some View {
         let reduce = NSWorkspace.shared.accessibilityDisplayShouldReduceMotion
         VStack(alignment: .leading, spacing: 0) {
-            HStack(alignment: .top, spacing: 8) {
-                if model.limitsEnabled {
-                    LimitsColumn(model: model)
-                        .frame(width: ConsoleLayout.limitsWidth)
-                        .padding(.top, ConsoleStyle.inset)
-                }
-                VStack(alignment: .leading, spacing: 4) {
-                    PageTabs(model: model)
-                        .padding(.horizontal, 4)
-                        .padding(.top, ConsoleStyle.inset - 8)
-                    ZStack(alignment: .topLeading) {
-                        // Страница едет целиком: анимация не проваливается внутрь, иначе текст и подложка двигаются порознь.
-                        page
-                            .transaction { $0.animation = nil }
-                            .compositingGroup()
-                            .id(model.tab)
-                            .transition(pageTransition(reduced: reduce))
-                    }
-                    .frame(height: ConsoleLayout.pageHeight, alignment: .topLeading)
-                    .clipped()
-                }
+            PageTabs(model: model)
+                .padding(.horizontal, ConsoleStyle.inset + 4)
+                .padding(.top, ConsoleStyle.inset - 4)
+            ZStack(alignment: .topLeading) {
+                // Страница едет целиком: анимация не проваливается внутрь, иначе текст и подложка двигаются порознь.
+                page
+                    .transaction { $0.animation = nil }
+                    .compositingGroup()
+                    .id(model.tab)
+                    .transition(pageTransition(reduced: reduce))
             }
-            .padding([.horizontal, .bottom], ConsoleStyle.inset)
-            .frame(maxHeight: .infinity, alignment: .top)
+            .frame(height: ConsoleLayout.pageHeight, alignment: .topLeading)
+            .padding(.top, 4)
+            .clipped()
         }
         .opacity(model.contentShown ? 1 : 0)
         .animation(ConsoleStyle.contentMotion(appearing: model.contentShown, reduced: reduce), value: model.contentShown)
@@ -276,12 +270,14 @@ private struct ExpandedBody: View {
             switch model.tab {
             case .prompter: PrompterTab(model: model)
             case .calendar: CalendarTab(model: model)
+            case .shelf: ShelfTab(model: model)
             case .media: MediaTab(model: model)
             case .translate: TranslateTab(model: model)
-            default: ShelfTab(model: model)
+            default: LimitsTab(model: model)
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+        .padding(.horizontal, ConsoleStyle.inset)
     }
 
     /// Следующая страница чуть выходит справа, предыдущая слева; старая просто гаснет: движется только одна.
