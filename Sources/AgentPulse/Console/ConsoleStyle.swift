@@ -18,7 +18,7 @@ enum ConsoleStyle {
     static let card = Color.white.opacity(0x14 / 255)
     static let button = Color.white.opacity(0x33 / 255)
     /// Край на тёмных обоях: у референса чёрное сливается со шторкой, Пульту сливаться не с чем.
-    static let edge = Color.white.opacity(0.18)
+    static let edge = Color.white.opacity(0.07)
 
     /// Отступ страницы от края панели и радиусы: внутренний и внешний концентричны.
     static let inset = 12.0
