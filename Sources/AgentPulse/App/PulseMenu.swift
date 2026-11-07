@@ -15,8 +15,9 @@ struct PulseMenuView: View {
         let model = app.model
         VStack(alignment: .leading, spacing: 8) {
             status(model)
-            if let reaction = model.lastReaction {
-                reactionCard(model, line: model.lastLine ?? reaction)
+            // Реакция без реплики: оценивать нечего, а её внутреннее имя показывать нельзя.
+            if model.lastReaction != nil, let line = model.lastLine, !line.isEmpty {
+                reactionCard(model, line: line)
             }
             ConsoleCard(fills: false, padding: 4) {
                 VStack(spacing: 0) {
