@@ -21,6 +21,8 @@ public struct PulseConfig: Codable, Sendable, Equatable {
     public struct Console: Codable, Sendable, Equatable {
         public var enabled = true
         public var limits = true
+        /// Где стоит Пульт: `top` — вверху, как шторка, `bottom` — внизу, у Dock.
+        public var placement = "top"
         /// Двойное касание двумя пальцами раскрывает Пульт. Эксперимент.
         public var trackpadGesture = false
         /// Короткие звуки Пульта.
