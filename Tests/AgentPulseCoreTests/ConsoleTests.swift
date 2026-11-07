@@ -1059,3 +1059,15 @@ private func snapshot(_ used: Double, at: Date = t0, service: LimitService = .cl
         #expect(module.direction(of: "привет") == .ruToEn)
     }
 }
+
+@Suite struct DictationNoticeTests {
+    @Test func insertedIsShorterThanClipboardNotice() {
+        var module = DictationModule()
+        let start = Date(timeIntervalSince1970: 1_000_000)
+        _ = module.press(now: start, modelReady: true)
+        _ = module.release(now: start.addingTimeInterval(1))
+        module.finish(now: start, notice: .inserted)
+        #expect(module.capsule(now: start).text == "Вставлено")
+        #expect(module.priority(now: start.addingTimeInterval(2)) == nil)
+    }
+}

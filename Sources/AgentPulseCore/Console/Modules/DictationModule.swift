@@ -8,12 +8,13 @@ public struct DictationModule: ConsoleModule {
 
     /// Короткое сообщение в капсуле.
     public enum Notice: Sendable, Equatable {
-        case needsModel, inClipboard, failed, noMicrophone
+        case needsModel, inClipboard, inserted, failed, noMicrophone
 
         public var text: String {
             switch self {
             case .needsModel: "Скачай модель"
             case .inClipboard: "Текст в буфере"
+            case .inserted: "Вставлено"
             case .failed: "Не вышло распознать"
             case .noMicrophone: "Нет доступа к микрофону"
             }
@@ -25,6 +26,7 @@ public struct DictationModule: ConsoleModule {
     /// Длиннее одна запись не идёт: память и время распознавания не бесконечны.
     public static let maximumLength: TimeInterval = 300
     public static let noticeLength: TimeInterval = 4
+    public static let insertedLength: TimeInterval = 1.5
 
     public let id = ConsoleModuleID.dictation
     public let title = "Диктовка"
@@ -74,7 +76,8 @@ public struct DictationModule: ConsoleModule {
 
     private mutating func show(_ notice: Notice, now: Date) {
         self.notice = notice
-        noticeUntil = now.addingTimeInterval(Self.noticeLength)
+        // Удача — короткий знак, а не сообщение: читать тут нечего.
+        noticeUntil = now.addingTimeInterval(notice == .inserted ? Self.insertedLength : Self.noticeLength)
     }
 
     private func visibleNotice(now: Date) -> Notice? {

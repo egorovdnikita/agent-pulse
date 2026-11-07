@@ -101,7 +101,7 @@ final class DictationController {
             let pasteboard = demoSamples != nil ? NSPasteboard(name: Self.demoPasteboard) : .general
             let outcome = await TextInsertion.insert(text, accessibility: settings().accessibility, pasteboard: pasteboard)
             remember(text)
-            console.finishDictation(notice: outcome == .inClipboard ? .inClipboard : nil)
+            console.finishDictation(notice: outcome == .inClipboard ? .inClipboard : .inserted)
         } catch {
             console.finishDictation(notice: .failed)
         }

@@ -474,7 +474,8 @@ final class ConsoleModel {
         settleDictation()
         guard notice != nil else { return }
         // Сообщение ушло: лидер и показ поверх полного экрана возвращаются сразу, а не ждут случая.
-        DispatchQueue.main.asyncAfter(deadline: .now() + DictationModule.noticeLength + 0.1) { [weak self] in
+        let length = notice == .inserted ? DictationModule.insertedLength : DictationModule.noticeLength
+        DispatchQueue.main.asyncAfter(deadline: .now() + length + 0.1) { [weak self] in
             MainActor.assumeIsolated {
                 guard let self else { return }
                 self.now = Date()
