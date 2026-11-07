@@ -50,6 +50,10 @@ final class ConsoleModel {
     var dictationRules: [DictationRule] = []
     /// Столбики волны, 0…1, новые справа.
     private(set) var dictationLevels = [Float](repeating: 0, count: DictationLook.bars)
+    var fit = ConsoleFit.full(width: ConsoleLayout.maxWidth) { didSet { if fit != oldValue { onLayoutChange?() } } }
+    var activeWidth = ConsoleLayout.activeWidth
+    /// Зазор между капсулой на уровне Dock и панелью над ним.
+    var expandedGap = ConsoleLayout.expandedGap
     /// С какой стороны въезжает новая страница: 1 — справа, −1 — слева, 0 — снизу, при раскрытии.
     private(set) var pageTravel = 0
     /// Содержимое проявляется на такт позже панели: форма открывает его, а не пустоту.
@@ -577,6 +581,7 @@ final class ConsoleModel {
 
     var showsDot: Bool {
         if dropTargeted { return false }
+        if case .dot = fit { return true }
         return capsule == nil
     }
 
@@ -589,7 +594,12 @@ final class ConsoleModel {
         return [tightest]
     }
 
-    private var capsuleLimit: Double { ConsoleLayout.maxWidth }
+    private var capsuleLimit: Double {
+        switch fit {
+        case .full(let width): width
+        case .leader, .dot: ConsoleLayout.minWidth
+        }
+    }
 
     private func ringsWidth(_ rings: [CapsuleRing]) -> Double {
         let sides = rings.map { ring in
@@ -601,19 +611,23 @@ final class ConsoleModel {
 
     /// Показать подпись: курсор над капсулой и хватает места. У встречи и трека строка видна и так.
     var showsLabel: Bool {
-        guard hovering, !expanded, capsule != nil, capsule?.text == nil, capsule?.wave != true else { return false }
+        guard hovering, !expanded, capsule != nil, capsule?.text == nil, capsule?.wave != true, case .full = fit else { return false }
         return true
     }
 
     /// Строка в капсуле, если на неё хватает места.
     var capsuleText: String? {
+        guard case .full = fit else { return nil }
         return capsule?.text ?? (showsLabel ? capsule?.label : nil)
     }
 
     /// Ширина капсулы по содержимому: 96–220 pt; Dock может её сузить.
     var capsuleWidth: Double {
         guard !showsDot else { return ConsoleLayout.dotSize }
-        if capsule?.wave == true { return ConsoleLayout.activeWidth }
+        if capsule?.wave == true {
+            if case .full = fit { return activeWidth }
+            return ConsoleLayout.minWidth
+        }
         let limit = capsuleLimit
         let dots = Double(indicators.count)
         let extras = (capsule?.action != nil ? ConsoleLook.joinWidth + ConsoleLook.labelGap : 0)
@@ -631,7 +645,7 @@ final class ConsoleModel {
 
     var panelSize: CGSize {
         guard expanded else { return CGSize(width: capsuleWidth, height: capsuleHeight) }
-        return CGSize(width: ConsoleLayout.expandedWidth, height: ConsoleLayout.expandedHeight + ConsoleLayout.expandedGap + capsuleHeight)
+        return CGSize(width: ConsoleLayout.expandedWidth, height: ConsoleLayout.expandedHeight + expandedGap + capsuleHeight)
     }
 }
 

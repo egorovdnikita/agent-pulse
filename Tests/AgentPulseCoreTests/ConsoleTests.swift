@@ -225,30 +225,58 @@ private func snapshot(_ used: Double, at: Date = t0, service: LimitService = .cl
 }
 
 @Suite struct ConsoleLayoutTests {
-    private let size = CGSize(width: 220, height: 32)
+    private let screen = CGRect(x: 0, y: 0, width: 1680, height: 1050)
 
-    @Test func standsAboveDockByTheSameGapAsFromTheEdge() {
-        // Экран 1680 × 1050, Dock 90 pt снизу: система отдаёт видимую область от 90.
-        let origin = ConsoleLayout.origin(visible: CGRect(x: 0, y: 90, width: 1680, height: 935), size: size, onLeft: true)
-        #expect(Double(origin.x) == ConsoleLayout.screenGap)
-        #expect(Double(origin.y) == 90 + ConsoleLayout.screenGap)
+    @Test func capsuleSitsOnDockLevel() {
+        let visible = CGRect(x: 0, y: 107, width: 1680, height: 912)
+        #expect(Double(ConsoleLayout.capsuleY(screen: screen, visible: visible)) == 37.5)
+    }
+
+    @Test func panelStandsAboveDockByTheGapFromTheEdge() {
+        let visible = CGRect(x: 0, y: 107, width: 1680, height: 912)
+        let capsuleTop = ConsoleLayout.capsuleY(screen: screen, visible: visible) + ConsoleLayout.capsuleHeight
+        #expect(capsuleTop + ConsoleLayout.gap(screen: screen, visible: visible) == 107 + ConsoleLayout.screenGap)
+        #expect(ConsoleLayout.x(visible: visible, width: 460, onLeft: true) == ConsoleLayout.screenGap)
     }
 
     @Test func followsDockHeight() {
-        let tall = ConsoleLayout.origin(visible: CGRect(x: 0, y: 130, width: 1680, height: 895), size: size, onLeft: true)
-        let hidden = ConsoleLayout.origin(visible: CGRect(x: 0, y: 4, width: 1680, height: 1021), size: size, onLeft: true)
-        #expect(Double(tall.y) == 130 + ConsoleLayout.screenGap)
-        #expect(Double(hidden.y) == 4 + ConsoleLayout.screenGap)
+        let small = ConsoleLayout.gap(screen: screen, visible: CGRect(x: 0, y: 60, width: 1680, height: 960))
+        let tall = ConsoleLayout.gap(screen: screen, visible: CGRect(x: 0, y: 130, width: 1680, height: 890))
+        #expect(tall > small)
+    }
+
+    @Test func hiddenDockKeepsSmallestGap() {
+        let visible = CGRect(x: 0, y: 4, width: 1680, height: 1016)
+        #expect(ConsoleLayout.capsuleY(screen: screen, visible: visible) == ConsoleLayout.edgeMargin)
+        #expect(ConsoleLayout.gap(screen: screen, visible: visible) == ConsoleLayout.expandedGap)
     }
 
     @Test func sideDockMovesItAside() {
-        let origin = ConsoleLayout.origin(visible: CGRect(x: 80, y: 0, width: 1600, height: 1025), size: size, onLeft: true)
-        #expect(Double(origin.x) == 80 + ConsoleLayout.screenGap)
+        let visible = CGRect(x: 80, y: 0, width: 1600, height: 1020)
+        #expect(ConsoleLayout.x(visible: visible, width: 220, onLeft: true) == 80 + ConsoleLayout.screenGap)
     }
 
     @Test func mirrorsToTheRight() {
-        let origin = ConsoleLayout.origin(visible: CGRect(x: 0, y: 90, width: 1680, height: 935), size: size, onLeft: false)
-        #expect(Double(origin.x) == 1680 - ConsoleLayout.screenGap - size.width)
+        let visible = CGRect(x: 0, y: 107, width: 1680, height: 912)
+        #expect(ConsoleLayout.x(visible: visible, width: 220, onLeft: false) == 1680 - ConsoleLayout.screenGap - 220)
+    }
+
+    @Test func capsuleNarrowsNextToWideDock() {
+        let small = DockMetrics(edge: .bottom, tileSize: 48, icons: 11, hidden: false)
+        #expect(ConsoleLayout.fit(screenWidth: 1680, dock: small) == .full(width: 220))
+        let wide = DockMetrics(edge: .bottom, tileSize: 60, icons: 22, hidden: false)
+        #expect(ConsoleLayout.fit(screenWidth: 1680, dock: wide) == .leader)
+        let huge = DockMetrics(edge: .bottom, tileSize: 80, icons: 22, hidden: false)
+        #expect(ConsoleLayout.fit(screenWidth: 1680, dock: huge) == .dot)
+    }
+
+    @Test func dockLengthMatchesMeasurement() {
+        let dock = DockMetrics(edge: .bottom, tileSize: 81, icons: 11, hidden: false)
+        #expect(abs(dock.length - 988) < 10)
+    }
+
+    @Test func unknownDockShrinksToLeader() {
+        #expect(ConsoleLayout.fit(screenWidth: 1680, dock: nil) == .leader)
     }
 }
 

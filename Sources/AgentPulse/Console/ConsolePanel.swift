@@ -86,14 +86,23 @@ final class ConsolePanel: NSPanel {
     override var canBecomeKey: Bool { model.expanded }
     override var canBecomeMain: Bool { false }
 
-    /// Пульт в углу, противоположном маскоту, над Dock. Перетаскивание меняет только отступ маскота.
+    /// Пульт в углу, напротив маскота: капсула на уровне Dock, раскрытая панель над ним.
+    /// Перетаскивание меняет только отступ маскота.
     func place(on screen: NSScreen, anchor: PulseConfig.Display.Anchor, animated: Bool = false) {
+        let dock = DockReader.read()
+        let visible = screen.visibleFrame
         model.onLeft = anchor.isRight
+        model.fit = ConsoleLayout.fit(screenWidth: screen.frame.width, dock: dock)
+        model.activeWidth = ConsoleLayout.activeWidth(screenWidth: screen.frame.width, dock: dock)
+        model.expandedGap = ConsoleLayout.gap(screen: screen.frame, visible: visible)
         let size = model.panelSize
         model.placedSize = size
         placedScreen = screen
-        placedVisible = screen.visibleFrame
-        apply(NSRect(origin: ConsoleLayout.origin(visible: screen.visibleFrame, size: size, onLeft: model.onLeft), size: size))
+        placedVisible = visible
+        apply(NSRect(
+            x: ConsoleLayout.x(visible: visible, width: size.width, onLeft: model.onLeft),
+            y: ConsoleLayout.capsuleY(screen: screen.frame, visible: visible), width: size.width, height: size.height
+        ))
     }
 
     /// Пружина ширины идёт внутри панели, поэтому панель растёт сразу, а сжимается после анимации.
@@ -240,5 +249,22 @@ enum DroppedFiles {
     static func urls(_ info: any NSDraggingInfo) -> [URL] {
         let options: [NSPasteboard.ReadingOptionKey: Any] = [.urlReadingFileURLsOnly: true]
         return info.draggingPasteboard.readObjects(forClasses: [NSURL.self], options: options) as? [URL] ?? []
+    }
+}
+
+/// Настройки Dock: только размер иконок, их число и край. Названия не читаются, Accessibility не нужен.
+@MainActor
+enum DockReader {
+    static func read() -> DockMetrics? {
+        guard let dock = UserDefaults.standard.persistentDomain(forName: "com.apple.dock") else { return nil }
+        let tile = (dock["tilesize"] as? NSNumber)?.doubleValue ?? 48
+        let count = { (key: String) in (dock[key] as? [Any])?.count ?? 0 }
+        let recents = (dock["show-recents"] as? NSNumber)?.boolValue ?? true ? count("recent-apps") : 0
+        // Запущенные, но не закреплённые приложения тоже в Dock: считаем по верхней оценке, без названий.
+        let running = NSWorkspace.shared.runningApplications.filter { $0.activationPolicy == .regular }.count
+        let pinned = count("persistent-apps") + count("persistent-others") + recents
+        let icons = max(pinned, running) + 2
+        let edge = DockMetrics.Edge(rawValue: dock["orientation"] as? String ?? "bottom") ?? .bottom
+        return DockMetrics(edge: edge, tileSize: tile, icons: icons, hidden: (dock["autohide"] as? NSNumber)?.boolValue ?? false)
     }
 }

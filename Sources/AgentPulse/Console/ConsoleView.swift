@@ -332,7 +332,7 @@ struct ConsoleRootView: View {
 
     var body: some View {
         let reduce = NSWorkspace.shared.accessibilityDisplayShouldReduceMotion
-        VStack(alignment: model.onLeft ? .leading : .trailing, spacing: ConsoleLayout.expandedGap) {
+        VStack(alignment: model.onLeft ? .leading : .trailing, spacing: model.expandedGap) {
             if model.expanded { ExpandedBody(model: model).transition(panelTransition(reduced: reduce)) }
             CapsuleBody(model: model)
         }
