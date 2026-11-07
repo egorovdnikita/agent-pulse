@@ -97,9 +97,12 @@ struct DictationSettings: View {
             Text("Нужен Универсальный доступ. Без него диктовка кладёт текст в буфер обмена, прежнее содержимое буфера не сохраняется")
                 .font(SettingsStyle.caption).foregroundStyle(SettingsStyle.muted)
         }
-        if settings.accessibility, !AXIsProcessTrusted() {
-            Text("Разреши: Системные настройки → Конфиденциальность и безопасность → Универсальный доступ → Agent Pulse")
-                .font(SettingsStyle.caption).foregroundStyle(SettingsStyle.muted)
+        if settings.accessibility {
+            LabeledContent("Универсальный доступ", value: AXIsProcessTrusted() ? "Разрешён" : "Нужно разрешить")
+            if !AXIsProcessTrusted() {
+                Text("Системные настройки → Конфиденциальность и безопасность → Универсальный доступ → Agent Pulse")
+                    .font(SettingsStyle.caption).foregroundStyle(SettingsStyle.muted)
+            }
         }
     }
 }
