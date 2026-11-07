@@ -25,6 +25,8 @@ public struct MeetingEvent: Sendable, Equatable, Identifiable {
 /// Следующая встреча: лидер за 10 мин до начала, «Войти», если есть ссылка; идущий звонок — тишина маскота.
 public struct CalendarModule: ConsoleModule {
     public static let soonWindow: TimeInterval = 10 * 60
+    /// За сколько до начала встреча занимает капсулу.
+    public static let capsuleWindow: TimeInterval = 2 * 60
     public static let lastCall: TimeInterval = 60
     /// Опоздал — кнопка ещё нужна.
     public static let lateWindow: TimeInterval = 5 * 60
@@ -54,7 +56,9 @@ public struct CalendarModule: ConsoleModule {
     }
 
     public func priority(now: Date) -> ConsolePriority? {
-        next(now: now) == nil ? nil : .meetingSoon
+        // Лимиты в капсуле важнее: встреча занимает её только в последние минуты.
+        guard let event = next(now: now), event.start.timeIntervalSince(now) <= Self.capsuleWindow else { return nil }
+        return .meetingSoon
     }
 
     public func capsule(now: Date) -> CapsuleContent {
