@@ -60,7 +60,15 @@ struct TranslatorLanguagesRow: View {
                 case nil: Text("Проверяю…")
                 }
             }
-            .task { refresh() }
+            // Система качает языки в фоне и не сообщает о конце: пока их нет, статус перечитывается сам.
+            .task {
+                while !Task.isCancelled {
+                    let found = await ConsoleTranslator.languagesReady()
+                    ready.wrappedValue = found
+                    if found { return }
+                    try? await Task.sleep(for: .seconds(5))
+                }
+            }
         }
     }
 
