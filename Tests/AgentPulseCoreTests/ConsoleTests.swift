@@ -1112,3 +1112,75 @@ private func snapshot(_ used: Double, at: Date = t0, service: LimitService = .cl
         }
     }
 }
+
+@Suite struct TwoFingerTapTests {
+    private func two(_ time: Double, x: Double = 50, y: Double = 40, size: Double = 8) -> TouchFrame {
+        TouchFrame(time: time, contacts: [
+            TouchContact(id: 1, x: x - 10, y: y, size: size), TouchContact(id: 2, x: x + 10, y: y, size: size),
+        ])
+    }
+
+    private func tap(_ gesture: inout TwoFingerTap, at time: Double, x: Double = 50) -> Bool {
+        _ = gesture.observe(two(time, x: x))
+        _ = gesture.observe(two(time + 0.05, x: x))
+        return gesture.observe(TouchFrame(time: time + 0.1, contacts: []))
+    }
+
+    @Test func twoQuickTapsCount() {
+        var gesture = TwoFingerTap()
+        #expect(!tap(&gesture, at: 0))
+        #expect(tap(&gesture, at: 0.3))
+    }
+
+    @Test func slowSecondTapDoesNot() {
+        var gesture = TwoFingerTap()
+        _ = tap(&gesture, at: 0)
+        #expect(!tap(&gesture, at: 1))
+    }
+
+    @Test func oneFingerDoesNotCount() {
+        var gesture = TwoFingerTap()
+        for time in [0.0, 0.3] {
+            _ = gesture.observe(TouchFrame(time: time, contacts: [TouchContact(id: 1, x: 50, y: 40, size: 8)]))
+            #expect(!gesture.observe(TouchFrame(time: time + 0.1, contacts: [])))
+        }
+    }
+
+    @Test func scrollIsNotATap() {
+        var gesture = TwoFingerTap()
+        _ = gesture.observe(two(0))
+        _ = gesture.observe(two(0.05, y: 50))
+        #expect(!gesture.observe(TouchFrame(time: 0.1, contacts: [])))
+        #expect(!tap(&gesture, at: 0.3))
+    }
+
+    @Test func threeFingersAndPalmSpoil() {
+        var gesture = TwoFingerTap()
+        _ = gesture.observe(TouchFrame(time: 0, contacts: [
+            TouchContact(id: 1, x: 10, y: 10, size: 8), TouchContact(id: 2, x: 30, y: 10, size: 8), TouchContact(id: 3, x: 50, y: 10, size: 8),
+        ]))
+        #expect(!gesture.observe(TouchFrame(time: 0.1, contacts: [])))
+        _ = gesture.observe(two(0.2, size: 40))
+        #expect(!gesture.observe(TouchFrame(time: 0.3, contacts: [])))
+    }
+
+    @Test func pressIsAClick() {
+        var gesture = TwoFingerTap()
+        _ = tap(&gesture, at: 0)
+        _ = gesture.observe(two(0.3))
+        gesture.press()
+        #expect(!gesture.observe(TouchFrame(time: 0.4, contacts: [])))
+    }
+
+    @Test func holdIsNotATap() {
+        var gesture = TwoFingerTap()
+        _ = gesture.observe(two(0))
+        #expect(!gesture.observe(TouchFrame(time: 1, contacts: [])))
+    }
+
+    @Test func farApartTapsDoNotPair() {
+        var gesture = TwoFingerTap()
+        _ = tap(&gesture, at: 0, x: 20)
+        #expect(!tap(&gesture, at: 0.3, x: 90))
+    }
+}
