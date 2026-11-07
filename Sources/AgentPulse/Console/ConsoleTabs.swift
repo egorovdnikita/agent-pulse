@@ -605,6 +605,15 @@ struct PrompterTab: View {
                 Text(estimate).font(noteFont).foregroundStyle(ConsoleStyle.caption).padding(10).allowsHitTesting(false)
             }
         }
+        .overlay(alignment: .bottomLeading) {
+            if hasText {
+                Button("Очистить") { model.prompterDraft = "" }
+                    .buttonStyle(ConsolePressStyle())
+                    .font(ConsoleStyle.font(11, .medium))
+                    .foregroundStyle(ConsoleStyle.caption)
+                    .padding(10)
+            }
+        }
         .background(ConsoleStyle.card, in: RoundedRectangle(cornerRadius: ConsoleStyle.cardRadius, style: .continuous))
     }
 
@@ -714,12 +723,10 @@ struct PrompterTab: View {
             VStack(spacing: 8) {
                 // Кнопки стоят на своих местах всегда: недоступная гаснет, а не исчезает.
                 HStack(spacing: 8) {
+                    PrompterSmallButton(title: "Вставить", wide: true) { model.pastePrompterText() }
                     PrompterSmallButton(title: "Недавние", wide: true) { model.prompterRecentOpen = true }
                         .disabled(model.prompterLibrary.texts.isEmpty)
                         .opacity(model.prompterLibrary.texts.isEmpty ? 0.4 : 1)
-                    PrompterSmallButton(title: "Очистить", wide: true) { model.prompterDraft = "" }
-                        .disabled(!hasText)
-                        .opacity(hasText ? 1 : 0.4)
                 }
                 PrompterSmallButton(title: "Старт", strong: true, wide: true) { model.startPrompter() }
                     .disabled(!hasText)

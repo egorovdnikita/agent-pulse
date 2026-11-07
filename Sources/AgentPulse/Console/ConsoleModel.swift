@@ -383,6 +383,12 @@ final class ConsoleModel {
         return nil
     }
 
+    /// «Вставить»: буфер читается только по этому нажатию.
+    func pastePrompterText() {
+        guard let text = NSPasteboard.general.string(forType: .string), !text.isEmpty else { return }
+        prompterDraft = text
+    }
+
     /// Сколько займёт текст при нынешней скорости.
     var prompterEstimate: String? {
         let words = prompterDraft.split(whereSeparator: \.isWhitespace).count
