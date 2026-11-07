@@ -3,7 +3,7 @@ import AgentPulseCore
 import SwiftUI
 
 /// Пузырь с хвостиком к маскоту. Сверху — категория: иконка и заголовок, ниже — суть, чуть мельче и светлее.
-/// Чёрная заливка с тонким краем и Geist — тот же язык, что у Пульта.
+/// Белая заливка, мягкая тёмная тень — палитра маскота.
 struct BubbleView: View {
     static let maxWidth: CGFloat = 220
     nonisolated static let tailSize: CGFloat = 5
@@ -17,19 +17,19 @@ struct BubbleView: View {
                 CategoryIcon(category: message.category)
                 Text(message.title)
                     .font(ConsoleStyle.font(13, .semibold))
-                    .foregroundStyle(.white)
+                    .foregroundStyle(.black)
                     .lineLimit(1)
                     .layoutPriority(1)
                 if let when = message.when {
                     Text(when)
                         .font(ConsoleStyle.font(11))
-                        .foregroundStyle(ConsoleStyle.caption)
+                        .foregroundStyle(.black.opacity(0.4))
                         .lineLimit(1)
                 }
             }
             Text(message.text)
                 .font(ConsoleStyle.font(13))
-                .foregroundStyle(.white.opacity(0.75))
+                .foregroundStyle(.black.opacity(0.6))
                 .multilineTextAlignment(.leading)
                 .lineLimit(4)
                 .fixedSize(horizontal: false, vertical: true)
@@ -39,9 +39,8 @@ struct BubbleView: View {
         .padding(tailOnRight ? .trailing : .leading, Self.tailSize)
         .background(
             BubbleShape(tailOnRight: tailOnRight)
-                .fill(.black)
-                .overlay { BubbleShape(tailOnRight: tailOnRight).stroke(ConsoleStyle.edge, lineWidth: 1) }
-                .shadow(color: .black.opacity(0.35), radius: 6, y: 2)
+                .fill(.white)
+                .shadow(color: .black.opacity(0.25), radius: 4)
         )
         .frame(maxWidth: Self.maxWidth, alignment: tailOnRight ? .trailing : .leading)
     }
@@ -62,18 +61,9 @@ struct CategoryIcon: View {
             Image(nsImage: icon)
                 .resizable()
                 .renderingMode(.template)
-                .foregroundStyle(Self.readable(category.color))
+                .foregroundStyle(Color(hex: category.color))
                 .frame(width: Self.size, height: Self.size)
         }
-    }
-
-    /// Тёмные цвета категорий на чёрном не читаются: они светлеют, сохраняя оттенок.
-    static func readable(_ hex: UInt32) -> Color {
-        let (red, green, blue) = (Double((hex >> 16) & 0xFF), Double((hex >> 8) & 0xFF), Double(hex & 0xFF))
-        let light = (0.2126 * red + 0.7152 * green + 0.0722 * blue) / 255
-        guard light < 0.35 else { return Color(hex: hex) }
-        let mix = 0.55
-        return Color(.sRGB, red: (red + (255 - red) * mix) / 255, green: (green + (255 - green) * mix) / 255, blue: (blue + (255 - blue) * mix) / 255)
     }
 
     @MainActor private static var appIcons: [String: NSImage] = [:]
