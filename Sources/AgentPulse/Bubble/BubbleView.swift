@@ -16,26 +16,26 @@ struct BubbleView: View {
             HStack(spacing: 5) {
                 CategoryIcon(category: message.category)
                 Text(message.title)
-                    .font(ConsoleStyle.font(13, .semibold))
+                    .font(.system(size: 13, weight: .semibold, design: .rounded))
                     .foregroundStyle(.black)
                     .lineLimit(1)
                     .layoutPriority(1)
                 if let when = message.when {
                     Text(when)
-                        .font(ConsoleStyle.font(11))
+                        .font(.system(size: 11, weight: .medium, design: .rounded))
                         .foregroundStyle(.black.opacity(0.4))
                         .lineLimit(1)
                 }
             }
             Text(message.text)
-                .font(ConsoleStyle.font(13))
+                .font(.system(size: 12, weight: .medium, design: .rounded))
                 .foregroundStyle(.black.opacity(0.6))
                 .multilineTextAlignment(.leading)
                 .lineLimit(4)
                 .fixedSize(horizontal: false, vertical: true)
         }
-        .padding(.horizontal, 12)
-        .padding(.vertical, 9)
+        .padding(.horizontal, 10)
+        .padding(.vertical, 7)
         .padding(tailOnRight ? .trailing : .leading, Self.tailSize)
         .background(
             BubbleShape(tailOnRight: tailOnRight)
@@ -95,19 +95,18 @@ struct BubbleShape: Shape {
         let body = tailOnRight
             ? CGRect(x: rect.minX, y: rect.minY, width: rect.width - tail, height: rect.height)
             : CGRect(x: rect.minX + tail, y: rect.minY, width: rect.width - tail, height: rect.height)
+        var path = Path(roundedRect: body, cornerRadius: min(12, body.height / 2), style: .continuous)
         let midY = rect.midY
-        var tailPath = Path()
         if tailOnRight {
-            tailPath.move(to: CGPoint(x: body.maxX - 1, y: midY - 4))
-            tailPath.addLine(to: CGPoint(x: rect.maxX, y: midY))
-            tailPath.addLine(to: CGPoint(x: body.maxX - 1, y: midY + 4))
+            path.move(to: CGPoint(x: body.maxX - 1, y: midY - 4))
+            path.addLine(to: CGPoint(x: rect.maxX, y: midY))
+            path.addLine(to: CGPoint(x: body.maxX - 1, y: midY + 4))
         } else {
-            tailPath.move(to: CGPoint(x: body.minX + 1, y: midY - 4))
-            tailPath.addLine(to: CGPoint(x: rect.minX, y: midY))
-            tailPath.addLine(to: CGPoint(x: body.minX + 1, y: midY + 4))
+            path.move(to: CGPoint(x: body.minX + 1, y: midY - 4))
+            path.addLine(to: CGPoint(x: rect.minX, y: midY))
+            path.addLine(to: CGPoint(x: body.minX + 1, y: midY + 4))
         }
-        tailPath.closeSubpath()
-        // Одна фигура, а не две: иначе край рисуется поперёк хвостика.
-        return Path(roundedRect: body, cornerRadius: min(14, body.height / 2), style: .continuous).union(tailPath)
+        path.closeSubpath()
+        return path
     }
 }
