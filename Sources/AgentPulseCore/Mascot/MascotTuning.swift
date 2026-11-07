@@ -23,6 +23,8 @@ public struct MascotTuning: Codable, Sendable, Equatable {
     public var hoverRadius: Double = 120
     public var modeSwitchDelay: Double = 0.25
     public var bubbleGlance: Double = 0.3
+    /// Взгляд в камеру при суфлёре: вверх.
+    public var cameraGaze: Double = -0.85
 
     // Фиксации по состояниям
     public var idleFixation: ClosedRange<Double> = 2...4

@@ -19,6 +19,7 @@ enum CalendarScope: String, CaseIterable {
 @Observable
 final class ConsoleModel {
     private(set) var limits = LimitsModule()
+    private(set) var prompter = PrompterModule()
     private(set) var calendar = CalendarModule()
     private(set) var shelf = ShelfModule()
     private(set) var media = MediaModule()
@@ -42,11 +43,26 @@ final class ConsoleModel {
     var onLeft = true
     var enabled = true
     var limitsEnabled = true
+    var prompterEnabled = true
     var calendarEnabled = false
     var shelfEnabled = true
     var musicEnabled = true
     /// Громкость системного выхода, 0…1; nil — у устройства её нельзя менять.
     var volume: Double?
+
+    /// Текст в поле суфлёра.
+    var prompterDraft = ""
+    /// Вместо поля открыт список недавних текстов.
+    var prompterRecentOpen = false
+    private(set) var prompterLibrary = PrompterLibrary.load()
+    private(set) var prompterLines: [PrompterScript.Line] = []
+    /// Текущая строка. Отдельно от `prompter`: панель перерисовывается по строкам, а не по таймеру.
+    private(set) var prompterLine = 0
+    /// Высота выреза экрана, под которым стоит суфлёр.
+    var prompterNotch = 0.0
+    /// Голос недоступен: почему.
+    var prompterVoiceProblem: String?
+    private(set) var prompterSpeedShownUntil = Date.distantPast
 
     /// Сигнал для мозга маскота.
     @ObservationIgnored var onSignal: ((ToolSignal, Date) -> Void)?
@@ -60,6 +76,15 @@ final class ConsoleModel {
     @ObservationIgnored var onSeek: ((TimeInterval) -> Void)?
     @ObservationIgnored var onVolume: ((Double) -> Void)?
     @ObservationIgnored var onConnectMusic: (() -> Void)?
+    /// Суфлёр начался или кончился.
+    @ObservationIgnored var onPrompterChange: ((Bool) -> Void)?
+    /// Идти за голосом или перестать.
+    @ObservationIgnored var onPrompterVoice: ((Bool) -> Void)?
+    /// Изменилась скорость: запомнить в настройках.
+    @ObservationIgnored var onPrompterSpeed: ((Int) -> Void)?
+    /// Галочка «За голосом» во вкладке: настройки сохраняет приложение.
+    @ObservationIgnored var onPrompterVoiceToggle: ((Bool) -> Void)?
+    @ObservationIgnored private var prompterTimer: Timer?
     @ObservationIgnored private var lastTick = Date.distantPast
     @ObservationIgnored private var hoverTask: Task<Void, Never>?
     @ObservationIgnored private var quietOn = false
@@ -70,6 +95,7 @@ final class ConsoleModel {
     private var modules: [any ConsoleModule] {
         var list: [any ConsoleModule] = []
         if limitsEnabled { list.append(limits) }
+        if prompterEnabled { list.append(prompter) }
         if calendarEnabled { list.append(calendar) }
         if shelfEnabled { list.append(shelf) }
         if musicEnabled { list.append(media) }
@@ -177,6 +203,130 @@ final class ConsoleModel {
 
     func setMediaAvailability(_ availability: MediaAvailability) {
         media.availability = availability
+    }
+
+    // MARK: - Суфлёр
+
+    var prompterTabOpen: Bool { expanded && tab == .prompter }
+
+    private var prompterText: String? {
+        let draft = prompterDraft.trimmingCharacters(in: .whitespacesAndNewlines)
+        return draft.isEmpty ? prompterLibrary.texts.first : draft
+    }
+
+    /// ⌃⌥P: старт или стоп. Читать нечего — открывает вкладку.
+    func togglePrompter() {
+        guard prompterEnabled else { return }
+        if prompter.isActive {
+            stopPrompter()
+        } else if prompterText != nil {
+            startPrompter()
+        } else {
+            setExpanded(true)
+            tab = .prompter
+        }
+    }
+
+    func startPrompter() {
+        guard !prompter.isActive, let text = prompterText else { return }
+        now = Date()
+        guard prompter.start(text: text, now: now) else { return }
+        prompterLibrary.remember(text)
+        prompterLibrary.save()
+        prompterLines = prompter.script.lines(fits: PrompterLook.fits)
+        prompterLine = 0
+        setExpanded(false)
+        // Тишина — сразу, а не на следующем тике.
+        tickModules()
+        refresh(agentWaiting: false)
+        prompterTimer = Timer.scheduledTimer(withTimeInterval: 0.2, repeats: true) { [weak self] _ in
+            MainActor.assumeIsolated { self?.advancePrompter() }
+        }
+        onPrompterChange?(true)
+        if prompter.followsVoice { onPrompterVoice?(true) }
+    }
+
+    func stopPrompter() {
+        guard prompter.isActive else { return }
+        prompter.stop()
+        finishPrompter()
+    }
+
+    private func finishPrompter() {
+        prompterTimer?.invalidate()
+        prompterTimer = nil
+        now = Date()
+        onPrompterVoice?(false)
+        onPrompterChange?(false)
+        tickModules()
+        refresh(agentWaiting: false)
+    }
+
+    private func advancePrompter() {
+        let finished = prompter.advance(now: Date())
+        if finished {
+            finishPrompter()
+        } else {
+            let line = PrompterScript.lineIndex(of: prompter.word, in: prompterLines)
+            if line != prompterLine { prompterLine = line }
+        }
+    }
+
+    func togglePrompterPause() {
+        prompter.togglePause(now: Date())
+    }
+
+    func changePrompterSpeed(faster: Bool) {
+        prompter.changeSpeed(faster: faster)
+        prompterSpeedShownUntil = Date().addingTimeInterval(1.5)
+        onPrompterSpeed?(prompter.speed)
+        Task { [weak self] in
+            try? await Task.sleep(for: .seconds(1.6))
+            self?.prompterSpeedShownUntil = .distantPast
+        }
+    }
+
+    func setPrompterSpeed(_ value: Int) {
+        prompter.setSpeed(value)
+    }
+
+    func setPrompterFollowsVoice(_ on: Bool) {
+        prompter.followsVoice = on
+        prompterVoiceProblem = nil
+        if prompter.isActive { onPrompterVoice?(on) }
+    }
+
+    func prompterVoiceFailed(_ problem: String) {
+        prompter.followsVoice = false
+        prompterVoiceProblem = problem
+    }
+
+    func prompterHeard(_ words: [String]) {
+        prompter.hear(words, now: Date())
+    }
+
+    /// Строка в углу панели: пауза, ожидание голоса, новая скорость.
+    var prompterStatus: String? {
+        if Date() < prompterSpeedShownUntil { return "\(prompter.speed) слов в минуту" }
+        if prompter.mode == .paused { return "Пауза" }
+        if prompter.voiceHolds(now: Date()) { return "Жду голос" }
+        return nil
+    }
+
+    func forgetPrompterText(_ text: String) {
+        prompterLibrary.remove(text)
+        prompterLibrary.save()
+    }
+
+    /// Текстовый файл в поле суфлёра: читается только то, что ты бросил сам.
+    func dropped(_ urls: [URL]) {
+        guard prompterTabOpen, !prompter.isActive else {
+            addToShelf(urls)
+            return
+        }
+        guard let url = urls.first(where: { ["txt", "md"].contains($0.pathExtension.lowercased()) }),
+              let text = try? String(contentsOf: url, encoding: .utf8) else { return }
+        prompterDraft = text
     }
 
     // MARK: - Тик

@@ -26,6 +26,20 @@ final class ConsoleHotKey {
         reference = nil
         Self.handlers[id] = nil
         guard let code = Self.keyCodes[letter] else { return letter.isEmpty }
+        return register(code: code, action: action)
+    }
+
+    /// Ставит клавишу ⌃⌥ + код; nil — снимает.
+    @discardableResult
+    func set(code: Int?, action: @escaping () -> Void) -> Bool {
+        if let reference { UnregisterEventHotKey(reference) }
+        reference = nil
+        Self.handlers[id] = nil
+        guard let code else { return true }
+        return register(code: code, action: action)
+    }
+
+    private func register(code: Int, action: @escaping () -> Void) -> Bool {
         Self.installHandler()
         Self.handlers[id] = action
         let hotKeyID = EventHotKeyID(signature: OSType(0x50554C53), id: id) // 'PULS'

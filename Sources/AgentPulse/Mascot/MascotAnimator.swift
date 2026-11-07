@@ -124,7 +124,7 @@ final class MascotAnimator {
     /// во сне раз в 30–80 s улыбается во сне, приоткрывает глаза или ворочается. Без облачка и вне бюджета.
     /// Вызывается и из кадра, и из таймера глубокого сна — тогда кадры на время движения возвращаются.
     func ambientAct(at t: Double) {
-        guard !reduceMotion, active == nil, queue.isEmpty, !hovered, dragLook == nil else { return }
+        guard !reduceMotion, !watchesCamera, active == nil, queue.isEmpty, !hovered, dragLook == nil else { return }
         let interval: ClosedRange<Double>
         let pool: [MascotReaction]
         switch state {
@@ -161,6 +161,9 @@ final class MascotAnimator {
         }
         choreo.tick(at: t)
     }
+
+    /// Идёт суфлёр: маскот смотрит в камеру и не двигается сам.
+    var watchesCamera = false
 
     func glance(towardX x: Double, at t: Double) {
         glanceX = x
@@ -237,6 +240,7 @@ final class MascotAnimator {
             if t < glanceUntil {
                 frame.gaze = SIMD2(glanceX, -0.1)
             }
+            if watchesCamera { frame.gaze = SIMD2(0, tuning.cameraGaze) }
             if let offset = cursorOffset(cursor), let follow = CursorGaze.gaze(offset: offset, radius: tuning.hoverRadius) {
                 frame.gaze = follow
                 followingCursor = true

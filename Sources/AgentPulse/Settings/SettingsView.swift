@@ -418,6 +418,26 @@ private struct ConsoleSettings: View {
             Section("Модули") {
                 Toggle("Лимиты", isOn: Binding(get: { settings.limits }, set: { app.setLimitsEnabled($0) }))
                     .disabled(!settings.enabled)
+                Toggle(isOn: Binding(get: { settings.prompter }, set: { app.setPrompterEnabled($0) })) {
+                    Text("Суфлёр")
+                    Text("Текст под камерой. ⌃⌥P — старт и стоп, ⌃⌥↑ и ⌃⌥↓ — скорость, клик — пауза")
+                        .font(.caption).foregroundStyle(.secondary)
+                }
+                .disabled(!settings.enabled)
+                if settings.prompter {
+                    Toggle(isOn: Binding(get: { settings.prompterHidden }, set: { app.setPrompterHidden($0) })) {
+                        Text("Скрывать суфлёр при показе экрана")
+                        Text("В Zoom на macOS 15 и новее суфлёр может быть виден. Meet, Teams, Телемост и QuickTime не проверены")
+                            .font(.caption).foregroundStyle(.secondary)
+                    }
+                    .disabled(!settings.enabled)
+                    Toggle(isOn: Binding(get: { settings.prompterVoice }, set: { app.setPrompterVoice($0) })) {
+                        Text("Суфлёр идёт за голосом")
+                        Text("Спросит микрофон и распознавание речи. Всё на этом Mac, аудио не пишется")
+                            .font(.caption).foregroundStyle(.secondary)
+                    }
+                    .disabled(!settings.enabled)
+                }
                 Toggle(isOn: Binding(get: { settings.calendar }, set: { app.setCalendarEnabled($0) })) {
                     Text("Календарь")
                     Text("Спросит доступ к Календарям. Только чтение. Идущий звонок включает тишину маскота")

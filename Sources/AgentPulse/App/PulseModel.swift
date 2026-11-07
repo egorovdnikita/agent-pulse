@@ -157,6 +157,9 @@ final class PulseModel {
         let inbox = inbox
         console.enabled = config.console.enabled
         console.limitsEnabled = config.console.limits
+        console.prompterEnabled = config.console.prompter
+        console.setPrompterSpeed(config.console.prompterSpeed)
+        console.setPrompterFollowsVoice(config.console.prompterVoice)
         console.calendarEnabled = config.console.calendar
         console.shelfEnabled = config.console.shelf
         console.musicEnabled = config.console.music

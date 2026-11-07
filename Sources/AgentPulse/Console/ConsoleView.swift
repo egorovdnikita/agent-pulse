@@ -3,7 +3,7 @@ import AppKit
 import SwiftUI
 
 /// Подложка Пульта: тёмная и полупрозрачная. Пульт — инструмент, поэтому он строже маскота.
-private struct HUDBackground: NSViewRepresentable {
+struct HUDBackground: NSViewRepresentable {
     func makeNSView(context: Context) -> NSVisualEffectView {
         let view = NSVisualEffectView()
         view.material = .hudWindow
@@ -174,15 +174,21 @@ private struct ExpandedBody: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
-            HStack(spacing: 14) {
+            // Пять вкладок влезают только мельче; при узкой панели, когда Dock длинный, — ещё плотнее.
+            let crowded = model.tabs.count > 4
+            let tight = crowded && model.expandedWidth < 300
+            HStack(spacing: tight ? 5 : crowded ? 7 : 14) {
                 ForEach(model.tabs, id: \.id) { tab in
                     Button(tab.title) { model.tab = tab.id }
                         .buttonStyle(.plain)
-                        .font(.system(size: 13, weight: .semibold, design: .rounded))
+                        .font(.system(size: tight ? 11 : crowded ? 12 : 13, weight: .semibold, design: .rounded))
                         .foregroundStyle(.white.opacity(model.tab == tab.id ? 1 : 0.5))
+                        .lineLimit(1)
+                        .fixedSize()
                 }
             }
             switch model.tab {
+            case .prompter: PrompterTab(model: model)
             case .calendar: CalendarTab(model: model)
             case .shelf: ShelfTab(model: model)
             case .media: MediaTab(model: model)

@@ -465,3 +465,159 @@ private func snapshot(_ used: Double, at: Date = t0, service: LimitService = .cl
         #expect(eaten?.answersUser == true)
     }
 }
+
+@Suite struct PrompterTests {
+    private let start = Date(timeIntervalSinceReferenceDate: 1000)
+
+    private func words(_ count: Int) -> String { (1...count).map { "слово\($0)" }.joined(separator: " ") }
+
+    @Test func clockAdvancesAtSpeedAndCapsuleShowsTime() {
+        var module = PrompterModule()
+        let started = module.start(text: words(130), now: start)
+        #expect(started)
+        _ = module.advance(now: start.addingTimeInterval(30))
+        #expect(abs(module.position - 65) < 0.01)
+        let capsule = module.capsule(now: start)
+        #expect(capsule.text == "Суфлёр")
+        #expect(capsule.tail == "0:30 из 1:00")
+        #expect(module.priority(now: start) == .activeMode)
+        #expect(module.wantsQuiet(now: start))
+    }
+
+    @Test func emptyTextDoesNotStart() {
+        var module = PrompterModule()
+        let started = module.start(text: " \n ", now: start)
+        #expect(!started)
+        #expect(!module.isActive)
+        #expect(module.priority(now: start) == nil)
+        #expect(!module.wantsQuiet(now: start))
+    }
+
+    @Test func pauseStopsTextWithoutJumpAfterResume() {
+        var module = PrompterModule()
+        module.start(text: words(130), now: start)
+        module.togglePause(now: start)
+        _ = module.advance(now: start.addingTimeInterval(60))
+        #expect(module.position == 0)
+        #expect(module.wantsQuiet(now: start))
+        module.togglePause(now: start.addingTimeInterval(60))
+        _ = module.advance(now: start.addingTimeInterval(61))
+        #expect(abs(module.position - 130.0 / 60) < 0.01)
+    }
+
+    @Test func speedStepsTenPercentAndStaysInRange() {
+        var module = PrompterModule()
+        module.changeSpeed(faster: true)
+        #expect(module.speed == 143)
+        module.setSpeed(9999)
+        #expect(module.speed == PrompterModule.speedRange.upperBound)
+        module.changeSpeed(faster: true)
+        #expect(module.speed == PrompterModule.speedRange.upperBound)
+    }
+
+    @Test func finishesAfterHoldAtEnd() {
+        var module = PrompterModule()
+        module.start(text: "раз два", now: start)
+        let early = module.advance(now: start.addingTimeInterval(10))
+        #expect(!early)
+        #expect(module.isActive)
+        let finished = module.advance(now: start.addingTimeInterval(13))
+        #expect(finished)
+        #expect(!module.isActive)
+    }
+
+    @Test func linesWrapKeepWordNumbersAndParagraphs() {
+        let script = PrompterScript(text: "один два три\nчетыре")
+        let lines = script.lines { $0.count <= 8 }
+        #expect(lines.map(\.text) == ["один два", "три", "четыре"])
+        #expect(lines.map(\.words) == [0..<2, 2..<3, 3..<4])
+        #expect(PrompterScript.lineIndex(of: 2, in: lines) == 1)
+        #expect(PrompterScript.lineIndex(of: 99, in: lines) == 2)
+    }
+
+    @Test func voiceFollowsSpeechAndIgnoresPunctuationCaseAndYo() {
+        let script = PrompterScript(text: "Ещё раз, друзья: мы идём к новому экрану оплаты")
+        #expect(PrompterVoiceMatch.position(heard: ["еще", "раз", "друзья"], in: script.normalized, from: 0) == 3)
+        #expect(PrompterVoiceMatch.position(heard: ["новому", "экрану"], in: script.normalized, from: 3) == 8)
+    }
+
+    @Test func voiceToleratesEndingsButNotNoise() {
+        let script = PrompterScript(text: "показать результаты тестирования команде").normalized
+        #expect(PrompterVoiceMatch.position(heard: ["результат", "тестирование"], in: script, from: 0) == 3)
+        #expect(PrompterVoiceMatch.position(heard: ["кофе"], in: script, from: 0) == nil)
+        #expect(PrompterVoiceMatch.position(heard: [], in: script, from: 0) == nil)
+    }
+
+    @Test func voicePrefersNearestRepeat() {
+        let filler = Array(repeating: "пауза", count: 10)
+        let script = ["важный", "вопрос"] + filler + ["важный", "вопрос"]
+        #expect(PrompterVoiceMatch.position(heard: ["важный", "вопрос"], in: script, from: 11) == 14)
+    }
+
+    @Test func oneShortWordDoesNotJump() {
+        let script = PrompterScript(text: "мы начали и закончили и пошли").normalized
+        #expect(PrompterVoiceMatch.position(heard: ["и"], in: script, from: 0) == nil)
+    }
+
+    @Test func voiceHoldsAfterSilenceAndNeverGoesBack() {
+        var module = PrompterModule()
+        module.followsVoice = true
+        module.start(text: "первая вторая третья четвёртая —", now: start)
+        #expect(module.voiceHolds(now: start))
+        module.hear(["первая", "вторая", "третья"], now: start)
+        #expect(module.position == 3)
+        #expect(!module.voiceHolds(now: start.addingTimeInterval(1)))
+        #expect(module.voiceHolds(now: start.addingTimeInterval(1.5)))
+        _ = module.advance(now: start.addingTimeInterval(20))
+        #expect(module.position == 3)
+        module.hear(["первая", "вторая"], now: start.addingTimeInterval(21))
+        #expect(module.position == 3)
+        module.hear(["третья", "четвертая"], now: start.addingTimeInterval(22))
+        #expect(module.position == 5)
+    }
+
+    @Test func libraryKeepsLastFiveWithoutDuplicatesAndSurvivesReload() throws {
+        let url = FileManager.default.temporaryDirectory.appending(path: "prompter-\(UUID().uuidString).json")
+        defer { try? FileManager.default.removeItem(at: url) }
+        var library = PrompterLibrary()
+        for number in 1...7 { library.remember("текст \(number)") }
+        library.remember("текст 5")
+        library.remember("   ")
+        #expect(library.texts == ["текст 5", "текст 7", "текст 6", "текст 4", "текст 3"])
+        library.remove("текст 7")
+        library.save(to: url)
+        #expect(PrompterLibrary.load(from: url) == library)
+        let mode = try FileManager.default.attributesOfItem(atPath: url.path(percentEncoded: false))[.posixPermissions] as? Int
+        #expect(mode == 0o600)
+    }
+
+    @Test func panelSitsAtNotchOrUnderMenuBar() {
+        let screen = CGRect(x: 0, y: 0, width: 1512, height: 982)
+        let visible = CGRect(x: 0, y: 80, width: 1512, height: 865)
+        let notched = PrompterLayout.frame(screen: screen, visible: visible, notch: 37)
+        #expect(notched.maxY == 982)
+        #expect(notched.midX == 756)
+        #expect(notched.width == 420)
+        #expect(Double(notched.height) == PrompterLayout.textHeight + 37)
+        let plain = PrompterLayout.frame(screen: screen, visible: visible, notch: 0)
+        #expect(Double(plain.maxY) == 945 - PrompterLayout.menuBarGap)
+        #expect(Double(plain.height) == PrompterLayout.textHeight)
+    }
+
+    @Test func oldConfigWithoutPrompterKeysLoads() throws {
+        var config = PulseConfig()
+        config.console.calendar = true
+        let data = try JSONEncoder().encode(config)
+        var json = try #require(JSONSerialization.jsonObject(with: data) as? [String: Any])
+        var console = try #require(json["console"] as? [String: Any])
+        for key in ["prompter", "prompterHidden", "prompterVoice", "prompterSpeed"] { console[key] = nil }
+        json["console"] = console
+        let old = try JSONSerialization.data(withJSONObject: json)
+        let loaded = PulseConfig.decode(old)
+        #expect(loaded.console.calendar)
+        #expect(loaded.console.prompter)
+        #expect(loaded.console.prompterHidden)
+        #expect(!loaded.console.prompterVoice)
+        #expect(loaded.console.prompterSpeed == PrompterModule.defaultSpeed)
+    }
+}

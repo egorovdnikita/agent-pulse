@@ -67,9 +67,9 @@ final class ConsolePanel: NSPanel {
         host.sizingOptions = []
         host.onHover = { [weak model] inside in model?.setHover(inside) }
         host.registerForDraggedTypes([.fileURL])
-        host.acceptsFiles = { [weak model] in model?.shelfEnabled == true }
+        host.acceptsFiles = { [weak model] in model?.shelfEnabled == true || model?.prompterTabOpen == true }
         host.onDropTarget = { [weak model] on in model?.dropTargeted = on }
-        host.onDrop = { [weak model] urls in model?.addToShelf(urls) }
+        host.onDrop = { [weak model] urls in model?.dropped(urls) }
         contentView = host
     }
 
@@ -123,6 +123,12 @@ final class ConsolePanel: NSPanel {
                 MainActor.assumeIsolated { self?.model.setExpanded(false) }
             }
             localMonitor = NSEvent.addLocalMonitorForEvents(matching: [.keyDown, .leftMouseDown]) { [weak self] event in
+                // У приложения без меню ⌘V и остальные некому обработать: поле суфлёра осталось бы без вставки.
+                if event.type == .keyDown, event.modifierFlags.intersection(.deviceIndependentFlagsMask) == .command,
+                   let key = event.charactersIgnoringModifiers?.lowercased(), let action = Self.editActions[key],
+                   NSApp.sendAction(action, to: nil, from: nil) {
+                    return nil
+                }
                 let escape = event.type == .keyDown && event.keyCode == 53
                 let click = event.type == .leftMouseDown
                 let window = event.windowNumber
@@ -140,6 +146,11 @@ final class ConsolePanel: NSPanel {
             resignKey()
         }
     }
+
+    private static let editActions: [String: Selector] = [
+        "v": #selector(NSText.paste(_:)), "c": #selector(NSText.copy(_:)), "x": #selector(NSText.cut(_:)),
+        "a": #selector(NSText.selectAll(_:)), "z": Selector(("undo:")),
+    ]
 
     func rejoinAllSpaces() {
         collectionBehavior = []

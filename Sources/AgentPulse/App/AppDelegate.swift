@@ -1,4 +1,5 @@
 import AgentPulseCore
+import Carbon.HIToolbox
 import AppKit
 import os
 import ServiceManagement
@@ -11,6 +12,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     private(set) var panel: OverlayPanel?
     private(set) var consolePanel: ConsolePanel?
     private let consoleHotKey = ConsoleHotKey(id: 1)
+    private let prompterHotKey = ConsoleHotKey(id: 2)
+    private let prompterFaster = ConsoleHotKey(id: 3)
+    private let prompterSlower = ConsoleHotKey(id: 4)
+    private let prompterVoice = PrompterVoice()
+    private var prompterPanel: PrompterPanel?
     private var codexTimer: Timer?
     private var codexFetchedAt = Date.distantPast
     private var codexFetching = false
@@ -293,6 +299,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
             console?.volume = value
         }
         console.onConnectMusic = { [weak self] in self?.startScriptMedia() }
+        startPrompter()
         if model.config.console.calendar { startCalendar() }
         startMedia()
         startScreenshots()
@@ -333,6 +340,84 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
                 console.tab = tab
             }
         }
+    }
+
+    private func startPrompter() {
+        let console = model.console
+        let panel = PrompterPanel(model: console)
+        prompterPanel = panel
+        console.onPrompterChange = { [weak self, weak panel] on in
+            guard let self, let panel else { return }
+            self.model.animator.watchesCamera = on
+            // Стрелки заняты только на время суфлёра: они нужны и другим приложениям.
+            self.prompterFaster.set(code: on ? kVK_UpArrow : nil) { [weak console] in console?.changePrompterSpeed(faster: true) }
+            self.prompterSlower.set(code: on ? kVK_DownArrow : nil) { [weak console] in console?.changePrompterSpeed(faster: false) }
+            if on {
+                panel.place(fallback: self.consoleScreen, hiddenFromSharing: self.model.config.console.prompterHidden)
+                panel.orderFrontRegardless()
+            } else {
+                panel.orderOut(nil)
+            }
+        }
+        console.onPrompterVoice = { [weak self, weak console] on in
+            guard let self else { return }
+            if on, let console { self.prompterVoice.start(text: console.prompter.script.text) } else { self.prompterVoice.stop() }
+        }
+        console.onPrompterSpeed = { [weak self] speed in
+            self?.model.config.console.prompterSpeed = speed
+            try? self?.model.config.save()
+        }
+        console.onPrompterVoiceToggle = { [weak self] on in self?.setPrompterVoice(on) }
+        prompterVoice.onWords = { [weak console] in console?.prompterHeard($0) }
+        prompterVoice.onFailure = { [weak console, weak self] failure in
+            console?.prompterVoiceFailed(failure.rawValue)
+            self?.model.config.console.prompterVoice = false
+            try? self?.model.config.save()
+        }
+        applyPrompterHotKey()
+        // Отладка: `--prompter-demo [голос]` — сразу запустить подставной текст.
+        if let index = CommandLine.arguments.firstIndex(of: "--prompter-demo") {
+            console.prompterDraft = Self.prompterDemo
+            if index + 1 < CommandLine.arguments.count, CommandLine.arguments[index + 1] == "голос" {
+                console.setPrompterFollowsVoice(true)
+            }
+            DispatchQueue.main.asyncAfter(deadline: .now() + 1) { console.startPrompter() }
+        }
+    }
+
+    private static let prompterDemo = """
+    Добрый день, коллеги. Сегодня расскажу про новый экран оплаты и про то, что мы узнали за две недели тестов.
+    Начну с главного: люди стали быстрее находить нужную кнопку, а ошибок при вводе карты стало заметно меньше.
+    Дальше покажу, что ещё предстоит сделать до конца месяца и где нам понадобится помощь.
+    """
+
+    func applyPrompterHotKey() {
+        let on = model.config.console.enabled && model.config.console.prompter
+        let registered = prompterHotKey.set(code: on ? kVK_ANSI_P : nil) { [weak self] in self?.model.console.togglePrompter() }
+        if !registered { Self.log.notice("hotkey суфлёра занята") }
+    }
+
+    func setPrompterEnabled(_ on: Bool) {
+        model.config.console.prompter = on
+        try? model.config.save()
+        if !on {
+            model.console.stopPrompter()
+            model.console.setExpanded(false)
+        }
+        model.console.prompterEnabled = on
+        applyPrompterHotKey()
+    }
+
+    func setPrompterHidden(_ on: Bool) {
+        model.config.console.prompterHidden = on
+        try? model.config.save()
+        prompterPanel?.sharingType = on ? .none : .readOnly
+    }
+
+    func setPrompterVoice(_ on: Bool) {
+        model.config.console.prompterVoice = on
+        try? model.config.save()
+        model.console.setPrompterFollowsVoice(on)
     }
 
     private var consoleScreen: NSScreen? {
@@ -379,6 +464,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         if !on { model.console.setExpanded(false) }
         updateConsoleVisibility()
         applyConsoleHotKey()
+        if !on { model.console.stopPrompter() }
+        model.console.prompterEnabled = on && model.config.console.prompter
+        applyPrompterHotKey()
     }
 
     func setLimitsEnabled(_ on: Bool) {

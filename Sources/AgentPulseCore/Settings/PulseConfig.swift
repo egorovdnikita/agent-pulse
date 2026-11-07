@@ -27,6 +27,13 @@ public struct PulseConfig: Codable, Sendable, Equatable {
         public var music = true
         /// Новые снимки экрана попадают на полку.
         public var shelfScreenshots = false
+        public var prompter = true
+        /// Суфлёр скрыт от показа экрана. Это не гарантия: см. строку в настройках.
+        public var prompterHidden = true
+        /// Текст идёт за голосом. Просит микрофон и распознавание речи при включении.
+        public var prompterVoice = false
+        /// Слова в минуту.
+        public var prompterSpeed = PrompterModule.defaultSpeed
         /// Глобальная клавиша раскрытия: буква вместе с ⌃⌥; пусто — без клавиши.
         public var hotkey = "x"
         /// Путь к `codex`; пусто — найти самому.

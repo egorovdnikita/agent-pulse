@@ -242,3 +242,193 @@ struct MediaTab: View {
             .buttonStyle(.plain).accessibilityLabel(label)
     }
 }
+
+// MARK: - Суфлёр
+
+/// Поле текста. Файлы принимает вкладка: NSTextView вставил бы вместо них путь.
+private struct PrompterEditor: NSViewRepresentable {
+    final class TextView: NSTextView {
+        override func updateDragTypeRegistration() { unregisterDraggedTypes() }
+    }
+
+    @Binding var text: String
+
+    func makeCoordinator() -> Coordinator { Coordinator(text: $text) }
+
+    func makeNSView(context: Context) -> NSScrollView {
+        let view = TextView()
+        view.delegate = context.coordinator
+        view.isRichText = false
+        view.allowsUndo = true
+        view.drawsBackground = false
+        view.textColor = .white
+        view.insertionPointColor = .white
+        view.font = .systemFont(ofSize: 13)
+        view.textContainerInset = NSSize(width: 6, height: 6)
+        view.isVerticallyResizable = true
+        view.autoresizingMask = .width
+        view.textContainer?.widthTracksTextView = true
+        view.string = text
+        let scroll = NSScrollView()
+        scroll.documentView = view
+        scroll.drawsBackground = false
+        scroll.hasVerticalScroller = true
+        scroll.autohidesScrollers = true
+        return scroll
+    }
+
+    func updateNSView(_ scroll: NSScrollView, context: Context) {
+        context.coordinator.text = $text
+        if let view = scroll.documentView as? NSTextView, view.string != text { view.string = text }
+    }
+
+    final class Coordinator: NSObject, NSTextViewDelegate {
+        var text: Binding<String>
+
+        init(text: Binding<String>) {
+            self.text = text
+        }
+
+        func textDidChange(_ notification: Notification) {
+            guard let view = notification.object as? NSTextView else { return }
+            text.wrappedValue = view.string
+        }
+    }
+}
+
+private struct PrompterSmallButton: View {
+    let title: String
+    var strong = false
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            Text(title)
+                .font(.system(size: 12, weight: .medium, design: .rounded))
+                .foregroundStyle(strong ? .black : .white)
+                .padding(.horizontal, 10)
+                .frame(height: 24)
+                .background(strong ? Color.white : Color.white.opacity(0.14), in: Capsule())
+                .contentShape(Capsule())
+        }
+        .buttonStyle(.plain)
+    }
+}
+
+/// Вкладка «Суфлёр»: текст, скорость, голос. Тексты хранятся только на этом Mac.
+struct PrompterTab: View {
+    @Bindable var model: ConsoleModel
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            if model.prompter.isActive {
+                running
+            } else if model.prompterRecentOpen {
+                recent
+            } else {
+                editor
+            }
+            if !model.prompterRecentOpen || model.prompter.isActive { controls }
+        }
+    }
+
+    private var editor: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            ZStack(alignment: .topLeading) {
+                PrompterEditor(text: $model.prompterDraft)
+                if model.prompterDraft.isEmpty {
+                    Text("Вставь текст или перетащи .txt и .md")
+                        .font(.system(size: 13))
+                        .foregroundStyle(.white.opacity(0.4))
+                        .padding(.horizontal, 11)
+                        .padding(.vertical, 6)
+                        .allowsHitTesting(false)
+                }
+            }
+            .background(.white.opacity(0.08), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+            HStack(spacing: 8) {
+                if !model.prompterLibrary.texts.isEmpty {
+                    PrompterSmallButton(title: "Недавние") { model.prompterRecentOpen = true }
+                }
+                Spacer()
+                if !model.prompterDraft.isEmpty {
+                    PrompterSmallButton(title: "Очистить") { model.prompterDraft = "" }
+                }
+                PrompterSmallButton(title: "Старт", strong: true) { model.startPrompter() }
+                    .disabled(model.prompterDraft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                    .opacity(model.prompterDraft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? 0.4 : 1)
+            }
+        }
+    }
+
+    private var recent: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            ForEach(model.prompterLibrary.texts, id: \.self) { text in
+                HStack(spacing: 8) {
+                    Button {
+                        model.prompterDraft = text
+                        model.prompterRecentOpen = false
+                    } label: {
+                        Text(text.replacingOccurrences(of: "\n", with: " "))
+                            .font(.system(size: 12, design: .rounded))
+                            .foregroundStyle(.white)
+                            .lineLimit(1)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
+                    Button("Удалить") {
+                        model.forgetPrompterText(text)
+                        if model.prompterLibrary.texts.isEmpty { model.prompterRecentOpen = false }
+                    }
+                    .buttonStyle(.plain)
+                    .font(.system(size: 11, design: .rounded))
+                    .foregroundStyle(.white.opacity(0.6))
+                }
+            }
+            Spacer(minLength: 0)
+            PrompterSmallButton(title: "Назад") { model.prompterRecentOpen = false }
+        }
+    }
+
+    private var running: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text("\(PrompterModule.clock(model.prompter.elapsed)) из \(PrompterModule.clock(model.prompter.total))")
+                .font(.system(size: 22, weight: .semibold, design: .rounded).monospacedDigit())
+                .foregroundStyle(.white)
+            HStack(spacing: 8) {
+                PrompterSmallButton(title: model.prompter.mode == .paused ? "Дальше" : "Пауза") { model.togglePrompterPause() }
+                PrompterSmallButton(title: "Стоп") { model.stopPrompter() }
+            }
+            Spacer(minLength: 0)
+        }
+    }
+
+    private var controls: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            HStack(spacing: 8) {
+                PrompterSmallButton(title: "−") { model.changePrompterSpeed(faster: false) }
+                Text("\(model.prompter.speed) сл/мин")
+                    .font(.system(size: 12, design: .rounded).monospacedDigit())
+                    .foregroundStyle(.white.opacity(0.75))
+                    .lineLimit(1)
+                    .fixedSize()
+                PrompterSmallButton(title: "+") { model.changePrompterSpeed(faster: true) }
+                Spacer()
+                Toggle("За голосом", isOn: Binding(
+                    get: { model.prompter.followsVoice }, set: { model.onPrompterVoiceToggle?($0) }
+                ))
+                .toggleStyle(.checkbox)
+                .font(.system(size: 12, design: .rounded))
+                .foregroundStyle(.white.opacity(0.75))
+                .lineLimit(1)
+                .fixedSize()
+            }
+            if let problem = model.prompterVoiceProblem {
+                Text(problem)
+                    .font(.system(size: 11, design: .rounded))
+                    .foregroundStyle(Color(hex: 0xFF9F0A))
+            }
+        }
+    }
+}

@@ -15,7 +15,8 @@ final class QuietSense: Sense {
     func start(emit: @escaping @Sendable (Signal) -> Void) {
         let check: @MainActor () -> Void = { [weak self] in
             guard let self else { return }
-            let now = Self.microphoneInUse() || Self.cameraInUse() || Self.fullScreenWindow()
+            let microphone = Self.microphoneInUse() && !Self.ownMicrophone(at: Date())
+            let now = microphone || Self.cameraInUse() || Self.fullScreenWindow()
             guard now != self.quiet else { return }
             self.quiet = now
             emit(Signal(.quiet, now ? .quietOn : .quietOff))
@@ -33,6 +34,14 @@ final class QuietSense: Sense {
     func stop() {
         timer?.invalidate()
         if let spaceObserver { NSWorkspace.shared.notificationCenter.removeObserver(spaceObserver) }
+    }
+
+    /// Свой микрофон созвоном не считается: пока Pulse пишет звук и ещё 5 s после.
+    static var ownMicrophoneUntil = Date.distantPast
+    static var ownMicrophoneRunning = false
+
+    static func ownMicrophone(at now: Date) -> Bool {
+        ownMicrophoneRunning || now < ownMicrophoneUntil
     }
 
     static func microphoneInUse() -> Bool {
