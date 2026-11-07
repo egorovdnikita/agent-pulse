@@ -347,6 +347,8 @@ struct ThinSlider: View {
 @MainActor
 enum ConsoleSheet {
     static func render(_ model: ConsoleModel, app: AppDelegate, to folder: URL) {
+        // Страницы рисуются без полосы: она видна на настоящем экране.
+        model.placedTop = false
         try? FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
         write(CapsulePreview(model: model), size: CGSize(width: model.capsuleWidth + 16, height: 48), to: folder.appending(path: "capsule.png"))
         model.showPanelNow()

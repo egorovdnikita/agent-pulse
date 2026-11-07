@@ -61,6 +61,9 @@ private struct CapsuleBody: View {
 
     var body: some View {
         let accent = model.dropTargeted ? Color.white.opacity(0.7) : model.alert.map { Color(hex: $0.color) }
+        let shape = model.placedTop
+            ? AnyShape(UnevenRoundedRectangle(bottomLeadingRadius: 12, bottomTrailingRadius: 12, style: .continuous))
+            : AnyShape(Capsule())
         HStack(spacing: ConsoleLook.labelGap) {
             if model.showsDot {
                 Image(nsImage: SolarIcons.image("tuning-2") ?? NSImage())
@@ -126,9 +129,16 @@ private struct CapsuleBody: View {
         .padding(.horizontal, model.showsDot ? 0 : ConsoleLook.padding)
         .frame(width: model.capsuleWidth, height: model.capsuleHeight)
         .background(Color.black)
-        .clipShape(Capsule())
-        .overlay { Capsule().strokeBorder(accent ?? ConsoleStyle.edge, lineWidth: accent == nil ? 1 : 1.5) }
-        .contentShape(Capsule())
+        .clipShape(shape)
+        .overlay {
+            // Вверху полоса сливается со строкой меню, край нужен только тревоге.
+            if let accent {
+                shape.stroke(accent, lineWidth: 1.5)
+            } else if !model.placedTop {
+                shape.stroke(ConsoleStyle.edge, lineWidth: 1)
+            }
+        }
+        .contentShape(shape)
         .accessibilityElement(children: .contain)
         .accessibilityLabel(model.capsule?.label ?? "Пульт")
         .onTapGesture { model.toggle() }
@@ -343,18 +353,23 @@ private struct PanelSurface<Content: View>: View {
     var body: some View {
         let reduce = NSWorkspace.shared.accessibilityDisplayShouldReduceMotion
         let open = model.panelOpen
-        let alignment: Alignment = model.onLeft ? .bottomLeading : .bottomTrailing
+        let top = model.placedTop
+        let alignment: Alignment = top ? .top : model.onLeft ? .bottomLeading : .bottomTrailing
+        let strip = top ? model.stripHeight : 0
         let width = open ? ConsoleLayout.expandedWidth : model.capsuleWidth
-        let height = open ? model.panelHeight : model.capsuleHeight
-        let radius = open ? ConsoleStyle.surfaceRadius : model.capsuleHeight / 2
-        let shape = RoundedRectangle(cornerRadius: radius, style: .continuous)
+        let height = open ? model.panelHeight + strip : model.capsuleHeight
+        let radius = open ? ConsoleStyle.surfaceRadius : top ? 12 : model.capsuleHeight / 2
+        let shape = UnevenRoundedRectangle(
+            topLeadingRadius: top ? 0 : radius, bottomLeadingRadius: radius, bottomTrailingRadius: radius,
+            topTrailingRadius: top ? 0 : radius, style: .continuous
+        )
         ZStack(alignment: alignment) {
             shape.fill(Color.black).frame(width: width, height: height)
-            content.mask(alignment: alignment) { shape.frame(width: width, height: height) }
-            shape.strokeBorder(ConsoleStyle.edge, lineWidth: 1).frame(width: width, height: height)
+            content.padding(.top, strip).mask(alignment: alignment) { shape.frame(width: width, height: height) }
+            if !top { shape.stroke(ConsoleStyle.edge, lineWidth: 1).frame(width: width, height: height) }
         }
-        .frame(width: ConsoleLayout.expandedWidth, height: model.panelHeight, alignment: alignment)
-        .offset(y: open ? 0 : model.expandedGap + model.capsuleHeight)
+        .frame(width: ConsoleLayout.expandedWidth, height: model.panelHeight + strip, alignment: alignment)
+        .offset(y: open || top ? 0 : model.expandedGap + model.capsuleHeight)
         .animation(model.director.quietChange ? nil : ConsoleStyle.panelMotion(opening: open, reduced: reduce), value: open)
         .animation(reduce ? .easeInOut(duration: 0.15) : .spring(response: 0.38, dampingFraction: 0.86), value: model.pagesHovered)
     }
@@ -384,11 +399,22 @@ struct ConsoleRootView: View {
 
     var body: some View {
         let reduce = NSWorkspace.shared.accessibilityDisplayShouldReduceMotion
-        VStack(alignment: model.onLeft ? .leading : .trailing, spacing: model.expandedGap) {
-            if model.panelMounted { PanelSurface(model: model) { ExpandedBody(model: model) } }
-            CapsuleBody(model: model)
+        Group {
+            if model.placedTop {
+                // Вверху полоса лежит поверх панели: они одна чёрная форма, раскрытая из строки меню.
+                ZStack(alignment: .top) {
+                    if model.panelMounted { PanelSurface(model: model) { ExpandedBody(model: model) } }
+                    CapsuleBody(model: model)
+                }
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+            } else {
+                VStack(alignment: model.onLeft ? .leading : .trailing, spacing: model.expandedGap) {
+                    if model.panelMounted { PanelSurface(model: model) { ExpandedBody(model: model) } }
+                    CapsuleBody(model: model)
+                }
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: model.onLeft ? .bottomLeading : .bottomTrailing)
+            }
         }
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: model.onLeft ? .bottomLeading : .bottomTrailing)
         .animation(model.director.quietChange ? nil : ConsoleStyle.motion(opening: true, reduced: reduce), value: model.capsuleWidth)
     }
 }

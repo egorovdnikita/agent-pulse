@@ -55,6 +55,10 @@ final class ConsoleModel {
     var activeWidth = ConsoleLayout.activeWidth
     /// Зазор между капсулой на уровне Dock и панелью над ним.
     var expandedGap = ConsoleLayout.expandedGap
+    /// Пульт вверху: капсула — полоса в строке меню, панель раскрывается из неё вниз.
+    var placedTop = true
+    /// Высота строки меню: полоса занимает её целиком.
+    var stripHeight = 31.0
     /// Курсор над точками: они становятся кнопками, а форма подрастает.
     var pagesHovered = false
     /// Над какой страницей курсор: над ней подпись.
@@ -746,7 +750,10 @@ final class ConsoleModel {
         return min(limit, max(ConsoleLayout.minWidth, ConsoleLook.ring + ConsoleLook.labelGap + ceil(width) + extras + ConsoleLook.padding * 2))
     }
 
-    var capsuleHeight: Double { showsDot ? ConsoleLayout.dotSize : ConsoleLayout.capsuleHeight }
+    var capsuleHeight: Double {
+        if placedTop { return stripHeight }
+        return showsDot ? ConsoleLayout.dotSize : ConsoleLayout.capsuleHeight
+    }
 
     var panelSize: CGSize {
         guard expanded else { return CGSize(width: capsuleWidth, height: capsuleHeight) }

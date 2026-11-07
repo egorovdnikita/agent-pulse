@@ -81,19 +81,33 @@ final class ConsolePanel: NSPanel {
     override var canBecomeKey: Bool { model.expanded }
     override var canBecomeMain: Bool { false }
 
-    /// Пульт в углу, напротив маскота: капсула на уровне Dock, раскрытая панель над ним.
-    /// Перетаскивание меняет только отступ маскота.
+    /// Вверху — как шторка: полоса в строке меню, панель раскрывается из неё вниз.
+    /// Внизу — в углу напротив маскота: капсула на уровне Dock, панель над ним.
     func place(on screen: NSScreen, anchor: PulseConfig.Display.Anchor, animated: Bool = false) {
-        let dock = DockReader.read()
         let visible = screen.visibleFrame
         model.onLeft = anchor.isRight
+        placedScreen = screen
+        placedVisible = visible
+        if model.placedTop {
+            let bar = screen.frame.maxY - visible.maxY
+            model.stripHeight = bar > 0 ? bar : NSStatusBar.system.thickness
+            model.fit = .full(width: ConsoleLayout.maxWidth)
+            model.activeWidth = ConsoleLayout.activeWidth
+            model.expandedGap = 0
+            let size = model.panelSize
+            model.placedSize = size
+            apply(NSRect(
+                x: ConsoleLayout.topCenter(screen: screen.frame) - size.width / 2, y: screen.frame.maxY - size.height,
+                width: size.width, height: size.height
+            ))
+            return
+        }
+        let dock = DockReader.read()
         model.fit = ConsoleLayout.fit(screenWidth: screen.frame.width, dock: dock)
         model.activeWidth = ConsoleLayout.activeWidth(screenWidth: screen.frame.width, dock: dock)
         model.expandedGap = ConsoleLayout.gap(screen: screen.frame, visible: visible)
         let size = model.panelSize
         model.placedSize = size
-        placedScreen = screen
-        placedVisible = visible
         apply(NSRect(
             x: ConsoleLayout.x(visible: visible, width: size.width, onLeft: model.onLeft),
             y: ConsoleLayout.capsuleY(screen: screen.frame, visible: visible), width: size.width, height: size.height
@@ -109,10 +123,7 @@ final class ConsolePanel: NSPanel {
             refreshShadow()
             return
         }
-        let union = NSRect(
-            x: min(frame.minX, target.minX), y: target.minY,
-            width: max(frame.maxX, target.maxX) - min(frame.minX, target.minX), height: max(frame.height, target.height)
-        )
+        let union = frame.union(target)
         setFrame(union, display: true)
         shrinkTask = Task { [weak self] in
             try? await Task.sleep(for: .milliseconds(ConsoleLook.closeMilliseconds))
