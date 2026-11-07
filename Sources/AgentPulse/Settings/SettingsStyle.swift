@@ -104,8 +104,10 @@ private struct SettingsRows: _VariadicView_UnaryViewRoot {
 struct SettingsRowStyle: LabeledContentStyle {
     func makeBody(configuration: Configuration) -> some View {
         HStack(spacing: 16) {
+            // Одна колонка подписей: ползунки и значения начинаются ровно, какой бы длины ни была подпись.
             configuration.label
                 .fixedSize(horizontal: false, vertical: true)
+                .frame(minWidth: 120, alignment: .leading)
                 .layoutPriority(1)
             configuration.content
                 .foregroundStyle(SettingsStyle.muted)
