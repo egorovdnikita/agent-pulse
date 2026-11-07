@@ -940,3 +940,21 @@ private func snapshot(_ used: Double, at: Date = t0, service: LimitService = .cl
         #expect(ConsolePriority.activeMode < .limitsNormal)
     }
 }
+
+@Suite struct ShelfFileKindTests {
+    @Test func kindFollowsExtensionInAnyCase() {
+        #expect(ShelfFileKind(name: "Снимок.PNG") == .image)
+        #expect(ShelfFileKind(name: "отчёт.pdf") == .pdf)
+        #expect(ShelfFileKind(name: "архив.tar.gz") == .archive)
+        #expect(ShelfFileKind(name: "доклад.key") == .presentation)
+        #expect(ShelfFileKind(name: "план.docx") == .document)
+        #expect(ShelfFileKind(name: "бюджет.xlsx") == .spreadsheet)
+        #expect(ShelfFileKind(name: "hosts") == .other)
+    }
+
+    @Test func badgeIsShortExtension() {
+        #expect(ShelfFileKind.badge(name: "план.docx") == "DOCX")
+        #expect(ShelfFileKind.badge(name: "hosts") == nil)
+        #expect(ShelfFileKind.badge(name: "файл.torrent") == nil)
+    }
+}

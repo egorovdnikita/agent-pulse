@@ -46,3 +46,34 @@ public struct ShelfModule: ConsoleModule {
 
     public mutating func tick(now: Date) -> [ToolSignal] { [] }
 }
+
+/// Вид файла на полке: по расширению, содержимое не читается.
+public enum ShelfFileKind: Sendable, Equatable {
+    case image, pdf, archive, presentation, document, spreadsheet, other
+
+    public init(name: String) {
+        switch (name as NSString).pathExtension.lowercased() {
+        case "png", "jpg", "jpeg", "gif", "heic", "heif", "tif", "tiff", "webp", "bmp", "svg":
+            self = .image
+        case "pdf":
+            self = .pdf
+        case "zip", "tar", "gz", "tgz", "bz2", "xz", "7z", "rar", "dmg":
+            self = .archive
+        case "key", "ppt", "pptx", "odp":
+            self = .presentation
+        case "doc", "docx", "pages", "rtf", "txt", "md", "odt":
+            self = .document
+        case "xls", "xlsx", "numbers", "csv", "ods":
+            self = .spreadsheet
+        default:
+            self = .other
+        }
+    }
+
+    /// Метка на листе: расширение, не длиннее четырёх букв. Нет расширения — нет метки.
+    public static func badge(name: String) -> String? {
+        let suffix = (name as NSString).pathExtension.uppercased()
+        guard !suffix.isEmpty, suffix.count <= 4 else { return nil }
+        return suffix
+    }
+}
