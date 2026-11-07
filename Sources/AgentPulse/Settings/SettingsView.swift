@@ -461,25 +461,13 @@ private struct ConsoleSettings: View {
                     Text("Виджет в углу напротив маскота. Свёрнутый всегда показывает лимиты")
                         .font(SettingsStyle.caption).foregroundStyle(SettingsStyle.muted)
                 }
-                SettingsPicker("Клавиша раскрытия", selection: Binding(get: { settings.hotkey }, set: { app.setConsoleHotKey($0) })) {
-                    ForEach(ConsoleHotKey.letters, id: \.self) { Text("⌃⌥\($0.uppercased())").tag($0) }
-                    Text("Нет").tag("")
-                }
-                .disabled(!settings.enabled)
-            }
-            SettingsBlock("Клавиши") {
-                ShortcutRow(title: "Раскрыть Пульт", keys: settings.hotkey.isEmpty ? nil : "⌃⌥\(settings.hotkey.uppercased())")
-                if settings.prompter { ShortcutRow(title: "Суфлёр: старт и стоп", keys: "⌃⌥P") }
-                if settings.prompter { ShortcutRow(title: "Суфлёр: скорость", keys: "⌃⌥↑ ⌃⌥↓") }
-                if settings.dictation { ShortcutRow(title: "Диктовка: держи и говори", keys: "⌃⌥D") }
-                if settings.translator, ConsoleTranslator.isAvailable { ShortcutRow(title: "Перевести выделенное", keys: "⌃⌥T") }
             }
             SettingsBlock("Модули") {
                 Toggle("Лимиты", isOn: Binding(get: { settings.limits }, set: { app.setLimitsEnabled($0) }))
                     .disabled(!settings.enabled)
                 Toggle(isOn: Binding(get: { settings.prompter }, set: { app.setPrompterEnabled($0) })) {
                     Text("Суфлёр")
-                    Text("Текст под камерой. ⌃⌥P — старт и стоп, ⌃⌥↑ и ⌃⌥↓ — скорость, клик — пауза")
+                    Text("Текст под камерой. Клик по панели — пауза")
                         .font(SettingsStyle.caption).foregroundStyle(SettingsStyle.muted)
                 }
                 .disabled(!settings.enabled)
@@ -525,6 +513,17 @@ private struct ConsoleSettings: View {
                 .disabled(!settings.enabled)
             }
             DictationSettings(model: model, app: app, controller: app.dictation)
+            SettingsBlock("Клавиши") {
+                SettingsPicker("Клавиша раскрытия", selection: Binding(get: { settings.hotkey }, set: { app.setConsoleHotKey($0) })) {
+                    ForEach(ConsoleHotKey.letters, id: \.self) { Text("⌃⌥\($0.uppercased())").tag($0) }
+                    Text("Нет").tag("")
+                }
+                .disabled(!settings.enabled)
+                if settings.prompter { ShortcutRow(title: "Суфлёр: старт и стоп", keys: "⌃⌥P") }
+                if settings.prompter { ShortcutRow(title: "Суфлёр: скорость", keys: "⌃⌥↑ ⌃⌥↓") }
+                if settings.dictation { ShortcutRow(title: "Диктовка: держи и говори", keys: "⌃⌥D") }
+                if settings.translator, ConsoleTranslator.isAvailable { ShortcutRow(title: "Перевести выделенное", keys: "⌃⌥T") }
+            }
             SettingsBlock("Лимиты Claude") {
                 LabeledContent("Statusline", value: model.statuslineInstalled ? "подключена" : "не подключена")
                 if model.statuslineBroken {
