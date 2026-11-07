@@ -14,6 +14,13 @@ private final class ConsoleHostingView<Content: View>: NSHostingView<Content> {
         return .copy
     }
 
+    // Без этого ответ на движение даёт сам NSHostingView и отказывает: файл нельзя бросить.
+    override func draggingUpdated(_ sender: any NSDraggingInfo) -> NSDragOperation {
+        acceptsFiles?() == true && !DroppedFiles.urls(sender).isEmpty ? .copy : []
+    }
+
+    override func prepareForDragOperation(_ sender: any NSDraggingInfo) -> Bool { true }
+
     override func draggingExited(_ sender: (any NSDraggingInfo)?) { onDropTarget?(false) }
 
     override func performDragOperation(_ sender: any NSDraggingInfo) -> Bool {
