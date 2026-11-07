@@ -393,7 +393,8 @@ final class ConsoleModel {
     var prompterEstimate: String? {
         let words = prompterDraft.split(whereSeparator: \.isWhitespace).count
         guard words > 0 else { return nil }
-        return "≈ " + PrompterModule.clock(Double(words) / Double(prompter.speed) * 60)
+        let time = PrompterModule.clock(Double(words) / Double(prompter.speed) * 60)
+        return "\(words) \(HumanTime.plural(words, "слово", "слова", "слов")) · \(time)"
     }
 
     func forgetPrompterText(_ text: String) {
