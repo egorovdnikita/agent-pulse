@@ -248,13 +248,122 @@ private struct ShelfDragArea: NSViewRepresentable {
     }
 }
 
+/// Лист с загнутым углом: один для всех форматов, различает их цветная метка.
+private struct PageGlyph: Shape {
+    func path(in rect: CGRect) -> Path {
+        let x = rect.width / 30, y = rect.height / 38
+        let point = { (px: Double, py: Double) in CGPoint(x: rect.minX + px * x, y: rect.minY + py * y) }
+        var path = Path()
+        path.move(to: point(4, 1))
+        path.addLine(to: point(19, 1))
+        path.addLine(to: point(29, 11))
+        path.addLine(to: point(29, 33))
+        path.addQuadCurve(to: point(25, 37), control: point(29, 37))
+        path.addLine(to: point(4, 37))
+        path.addQuadCurve(to: point(0, 33), control: point(0, 37))
+        path.addLine(to: point(0, 5))
+        path.addQuadCurve(to: point(4, 1), control: point(0, 1))
+        path.closeSubpath()
+        return path
+    }
+}
+
+private extension ShelfFileKind {
+    var color: Color {
+        switch self {
+        case .pdf: ConsoleStyle.red
+        case .presentation: ConsoleStyle.orange
+        case .document: Color(hex: 0x0A84FF)
+        case .spreadsheet: ConsoleStyle.green
+        case .archive, .image, .other: Color(hex: 0x8E8E93)
+        }
+    }
+}
+
+/// Плитка файла: превью картинки или лист с меткой формата, имя в две строки.
+private struct ShelfTile: View {
+    let model: ConsoleModel
+    let item: ShelfItem
+    static let size = 76.0
+
+    // Обычный @State без Xcode недоступен: его макрос лежит только там.
+    private let hovering = State(initialValue: false)
+
+    init(model: ConsoleModel, item: ShelfItem) {
+        self.model = model
+        self.item = item
+    }
+
+    var body: some View {
+        VStack(spacing: 6) {
+            preview
+                .overlay { ShelfDragArea(url: item.url) { model.removeFromShelf($0) } }
+                .overlay(alignment: .topTrailing) {
+                    if hovering.wrappedValue {
+                        Button { model.removeFromShelf(item.url) } label: {
+                            solar("close-circle", 18)
+                        }
+                        .buttonStyle(ConsolePressStyle())
+                        .offset(x: 5, y: -5)
+                        .accessibilityLabel("Убрать с полки")
+                    }
+                }
+            Text(item.name)
+                .font(ConsoleStyle.font(11))
+                .foregroundStyle(.white)
+                .multilineTextAlignment(.center)
+                .lineLimit(2)
+                .truncationMode(.middle)
+                .frame(width: Self.size, height: 28, alignment: .top)
+        }
+        .frame(width: Self.size)
+        .onHover { hovering.wrappedValue = $0 }
+        .accessibilityElement(children: .contain)
+        .accessibilityLabel(item.name)
+    }
+
+    private var preview: some View {
+        let kind = ShelfFileKind(name: item.name)
+        return ZStack {
+            RoundedRectangle(cornerRadius: 10, style: .continuous).fill(.white.opacity(0x1F / 255))
+            if kind == .image, let image = model.shelfPreviews[item.url] {
+                Image(nsImage: image)
+                    .resizable()
+                    .aspectRatio(contentMode: .fill)
+                    .frame(width: 56, height: 38)
+                    .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
+                    .overlay(RoundedRectangle(cornerRadius: 6, style: .continuous).strokeBorder(ConsoleStyle.edge, lineWidth: 1))
+            } else {
+                PageGlyph()
+                    .fill(.white.opacity(0.92))
+                    .frame(width: 30, height: 38)
+                    .overlay(alignment: .bottomLeading) {
+                        if let badge = ShelfFileKind.badge(name: item.name) {
+                            Text(badge)
+                                .font(ConsoleStyle.font(8, .bold))
+                                .foregroundStyle(.white)
+                                .padding(.horizontal, 3)
+                                .frame(height: 11)
+                                .background(kind.color, in: RoundedRectangle(cornerRadius: 3))
+                                .fixedSize()
+                                .offset(x: -5, y: 7)
+                        }
+                    }
+            }
+        }
+        .frame(width: Self.size, height: Self.size)
+    }
+}
+
 struct ShelfTab: View {
     let model: ConsoleModel
 
     var body: some View {
-        ConsoleCard {
+        Group {
             if model.shelf.items.isEmpty {
-                ConsoleEmpty(icon: "folder-with-files", title: "Полка пуста", hint: "Брось файл на Пульт или на маскота")
+                ConsoleCard {
+                    ConsoleEmpty(icon: "folder-with-files", title: "Полка пуста", hint: "Брось файл на Пульт или на маскота")
+                }
             } else {
                 files
             }
@@ -268,24 +377,13 @@ struct ShelfTab: View {
     }
 
     private var files: some View {
-        VStack(alignment: .leading, spacing: 8) {
+        VStack(alignment: .leading, spacing: 6) {
             ScrollView {
-                LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 8), count: 5), spacing: 8) {
-                    ForEach(model.shelf.items.reversed()) { item in
-                        VStack(spacing: 4) {
-                            Image(nsImage: NSWorkspace.shared.icon(forFile: item.url.path)).resizable().frame(width: 40, height: 40)
-                                .padding(.horizontal, 8)
-                                .overlay { ShelfDragArea(url: item.url) { model.removeFromShelf($0) } }
-                                .overlay(alignment: .topTrailing) {
-                                    Button { model.removeFromShelf(item.url) } label: { solar("close-circle", 16).opacity(0.5) }
-                                        .buttonStyle(ConsolePressStyle()).accessibilityLabel("Убрать с полки")
-                                }
-                            Text(item.name).font(ConsoleStyle.font(11, .medium)).foregroundStyle(.white).lineLimit(1).truncationMode(.middle)
-                            Text(detail(item.url)).font(ConsoleStyle.font(11)).foregroundStyle(ConsoleStyle.caption).lineLimit(1)
-                        }
-                        .frame(maxWidth: .infinity)
-                    }
+                LazyVGrid(columns: [GridItem(.adaptive(minimum: ShelfTile.size, maximum: ShelfTile.size), spacing: 12)], alignment: .leading, spacing: 8) {
+                    ForEach(model.shelf.items.reversed()) { ShelfTile(model: model, item: $0) }
                 }
+                .padding(.top, 6)
+                .padding(.horizontal, 4)
             }
             HStack {
                 Text("Потяни файл, чтобы забрать").font(noteFont).foregroundStyle(ConsoleStyle.caption).lineLimit(1)
@@ -293,15 +391,8 @@ struct ShelfTab: View {
                 Button("Очистить") { model.clearShelf() }
                     .buttonStyle(ConsolePressStyle()).font(ConsoleStyle.font(11, .medium)).foregroundStyle(.white)
             }
+            .padding(.horizontal, 4)
         }
-    }
-
-    /// Тип и размер: только для файлов, которые ты сам положил.
-    private func detail(_ url: URL) -> String {
-        let kind = url.pathExtension.uppercased()
-        let bytes = (try? url.resourceValues(forKeys: [.fileSizeKey]))?.fileSize
-        let size = bytes.map { ByteCountFormatter.string(fromByteCount: Int64($0), countStyle: .file) }
-        return [kind.isEmpty ? nil : kind, size].compactMap(\.self).joined(separator: " · ")
     }
 }
 

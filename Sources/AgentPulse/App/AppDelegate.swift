@@ -369,7 +369,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
             MeetingEvent(id: "1", title: "Синк команды", start: now.addingTimeInterval(1800), end: now.addingTimeInterval(3600)),
             MeetingEvent(id: "2", title: "Обзор дизайна", start: now.addingTimeInterval(7200), end: now.addingTimeInterval(9000)),
         ])
-        console.addToShelf([URL(filePath: "/System/Library/CoreServices/Finder.app"), URL(filePath: "/etc/hosts")])
+        console.addToShelf(["Договор.pdf", "Доклад.key", "Бюджет на год.xlsx", "План.docx", "Архив.zip", "hosts"].map { URL(filePath: "/tmp/\($0)") })
         console.updateMedia(.playing(NowPlaying(
             title: "Название трека", artist: "Исполнитель", isPlaying: true, duration: 240, elapsed: 80, at: now
         )))

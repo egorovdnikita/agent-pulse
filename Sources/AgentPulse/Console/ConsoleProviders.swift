@@ -67,6 +67,15 @@ final class CalendarProvider {
 }
 
 enum ShelfThumbnails {
+    /// Превью картинки для плитки; не вышло — плитка покажет лист с меткой.
+    static func preview(for url: URL) async -> NSImage? {
+        let request = await QLThumbnailGenerator.Request(
+            fileAt: url, size: CGSize(width: 112, height: 76), scale: NSScreen.main?.backingScaleFactor ?? 2,
+            representationTypes: .thumbnail
+        )
+        return try? await QLThumbnailGenerator.shared.generateBestRepresentation(for: request).nsImage
+    }
+
     /// Миниатюра файла; не вышло — иконка файла.
     static func image(for url: URL) async -> NSImage {
         let request = await QLThumbnailGenerator.Request(

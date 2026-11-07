@@ -67,6 +67,8 @@ final class ConsoleModel {
     @ObservationIgnored var mascotService: () -> LimitService? = { nil }
     /// Система сдвинула видимую область экрана.
     @ObservationIgnored var placementChanged: () -> Bool = { false }
+    /// Превью картинок на полке.
+    private(set) var shelfPreviews: [URL: NSImage] = [:]
     /// Перевод только что скопирован.
     var translateCopied = false
     var calendarEnabled = false
@@ -205,7 +207,15 @@ final class ConsoleModel {
         now = Date()
         apply(shelf.add(urls))
         if let last = shelf.items.last { loadThumbnail(last.url) }
+        urls.filter { ShelfFileKind(name: $0.lastPathComponent) == .image }.forEach(loadPreview)
         refresh(agentWaiting: false)
+    }
+
+    private func loadPreview(_ url: URL) {
+        Task { [weak self] in
+            let image = await ShelfThumbnails.preview(for: url)
+            self?.shelfPreviews[url] = image
+        }
     }
 
     func removeFromShelf(_ url: URL) {
@@ -217,6 +227,7 @@ final class ConsoleModel {
     func clearShelf() {
         shelf.clear()
         shelfThumbnail = nil
+        shelfPreviews = [:]
         refresh(agentWaiting: false)
     }
 
