@@ -292,6 +292,10 @@ struct ThinSlider: View {
     let label: String
     let onChange: (Double) -> Void
 
+    private var share: Double {
+        min(1, max(0, (value - range.lowerBound) / max(range.upperBound - range.lowerBound, 0.001)))
+    }
+
     var body: some View {
         GeometryReader { space in
             let span = max(range.upperBound - range.lowerBound, 0.001)
@@ -310,6 +314,15 @@ struct ThinSlider: View {
         .frame(height: 16)
         .accessibilityElement()
         .accessibilityLabel(label)
+        .accessibilityValue("\(Int(share * 100))%")
+        .accessibilityAdjustableAction { direction in
+            let step = (range.upperBound - range.lowerBound) / 20
+            switch direction {
+            case .increment: onChange(min(range.upperBound, value + step))
+            case .decrement: onChange(max(range.lowerBound, value - step))
+            @unknown default: break
+            }
+        }
     }
 }
 
