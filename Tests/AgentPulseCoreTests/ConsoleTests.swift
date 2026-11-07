@@ -624,7 +624,7 @@ private func snapshot(_ used: Double, at: Date = t0, service: LimitService = .cl
         let notched = PrompterLayout.frame(screen: screen, visible: visible, notch: 37)
         #expect(notched.maxY == 982)
         #expect(notched.midX == 756)
-        #expect(notched.width == 420)
+        #expect(Double(notched.width) == PrompterLayout.width)
         #expect(Double(notched.height) == PrompterLayout.textHeight + 37)
         let plain = PrompterLayout.frame(screen: screen, visible: visible, notch: 0)
         #expect(Double(plain.maxY) == 945 - PrompterLayout.menuBarGap)
