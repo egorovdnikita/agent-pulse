@@ -26,8 +26,8 @@ enum ConsoleStyle {
     static let surfaceRadius = cardRadius + inset
     static let cardPadding = 14.0
 
-    static let gaugeSize = 96.0
-    static let gaugeLine = 7.0
+    static let gaugeSize = 72.0
+    static let gaugeLine = 6.0
 
     /// Открытие с лёгкой отдачей, закрытие без перелёта.
     static func motion(opening: Bool, reduced: Bool) -> Animation {
@@ -148,7 +148,7 @@ struct LimitGauge: View {
             }
             VStack(spacing: 0) {
                 Text(reading.map { "\($0.usedPercent)%" } ?? "—")
-                    .font(ConsoleStyle.font(20, .semibold))
+                    .font(ConsoleStyle.font(15, .semibold))
                     .monospacedDigit()
                     .foregroundStyle(exhausted ? ConsoleStyle.red : reading == nil ? ConsoleStyle.caption : .white)
                 Text(kind.title)

@@ -29,7 +29,7 @@ final class ConsoleModel {
     private(set) var now = Date()
     private(set) var expanded = false
     /// Открытая вкладка.
-    var tab = ConsoleModuleID.limits
+    var tab = ConsoleModuleID.shelf
     var calendarScope = CalendarScope.day
     var calendarDay = Date()
     /// Сколько месяцев вперёд открыто: события загружаются на два.
@@ -161,9 +161,9 @@ final class ConsoleModel {
         return list
     }
 
-    /// У диктовки вкладки нет: она вся в капсуле.
+    /// У диктовки страницы нет: она вся в капсуле. Лимиты закреплены слева и страницей не считаются.
     var tabs: [(id: ConsoleModuleID, title: String)] {
-        modules.filter { $0.id != .dictation }.map { ($0.id, $0.title) }
+        modules.filter { $0.id != .dictation && $0.id != .limits }.map { ($0.id, $0.title) }
     }
 
     private var candidates: [ConsoleCandidate] {
