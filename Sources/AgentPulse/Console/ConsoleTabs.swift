@@ -300,16 +300,18 @@ struct MediaTab: View {
     }
 
     var body: some View {
-        ConsoleCard {
-            if model.media.availability == .unavailable {
-                VStack(spacing: 10) {
-                    ConsoleEmpty(icon: "music-note", title: "Недоступно на этой системе")
-                    PrompterSmallButton(title: "Управлять «Музыкой» и Spotify") { model.onConnectMusic?() }
+        if let playing = model.media.playing, model.media.availability != .unavailable {
+            player(playing)
+        } else {
+            ConsoleCard {
+                if model.media.availability == .unavailable {
+                    VStack(spacing: 10) {
+                        ConsoleEmpty(icon: "music-note", title: "Недоступно на этой системе")
+                        PrompterSmallButton(title: "Управлять «Музыкой» и Spotify") { model.onConnectMusic?() }
+                    }
+                } else {
+                    ConsoleEmpty(icon: "music-note", title: "Сейчас ничего не играет")
                 }
-            } else if let playing = model.media.playing {
-                player(playing)
-            } else {
-                ConsoleEmpty(icon: "music-note", title: "Сейчас ничего не играет")
             }
         }
     }
@@ -323,9 +325,9 @@ struct MediaTab: View {
                     solar("music-note", 40).opacity(0.5).frame(maxWidth: .infinity, maxHeight: .infinity).background(ConsoleStyle.card)
                 }
             }
-            .frame(width: 146, height: 146).clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+            .frame(width: 178, height: 178).clipShape(RoundedRectangle(cornerRadius: ConsoleStyle.cardRadius, style: .continuous))
             VStack(alignment: .leading, spacing: 0) {
-                Text(playing.title).font(ConsoleStyle.font(15, .semibold)).foregroundStyle(.white).lineLimit(1)
+                Text(playing.title).font(ConsoleStyle.font(15, .semibold)).foregroundStyle(.white).lineLimit(1).padding(.top, 8)
                 if let artist = playing.artist {
                     Text(artist).font(ConsoleStyle.font(13)).foregroundStyle(ConsoleStyle.caption).lineLimit(1).padding(.top, 2)
                 }
@@ -351,7 +353,9 @@ struct MediaTab: View {
                             .frame(width: 96)
                     }
                 }
+                .padding(.bottom, 8)
             }
+            .padding(.trailing, 4)
         }
     }
 
