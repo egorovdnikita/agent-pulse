@@ -156,7 +156,7 @@ struct CalendarTab: View {
 
     var body: some View {
         HStack(spacing: 8) {
-            ConsoleCard(padding: 12) {
+            ConsoleCard(padding: 12, radius: ConsoleStyle.calendarRadius) {
                 VStack(alignment: .leading, spacing: 2) {
                     HStack(spacing: 2) {
                         Text(CalendarText.formatter("LLLL yyyy").string(from: shownMonth).capitalized)
@@ -177,7 +177,7 @@ struct CalendarTab: View {
                     model.calendarDay = model.now
                     model.calendarScope = scope
                 }
-                ConsoleCard {
+                ConsoleCard(radius: ConsoleStyle.calendarRadius) {
                     if model.calendarScope == .week { weekPage } else { dayPage }
                 }
             }

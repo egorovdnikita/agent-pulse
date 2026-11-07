@@ -23,6 +23,8 @@ enum ConsoleStyle {
     /// Отступ страницы от края панели и радиусы: внутренний и внешний концентричны.
     static let inset = 18.0
     static let cardRadius = 20.0
+    /// Календарь: карточки мельче, как у референса.
+    static let calendarRadius = 16.0
     static let surfaceRadius = cardRadius + inset
     static let cardPadding = 14.0
 
@@ -271,13 +273,14 @@ struct ConsoleSegments<Value: Hashable>: View {
 struct ConsoleCard<Content: View>: View {
     var fills = true
     var padding = ConsoleStyle.cardPadding
+    var radius = ConsoleStyle.cardRadius
     @ViewBuilder let content: Content
 
     var body: some View {
         content
             .padding(padding)
             .frame(maxWidth: .infinity, maxHeight: fills ? .infinity : nil, alignment: .topLeading)
-            .background(ConsoleStyle.card, in: RoundedRectangle(cornerRadius: ConsoleStyle.cardRadius, style: .continuous))
+            .background(ConsoleStyle.card, in: RoundedRectangle(cornerRadius: radius, style: .continuous))
     }
 }
 
