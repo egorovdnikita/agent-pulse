@@ -491,7 +491,7 @@ struct MediaTab: View {
     }
 
     var body: some View {
-        if let playing = model.media.playing, model.media.availability != .unavailable {
+        if let playing = model.media.playing ?? model.rememberedTrack, model.media.availability != .unavailable {
             player(playing)
         } else {
             ConsoleCard {

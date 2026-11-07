@@ -71,6 +71,8 @@ final class ConsoleModel {
     @ObservationIgnored var placementChanged: () -> Bool = { false }
     /// Превью картинок на полке.
     private(set) var shelfPreviews: [URL: NSImage] = [:]
+    /// Что играло последним. Живёт только в памяти.
+    private(set) var rememberedTrack: NowPlaying?
     /// Перевод только что скопирован.
     var translateCopied = false
     var calendarEnabled = false
@@ -253,8 +255,12 @@ final class ConsoleModel {
             if !keepArtwork { artwork = playing.artwork.flatMap(NSImage.init(data:)) }
             media.playing = playing
         case .nothing:
+            // Последний трек остаётся на странице: пустота после паузы выглядит как поломка.
+            if var last = media.playing {
+                last.isPlaying = false
+                rememberedTrack = last
+            }
             media.playing = nil
-            artwork = nil
         }
         media.availability = .available
         refresh(agentWaiting: false)
