@@ -1,4 +1,5 @@
 import AgentPulseCore
+import AppKit
 import Foundation
 #if canImport(Translation)
 import Translation
@@ -11,6 +12,12 @@ enum ConsoleTranslator {
     }
 
     static let needsLanguages = "Скачай языки: Системные настройки → Основные → Язык и регион → Языки перевода"
+
+    /// Раздел «Язык и регион»: языки перевода скачиваются там.
+    @MainActor static func openLanguages() {
+        guard let url = URL(string: "x-apple.systempreferences:com.apple.Localization-Settings.extension") else { return }
+        NSWorkspace.shared.open(url)
+    }
 
     /// Возвращает перевод. Ошибка — текст для вкладки.
     static func translate(_ text: String) async -> Result<String, TranslateProblem> {

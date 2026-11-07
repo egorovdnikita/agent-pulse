@@ -631,7 +631,12 @@ struct TranslateTab: View {
             case .working:
                 ConsoleEmpty(icon: "translation", title: "Перевожу…")
             case .failed(let problem):
-                ConsoleEmpty(icon: "translation", title: "Перевод не вышел", hint: problem)
+                VStack(spacing: 10) {
+                    ConsoleEmpty(icon: "translation", title: "Перевод не вышел", hint: problem)
+                    if problem == ConsoleTranslator.needsLanguages {
+                        PrompterSmallButton(title: "Открыть настройки языка") { ConsoleTranslator.openLanguages() }
+                    }
+                }
             case .done(let source, let result):
                 done(source: source, result: result)
             }
