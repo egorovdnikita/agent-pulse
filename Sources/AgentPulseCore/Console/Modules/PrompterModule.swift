@@ -49,12 +49,16 @@ public struct PrompterScript: Sendable, Equatable {
         return result
     }
 
+    /// Доля строки, которую читаешь, пока она стоит у камеры. Дальше она плавно уступает место следующей.
+    static let lineHold = 0.65
+
     /// Сколько строк прочитано, с дробной частью: на ней держится плавная прокрутка.
     public static func scroll(position: Double, in lines: [Line]) -> Double {
         guard !lines.isEmpty else { return 0 }
         let index = lineIndex(of: Int(position), in: lines)
         let words = lines[index].words
-        return Double(index) + min(1, max(0, (position - Double(words.lowerBound)) / Double(max(1, words.count))))
+        let read = min(1, max(0, (position - Double(words.lowerBound)) / Double(max(1, words.count))))
+        return Double(index) + max(0, read - lineHold) / (1 - lineHold)
     }
 
     /// Строка, в которой идёт слово.
