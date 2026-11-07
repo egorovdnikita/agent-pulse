@@ -92,6 +92,30 @@ struct PrompterView: View {
                     .opacity(index < current ? 0 : PrompterLayout.lineOpacity(row: index - current))
                     .offset(x: PrompterLook.textInset, y: PrompterLook.topInset + (Double(index) - scroll) * PrompterLook.lineStep)
             }
+            // Кнопки стоят на месте, пока текст едет.
+            VStack(spacing: 2) {
+                Button { model.togglePrompterPause() } label: {
+                    Image(nsImage: SolarIcons.image(model.prompter.mode == .paused ? "play" : "pause") ?? NSImage())
+                        .resizable()
+                        .frame(width: 15, height: 15)
+                        .foregroundStyle(.white)
+                        .frame(width: PrompterLook.controlsWidth, height: PrompterLook.lineStep)
+                        .contentShape(Rectangle())
+                }
+                .accessibilityLabel(model.prompter.mode == .paused ? "Дальше" : "Пауза")
+                Button { model.stopPrompter() } label: {
+                    Image(nsImage: SolarIcons.image("stop-circle") ?? NSImage())
+                        .resizable()
+                        .frame(width: 16, height: 16)
+                        .foregroundStyle(ConsoleStyle.red)
+                        .frame(width: PrompterLook.controlsWidth, height: PrompterLook.lineStep)
+                        .contentShape(Rectangle())
+                }
+                .accessibilityLabel("Стоп")
+            }
+            .buttonStyle(ConsolePressStyle())
+            .padding(.top, PrompterLook.topInset)
+            .padding(.leading, PrompterLook.controlsInset)
             if let status = model.prompterStatus {
                 Text(status)
                     .font(ConsoleStyle.font(11, .medium).monospacedDigit())
@@ -123,8 +147,11 @@ enum PrompterLook {
     static let lineStep = 28.0
     static let visibleLines = 5
     static let topInset = 10.0
-    static let textInset = 18.0
-    static let textWidth = PrompterLayout.width - textInset * 2
+    /// Колонка кнопок слева и текст за ней.
+    static let controlsInset = 14.0
+    static let controlsWidth = 22.0
+    static let textInset = controlsInset + controlsWidth + 10
+    static let textWidth = PrompterLayout.width - textInset - 18
     @MainActor static let font = ConsoleStyle.nsFont(fontSize, .semibold)
 
     /// Запас: строка не должна упереться в край.
