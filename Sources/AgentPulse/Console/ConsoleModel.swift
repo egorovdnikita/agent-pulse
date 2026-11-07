@@ -85,6 +85,8 @@ final class ConsoleModel {
     private(set) var prompterLines: [PrompterScript.Line] = []
     /// Текущая строка. Отдельно от `prompter`: панель перерисовывается по строкам, а не по таймеру.
     private(set) var prompterLine = 0
+    /// Прочитанные строки с дробной частью: текст едет, а не прыгает.
+    private(set) var prompterScroll = 0.0
     /// Высота выреза экрана, под которым стоит суфлёр.
     var prompterNotch = 0.0
     /// Голос недоступен: почему.
@@ -287,11 +289,12 @@ final class ConsoleModel {
         prompterLibrary.save()
         prompterLines = prompter.script.lines(fits: PrompterLook.fits)
         prompterLine = 0
+        prompterScroll = 0
         setExpanded(false)
         // Тишина — сразу, а не на следующем тике.
         tickModules()
         refresh(agentWaiting: false)
-        prompterTimer = Timer.scheduledTimer(withTimeInterval: 0.2, repeats: true) { [weak self] _ in
+        prompterTimer = Timer.scheduledTimer(withTimeInterval: PrompterLook.tick, repeats: true) { [weak self] _ in
             MainActor.assumeIsolated { self?.advancePrompter() }
         }
         onPrompterChange?(true)
@@ -319,9 +322,14 @@ final class ConsoleModel {
         if finished {
             finishPrompter()
         } else {
-            let line = PrompterScript.lineIndex(of: prompter.word, in: prompterLines)
-            if line != prompterLine { prompterLine = line }
+            updatePrompterPlace()
         }
+    }
+
+    private func updatePrompterPlace() {
+        let line = PrompterScript.lineIndex(of: prompter.word, in: prompterLines)
+        if line != prompterLine { prompterLine = line }
+        prompterScroll = PrompterScript.scroll(position: prompter.position, in: prompterLines)
     }
 
     func togglePrompterPause() {

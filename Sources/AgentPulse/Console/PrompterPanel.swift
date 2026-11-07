@@ -78,6 +78,8 @@ struct PrompterView: View {
     var body: some View {
         let reduce = NSWorkspace.shared.accessibilityDisplayShouldReduceMotion
         let current = model.prompterLine
+        // Положение меняется пять раз в секунду, а движение между ними считает Core Animation: текст едет без кадров на CPU.
+        let scroll = reduce ? Double(current) : model.prompterScroll
         let notched = model.prompterNotch > 0
         let lines = model.prompterLines
         let shape = UnevenRoundedRectangle(
@@ -85,10 +87,10 @@ struct PrompterView: View {
             topTrailingRadius: notched ? 0 : 22, style: .continuous
         )
         ZStack(alignment: .topLeading) {
-            ForEach(lines.indices.filter { $0 >= current && $0 < current + PrompterLook.visibleLines }, id: \.self) { index in
+            ForEach(lines.indices.filter { $0 >= current - 1 && $0 < current + PrompterLook.visibleLines + 1 }, id: \.self) { index in
                 PrompterLineView(line: lines[index])
-                    .opacity(PrompterLayout.lineOpacity(row: index - current))
-                    .offset(x: PrompterLook.textInset, y: PrompterLook.topInset + Double(index - current) * PrompterLook.lineStep)
+                    .opacity(index < current ? 0 : PrompterLayout.lineOpacity(row: index - current))
+                    .offset(x: PrompterLook.textInset, y: PrompterLook.topInset + (Double(index) - scroll) * PrompterLook.lineStep)
             }
             if let status = model.prompterStatus {
                 Text(status)
@@ -107,13 +109,15 @@ struct PrompterView: View {
         .overlay { if !notched { shape.strokeBorder(ConsoleStyle.edge, lineWidth: 1) } }
         .contentShape(shape)
         .onTapGesture { model.togglePrompterPause() }
-        .animation(reduce ? nil : .easeInOut(duration: 0.28), value: current)
+        .animation(reduce ? nil : .linear(duration: PrompterLook.tick), value: scroll)
         .accessibilityLabel("Суфлёр")
     }
 }
 
 enum PrompterLook {
     static let fontSize = 20.0
+    /// Шаг таймера суфлёра.
+    static let tick = 0.2
     static let lineStep = 28.0
     static let visibleLines = 3
     static let topInset = 10.0

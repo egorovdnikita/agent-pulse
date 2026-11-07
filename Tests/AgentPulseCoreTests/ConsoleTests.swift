@@ -967,3 +967,17 @@ private func snapshot(_ used: Double, at: Date = t0, service: LimitService = .cl
         #expect(PrompterLayout.lineOpacity(row: 9) >= 0.1)
     }
 }
+
+@Suite struct PrompterScrollTests {
+    @Test func scrollIsLineWithFraction() {
+        let lines = [
+            PrompterScript.Line(words: 0..<4, text: "a b c d"),
+            PrompterScript.Line(words: 4..<8, text: "e f g h"),
+        ]
+        #expect(PrompterScript.scroll(position: 0, in: lines) == 0)
+        #expect(PrompterScript.scroll(position: 2, in: lines) == 0.5)
+        #expect(PrompterScript.scroll(position: 6, in: lines) == 1.5)
+        #expect(PrompterScript.scroll(position: 8, in: lines) == 2)
+        #expect(PrompterScript.scroll(position: 3, in: []) == 0)
+    }
+}

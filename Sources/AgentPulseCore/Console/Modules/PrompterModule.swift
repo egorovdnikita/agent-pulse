@@ -49,6 +49,14 @@ public struct PrompterScript: Sendable, Equatable {
         return result
     }
 
+    /// Сколько строк прочитано, с дробной частью: на ней держится плавная прокрутка.
+    public static func scroll(position: Double, in lines: [Line]) -> Double {
+        guard !lines.isEmpty else { return 0 }
+        let index = lineIndex(of: Int(position), in: lines)
+        let words = lines[index].words
+        return Double(index) + min(1, max(0, (position - Double(words.lowerBound)) / Double(max(1, words.count))))
+    }
+
     /// Строка, в которой идёт слово.
     public static func lineIndex(of word: Int, in lines: [Line]) -> Int {
         lines.firstIndex { word < $0.words.upperBound } ?? max(0, lines.count - 1)
