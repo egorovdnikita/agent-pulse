@@ -31,6 +31,8 @@ struct PulseMenuView: View {
                 PulseMenuRow(title: "Выйти", keys: "⌘Q") { NSApp.terminate(nil) }
                     .keyboardShortcut("q")
             }
+            // Как поле карточки с переключателями: текст всех строк на одной линии.
+            .padding(.horizontal, 4)
         }
         .padding(ConsoleStyle.inset)
         .frame(width: Self.width, alignment: .topLeading)
@@ -72,12 +74,12 @@ struct PulseMenuView: View {
                     .padding(.top, 4)
             }
         }
-        .padding(.horizontal, 6)
+        .padding(.horizontal, 12)
         .padding(.vertical, 4)
     }
 
     private func reactionCard(_ model: PulseModel, line: String) -> some View {
-        ConsoleCard(fills: false) {
+        ConsoleCard(fills: false, padding: 12) {
             VStack(alignment: .leading, spacing: 8) {
                 VStack(alignment: .leading, spacing: 1) {
                     Text("Как тебе эта реплика?").font(ConsoleStyle.font(11)).foregroundStyle(ConsoleStyle.caption)
