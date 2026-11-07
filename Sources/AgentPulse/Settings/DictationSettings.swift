@@ -51,6 +51,7 @@ struct DictationSettings: View {
                         .font(SettingsStyle.caption).foregroundStyle(SettingsStyle.muted)
                 }
                 .disabled(!settings.enabled)
+                if settings.translator { TranslatorLanguagesRow() }
                 if settings.translator, !settings.dictation { accessibilityRow }
             }
         }
