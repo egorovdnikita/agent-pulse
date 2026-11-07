@@ -1211,3 +1211,112 @@ private func snapshot(_ used: Double, at: Date = t0, service: LimitService = .cl
         #expect(!module.replaceable)
     }
 }
+
+@Suite struct CalendarPageTests {
+    private var calendar: Calendar {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = TimeZone(identifier: "UTC") ?? .current
+        return calendar
+    }
+
+    private func date(_ month: Int, _ day: Int, _ hour: Int = 12, _ minute: Int = 0) -> Date {
+        calendar.date(from: DateComponents(year: 2026, month: month, day: day, hour: hour, minute: minute)) ?? .distantPast
+    }
+
+    private func event(_ id: String, _ start: Date, minutes: Double = 30, allDay: Bool = false, color: UInt32? = nil) -> MeetingEvent {
+        MeetingEvent(id: id, title: id, start: start, end: start.addingTimeInterval(minutes * 60), isAllDay: allDay, color: color)
+    }
+
+    @Test func dayFeaturesNextAndDropsWhatIsOver() {
+        let plan = CalendarDayPlan(events: [
+            event("прошло", date(11, 8, 9)), event("идёт", date(11, 8, 11, 45)), event("дальше", date(11, 8, 15)),
+            event("потом", date(11, 8, 17)), event("завтра", date(11, 9, 10)),
+        ], at: date(11, 8), calendar: calendar)
+        #expect(plan.featured?.id == "дальше")
+        #expect(plan.rest.map(\.id) == ["идёт", "потом"])
+    }
+
+    @Test func runningEventIsFeaturedWhenNothingIsAhead() {
+        let plan = CalendarDayPlan(events: [event("идёт", date(11, 8, 11, 45))], at: date(11, 8), calendar: calendar)
+        #expect(plan.featured?.id == "идёт")
+        #expect(!plan.isEmpty)
+    }
+
+    @Test func emptyDaySaysWhatIsNext() {
+        let now = date(11, 8)
+        let tomorrow = event("Стендап", date(11, 9, 10))
+        #expect(CalendarWords.hint(tomorrow, at: now, calendar: calendar) == "Ближайшее — завтра, 10:00 · Стендап")
+        let later = event("Стендап", date(11, 12, 10))
+        #expect(CalendarWords.hint(later, at: now, calendar: calendar) == "Ближайшее — чт, 12 ноября, 10:00 · Стендап")
+        #expect(CalendarWords.hint(nil, at: now, calendar: calendar) == "Впереди пусто")
+    }
+
+    @Test func weekStartsTodayAndCountsLongEventOnce() {
+        let week = CalendarWeekPlan(events: [event("долгое", date(11, 9, 10), minutes: 3 * 24 * 60)], at: date(11, 8), calendar: calendar)
+        #expect(week.days.count == 7)
+        #expect(week.days[0].isToday)
+        #expect(week.days[0].weekdayIndex == 6)
+        #expect(week.eventCount == 1)
+        #expect(!week.isFree)
+        #expect(CalendarWords.weekRange(week, calendar: calendar) == "8-14.11")
+    }
+
+    @Test func weekAcrossMonthsNamesBoth() {
+        let week = CalendarWeekPlan(events: [], at: date(9, 28), calendar: calendar)
+        #expect(CalendarWords.weekRange(week, calendar: calendar) == "28.09-4.10")
+        #expect(week.isFree)
+    }
+
+    @Test func weekChipsKeepThreeThenSayMore() {
+        let events = (0..<5).map { event("\($0)", date(11, 9, 8 + $0)) }
+        let fit = CalendarChips.fit(events)
+        #expect(fit.shown.count == 3)
+        #expect(fit.more == 2)
+    }
+
+    @Test func monthIsMondayFirstAndFullWeeks() {
+        let november = CalendarMonthPlan(events: [], at: date(11, 8), calendar: calendar)
+        #expect(november.weeks.count == 6)
+        #expect(november.weeks[0][0].number == 26)
+        #expect(!november.weeks[0][0].isInMonth)
+        #expect(november.weeks[5][6].number == 6)
+        let october = CalendarMonthPlan(events: [], at: date(10, 8), calendar: calendar)
+        #expect(october.weeks.count == 5)
+        #expect(october.weeks.allSatisfy { $0.count == 7 })
+    }
+
+    @Test func monthSelectionFallsBackToToday() {
+        let month = CalendarMonthPlan(events: [], at: date(11, 8), calendar: calendar)
+        #expect(month.selected(date(11, 20), calendar: calendar)?.number == 20)
+        #expect(month.selected(date(3, 1), calendar: calendar)?.number == 8)
+    }
+
+    @Test func dotsAreEachCalendarOnceAtMostThree() {
+        let events = [event("a", date(11, 9, 8), color: 1), event("b", date(11, 9, 9), color: 1), event("c", date(11, 9, 10), color: 2),
+                      event("d", date(11, 9, 11), color: 3), event("e", date(11, 9, 13), color: 4)]
+        let week = CalendarWeekPlan(events: events, at: date(11, 8), calendar: calendar)
+        #expect(week.days[1].dots == [1, 2, 3])
+    }
+
+    @Test func gridAlwaysFitsItsHeight() {
+        for weeks in 4...6 {
+            let metrics = CalendarMonthMetrics(weeks: weeks, height: 152)
+            #expect(metrics.weekdayHeight + Double(weeks) * metrics.rowHeight <= 152)
+            #expect(metrics.numberFrame + CalendarMonthMetrics.dotSize + 1 <= metrics.rowHeight)
+        }
+    }
+
+    @Test func wordsMatchTheCount() {
+        #expect(CalendarWords.count(0) == "нет встреч")
+        #expect(CalendarWords.count(1) == "1 встреча")
+        #expect(CalendarWords.count(3) == "3 встречи")
+        #expect(CalendarWords.count(14) == "14 встреч")
+    }
+
+    @Test func relativeTimeReadsLikeSpeech() {
+        let now = date(11, 8)
+        #expect(CalendarWords.relative(event("a", now.addingTimeInterval(8 * 60)), at: now) == "Через 8 мин")
+        #expect(CalendarWords.relative(event("a", now.addingTimeInterval(80 * 60)), at: now) == "Через 1 ч 20 мин")
+        #expect(CalendarWords.relative(event("a", now.addingTimeInterval(-300)), at: now) == "Сейчас, ещё 25 мин")
+    }
+}
