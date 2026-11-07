@@ -48,9 +48,13 @@ public enum ConsoleLayout {
     public static let activeWidth = 240.0
     /// Широкая и низкая: сервисы и колонки страниц стоят рядом, а не друг под другом.
     public static let expandedWidth = 640.0
-    public static let expandedHeight = 232.0
+    /// Страница, строка точек под ней и их рост: под кнопки форма подрастает, контент не перекрывается.
+    public static let pageHeight = 178.0
+    public static let pagesRow = 20.0
+    public static let pagesGrowth = 14.0
+    public static let expandedHeight = 12 + pageHeight + pagesRow
     /// Запас окна: пружина формы слегка заходит за её размер, и край не должен обрезаться.
-    public static let overshoot = 24.0
+    public static let overshoot = 40.0
     /// Наименьший зазор между панелью и капсулой, если Dock скрыт.
     public static let expandedGap = 8.0
     /// Нижний отступ капсулы, если полосы Dock нет.

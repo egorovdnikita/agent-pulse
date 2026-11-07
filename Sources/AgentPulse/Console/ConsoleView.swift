@@ -199,41 +199,84 @@ private struct LimitsTab: View {
     }
 }
 
-/// Страницы текстом, без подложек: в слово легко попасть мышью.
-private struct PageTabs: View {
+/// Страницы как у референса: точки внизу. Под курсором они становятся кнопками с иконками,
+/// а форма подрастает на их высоту: контент не перекрывается и не обрезается.
+private struct PageSwitcher: View {
     let model: ConsoleModel
 
     var body: some View {
-        HStack(spacing: 14) {
+        let open = model.pagesHovered
+        HStack(spacing: 4) {
             ForEach(model.tabs, id: \.id) { tab in
-                Button { model.openPage(tab.id) } label: {
-                    Text(tab.title)
-                        // Вес один: иначе при смене страницы соседние слова сдвигаются.
-                        .font(ConsoleStyle.font(13, .medium))
-                        .foregroundStyle(model.tab == tab.id ? .white : ConsoleStyle.caption)
-                        .lineLimit(1)
-                        .fixedSize()
-                        .frame(height: ConsoleLook.tabs)
-                        .contentShape(Rectangle())
-                }
-                .buttonStyle(ConsolePressStyle())
+                page(tab.id, title: tab.title, open: open)
             }
-            Spacer(minLength: 0)
+        }
+        .frame(maxWidth: .infinity)
+        .overlay(alignment: .trailing) {
             Button {
                 model.setExpanded(false)
                 model.onOpenSettings?(nil)
             } label: {
                 Image(nsImage: SolarIcons.image("settings") ?? NSImage())
                     .resizable()
-                    .frame(width: 18, height: 18)
+                    .frame(width: 15, height: 15)
                     .foregroundStyle(.white)
-                    .opacity(0.55)
-                    .frame(width: ConsoleLook.tabs, height: ConsoleLook.tabs)
+                    .opacity(0.45)
+                    .frame(width: 22, height: 22)
                     .contentShape(Rectangle())
             }
             .buttonStyle(ConsolePressStyle())
             .accessibilityLabel("Настройки")
         }
+        .padding(.horizontal, ConsoleStyle.inset + 2)
+        .frame(height: open ? ConsoleLayout.pagesRow + ConsoleLayout.pagesGrowth : ConsoleLayout.pagesRow)
+        .contentShape(Rectangle())
+        .onHover { inside in
+            model.pagesHovered = inside
+            if !inside { model.pageUnderCursor = nil }
+        }
+    }
+
+    private func page(_ id: ConsoleModuleID, title: String, open: Bool) -> some View {
+        let current = model.tab == id
+        let lit = model.pageUnderCursor == id
+        let fill: Double = if open {
+            current ? 0x66 / 255 : lit ? 0x4D / 255 : 0x2E / 255
+        } else {
+            current ? 0xB3 / 255 : 0x3D / 255
+        }
+        return Button { model.openPage(id) } label: {
+            RoundedRectangle(cornerRadius: open ? 6 : 3, style: .continuous)
+                .fill(Color.white.opacity(fill))
+                .frame(width: open ? 22 : 6, height: open ? 22 : 6)
+                .overlay {
+                    Image(nsImage: SolarIcons.image(id.icon) ?? NSImage())
+                        .resizable()
+                        .frame(width: 14, height: 14)
+                        .foregroundStyle(.white)
+                        .opacity(open ? (current || lit ? 1 : 0.6) : 0)
+                }
+                .frame(width: open ? 22 : 8, height: open ? 22 : 8)
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .onHover { model.pageUnderCursor = $0 ? id : (model.pageUnderCursor == id ? nil : model.pageUnderCursor) }
+        .overlay(alignment: .top) {
+            if lit {
+                Text(title)
+                    .font(ConsoleStyle.font(11, .medium))
+                    .foregroundStyle(.white)
+                    .lineLimit(1)
+                    .fixedSize()
+                    .padding(.horizontal, 7)
+                    .frame(height: 20)
+                    .background(Color(hex: 0x2C2C2E), in: RoundedRectangle(cornerRadius: 6, style: .continuous))
+                    .offset(y: -26)
+                    .allowsHitTesting(false)
+            }
+        }
+        .zIndex(lit ? 1 : 0)
+        .accessibilityLabel(title)
     }
 }
 
@@ -243,9 +286,6 @@ private struct ExpandedBody: View {
     var body: some View {
         let reduce = NSWorkspace.shared.accessibilityDisplayShouldReduceMotion
         VStack(alignment: .leading, spacing: 0) {
-            PageTabs(model: model)
-                .padding(.horizontal, ConsoleStyle.inset + 4)
-                .padding(.top, ConsoleStyle.inset - 4)
             ZStack(alignment: .topLeading) {
                 // Страница едет целиком: анимация не проваливается внутрь, иначе текст и подложка двигаются порознь.
                 page
@@ -254,15 +294,15 @@ private struct ExpandedBody: View {
                     .id(model.tab)
                     .transition(pageTransition(reduced: reduce))
             }
-            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-            .padding(.top, 4)
-            .padding(.bottom, ConsoleStyle.inset)
+            .frame(height: ConsoleLayout.pageHeight, alignment: .topLeading)
+            .padding(.top, ConsoleStyle.inset)
             .clipped()
+            PageSwitcher(model: model)
         }
         .opacity(model.contentShown ? 1 : 0)
         .animation(ConsoleStyle.contentMotion(appearing: model.contentShown, reduced: reduce), value: model.contentShown)
         .animation(ConsoleStyle.pageMotion(reduced: reduce), value: model.tab)
-        .frame(width: ConsoleLayout.expandedWidth, height: ConsoleLayout.expandedHeight, alignment: .topLeading)
+        .frame(width: ConsoleLayout.expandedWidth, height: model.panelHeight, alignment: .top)
     }
 
     private var page: some View {
@@ -301,7 +341,7 @@ private struct PanelSurface<Content: View>: View {
         let open = model.panelOpen
         let alignment: Alignment = model.onLeft ? .bottomLeading : .bottomTrailing
         let width = open ? ConsoleLayout.expandedWidth : model.capsuleWidth
-        let height = open ? ConsoleLayout.expandedHeight : model.capsuleHeight
+        let height = open ? model.panelHeight : model.capsuleHeight
         let radius = open ? ConsoleStyle.surfaceRadius : model.capsuleHeight / 2
         let shape = RoundedRectangle(cornerRadius: radius, style: .continuous)
         ZStack(alignment: alignment) {
@@ -309,9 +349,10 @@ private struct PanelSurface<Content: View>: View {
             content.mask(alignment: alignment) { shape.frame(width: width, height: height) }
             shape.strokeBorder(ConsoleStyle.edge, lineWidth: 1).frame(width: width, height: height)
         }
-        .frame(width: ConsoleLayout.expandedWidth, height: ConsoleLayout.expandedHeight, alignment: alignment)
+        .frame(width: ConsoleLayout.expandedWidth, height: model.panelHeight, alignment: alignment)
         .offset(y: open ? 0 : model.expandedGap + model.capsuleHeight)
         .animation(model.director.quietChange ? nil : ConsoleStyle.panelMotion(opening: open, reduced: reduce), value: open)
+        .animation(reduce ? .easeInOut(duration: 0.15) : .spring(response: 0.38, dampingFraction: 0.86), value: model.pagesHovered)
     }
 }
 
