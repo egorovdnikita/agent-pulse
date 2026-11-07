@@ -71,6 +71,7 @@ final class ConsoleModel {
     @ObservationIgnored var placementChanged: () -> Bool = { false }
     /// Превью картинок на полке.
     private(set) var shelfPreviews: [URL: NSImage] = [:]
+    @ObservationIgnored private var mutedVolume = 0.5
     /// Что играло последним. Живёт только в памяти.
     private(set) var rememberedTrack: NowPlaying?
     /// Перевод только что скопирован.
@@ -264,6 +265,15 @@ final class ConsoleModel {
         }
         media.availability = .available
         refresh(agentWaiting: false)
+    }
+
+    /// Клик по динамику: тишина и обратно, к той же громкости.
+    func toggleMute() {
+        guard let current = volume else { return }
+        let target = current > 0 ? 0 : max(mutedVolume, 0.1)
+        if current > 0 { mutedVolume = current }
+        onVolume?(target)
+        volume = target
     }
 
     func setMediaAvailability(_ availability: MediaAvailability) {

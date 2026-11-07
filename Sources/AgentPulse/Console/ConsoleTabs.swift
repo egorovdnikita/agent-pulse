@@ -598,7 +598,12 @@ struct MediaTab: View {
                     control("skip-next", "Следующий", .next, size: 20)
                     Spacer(minLength: 12)
                     if model.volume != nil {
-                        solar("volume-loud", 14).opacity(0.55)
+                        Button { model.toggleMute() } label: {
+                            solar("volume-loud", 14).opacity((model.volume ?? 0) > 0 ? 0.55 : 0.2)
+                                .frame(width: 22, height: 22).contentShape(Rectangle())
+                        }
+                        .buttonStyle(ConsolePressStyle())
+                        .accessibilityLabel((model.volume ?? 0) > 0 ? "Выключить звук" : "Включить звук")
                         ThinSlider(value: model.volume ?? 0, range: 0...1, label: "Громкость") { model.onVolume?($0) }
                             .frame(width: 96)
                     }
