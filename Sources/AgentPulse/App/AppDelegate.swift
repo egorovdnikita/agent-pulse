@@ -527,6 +527,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         model.config.console.prompterVoice = on
         try? model.config.save()
         model.console.setPrompterFollowsVoice(on)
+        guard on else { return }
+        let text = model.console.prompterDraft
+        Task { [weak self] in
+            guard let failure = await PrompterVoice.check(text: text), let self else { return }
+            self.model.console.prompterVoiceFailed(failure.rawValue)
+            self.model.config.console.prompterVoice = false
+            try? self.model.config.save()
+        }
     }
 
     private var consoleScreen: NSScreen? {

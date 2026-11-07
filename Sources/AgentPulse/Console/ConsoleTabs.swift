@@ -657,7 +657,7 @@ struct PrompterTab: View {
     private var running: some View {
         ConsoleCard {
             VStack(alignment: .leading, spacing: 10) {
-                Text(model.prompter.mode == .paused ? "Пауза" : "Идёт текст")
+                Text(model.prompter.mode == .paused ? "Пауза" : model.prompter.followsVoice ? "Идёт за голосом" : "Идёт текст")
                     .font(ConsoleStyle.font(11, .semibold))
                     .foregroundStyle(model.prompter.mode == .paused ? ConsoleStyle.yellow : ConsoleStyle.green)
                 Spacer(minLength: 0)

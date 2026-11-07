@@ -25,6 +25,13 @@ final class PrompterVoice {
         return Locale(identifier: cyrillic * 2 >= letters.count ? "ru-RU" : "en-US")
     }
 
+    /// Проверка при включении: о том, что языка нет, лучше узнать сейчас, а не посреди созвона.
+    static func check(text: String) async -> Failure? {
+        guard await authorize() else { return .denied }
+        let recognizer = SFSpeechRecognizer(locale: locale(for: text))
+        return recognizer?.supportsOnDeviceRecognition == true ? nil : .noOnDevice
+    }
+
     func start(text: String) {
         guard !running else { return }
         running = true
