@@ -32,6 +32,8 @@ final class ConsoleModel {
     var tab = ConsoleModuleID.limits
     var calendarScope = CalendarScope.day
     var calendarDay = Date()
+    /// Сколько месяцев вперёд открыто: события загружаются на два.
+    var calendarMonth = 0
     /// Над Пультом несут файл.
     var dropTargeted = false
     /// Миниатюра последнего файла на полке и обложка трека.
@@ -556,6 +558,7 @@ final class ConsoleModel {
                 tab = first
             }
             calendarDay = now
+            calendarMonth = 0
         }
         expanded = on
         closeTask?.cancel()

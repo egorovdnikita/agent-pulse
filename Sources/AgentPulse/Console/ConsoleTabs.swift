@@ -105,7 +105,8 @@ private struct MonthGrid: View {
     var body: some View {
         let calendar = Calendar.current
         let today = calendar.startOfDay(for: model.now)
-        let start = calendar.date(from: calendar.dateComponents([.year, .month], from: today)) ?? today
+        let first = calendar.date(from: calendar.dateComponents([.year, .month], from: today)) ?? today
+        let start = calendar.date(byAdding: .month, value: model.calendarMonth, to: first) ?? first
         let days = calendar.range(of: .day, in: .month, for: start)?.count ?? 30
         // Понедельник — первая колонка.
         let lead = (calendar.component(.weekday, from: start) + 5) % 7
@@ -157,9 +158,16 @@ struct CalendarTab: View {
         HStack(spacing: 8) {
             ConsoleCard(padding: 12) {
                 VStack(alignment: .leading, spacing: 2) {
-                    Text(CalendarText.formatter("LLLL yyyy").string(from: model.now).capitalized)
-                        .font(ConsoleStyle.font(13, .semibold))
-                        .foregroundStyle(.white)
+                    HStack(spacing: 2) {
+                        Text(CalendarText.formatter("LLLL yyyy").string(from: shownMonth).capitalized)
+                            .font(ConsoleStyle.font(13, .semibold))
+                            .foregroundStyle(.white)
+                            .lineLimit(1)
+                        Spacer(minLength: 0)
+                        monthButton("alt-arrow-left", "Предыдущий месяц", -1)
+                        monthButton("alt-arrow-right", "Следующий месяц", 1)
+                    }
+                    .frame(height: 18)
                     MonthGrid(model: model)
                 }
             }
@@ -176,6 +184,22 @@ struct CalendarTab: View {
         }
     }
 
+    private var shownMonth: Date {
+        Calendar.current.date(byAdding: .month, value: model.calendarMonth, to: model.now) ?? model.now
+    }
+
+    private func monthButton(_ icon: String, _ label: String, _ step: Int) -> some View {
+        let target = model.calendarMonth + step
+        let allowed = (0...2).contains(target)
+        return Button {
+            if allowed { model.calendarMonth = target }
+        } label: {
+            solar(icon, 12).opacity(allowed ? 1 : 0.3).frame(width: 18, height: 18).contentShape(Rectangle())
+        }
+        .buttonStyle(ConsolePressStyle())
+        .accessibilityLabel(label)
+    }
+
     private var dayPage: some View {
         VStack(alignment: .leading, spacing: 8) {
             HStack(spacing: 4) {
@@ -183,6 +207,16 @@ struct CalendarTab: View {
                     .font(ConsoleStyle.font(13, .semibold))
                     .foregroundStyle(.white)
                     .lineLimit(1)
+                if !Calendar.current.isDate(model.calendarDay, inSameDayAs: model.now) {
+                    Button("Сегодня") {
+                        model.calendarDay = model.now
+                        model.calendarMonth = 0
+                    }
+                    .buttonStyle(ConsolePressStyle())
+                    .font(ConsoleStyle.font(11, .medium))
+                    .foregroundStyle(ConsoleStyle.caption)
+                    .padding(.leading, 6)
+                }
                 Spacer(minLength: 4)
                 dayButton("alt-arrow-left", "Предыдущий день", -1)
                 dayButton("alt-arrow-right", "Следующий день", 1)
