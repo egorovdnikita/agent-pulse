@@ -8,6 +8,8 @@ final class OverlayPanel: NSPanel {
     private let model: PulseModel
     private var currentScreen: NSScreen?
 
+    private weak var owner: AppDelegate?
+
     init(app: AppDelegate) {
         let model = app.model
         self.model = model
@@ -17,6 +19,7 @@ final class OverlayPanel: NSPanel {
             backing: .buffered,
             defer: false
         )
+        owner = app
         isFloatingPanel = true
         level = .statusBar
         // Без `.fullScreenAuxiliary` **[решение]**: на полноэкранном рабочем столе (видео, презентация, игра)
@@ -45,6 +48,16 @@ final class OverlayPanel: NSPanel {
     }
 
     override var canBecomeKey: Bool { false }
+
+    /// Правый клик — то же меню, что в строке меню: значок там легко потерять среди других.
+    override func sendEvent(_ event: NSEvent) {
+        let control = event.type == .leftMouseDown && event.modifierFlags.contains(.control)
+        if event.type == .rightMouseDown || control {
+            owner?.showMenu()
+            return
+        }
+        super.sendEvent(event)
+    }
     override var canBecomeMain: Bool { false }
 
     func followActiveScreen() {

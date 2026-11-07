@@ -85,8 +85,6 @@ struct PillView: View {
                 .onChanged { _ in app.panel?.dragChanged() }
                 .onEnded { _ in app.panel?.dragEnded() }
         )
-        // То же меню, что в строке меню: значок там легко потерять среди других.
-        .contextMenu { MenuContent(app: app) }
     }
 
     private func bubbleSlot(tailOnRight: Bool) -> some View {

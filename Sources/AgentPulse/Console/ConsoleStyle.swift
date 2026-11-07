@@ -274,11 +274,12 @@ struct ConsoleSegments<Value: Hashable>: View {
 /// Карточка: подложка всех страниц.
 struct ConsoleCard<Content: View>: View {
     var fills = true
+    var padding = ConsoleStyle.cardPadding
     @ViewBuilder let content: Content
 
     var body: some View {
         content
-            .padding(ConsoleStyle.cardPadding)
+            .padding(padding)
             .frame(maxWidth: .infinity, maxHeight: fills ? .infinity : nil, alignment: .topLeading)
             .background(ConsoleStyle.card, in: RoundedRectangle(cornerRadius: ConsoleStyle.cardRadius, style: .continuous))
     }
@@ -315,7 +316,7 @@ struct ThinSlider: View {
 /// Отрисовка Пульта в файлы: `--console-sheet папка`. Окна не показываются, проверять можно при любом экране.
 @MainActor
 enum ConsoleSheet {
-    static func render(_ model: ConsoleModel, to folder: URL) {
+    static func render(_ model: ConsoleModel, app: AppDelegate, to folder: URL) {
         try? FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
         write(CapsulePreview(model: model), size: CGSize(width: model.capsuleWidth + 16, height: 48), to: folder.appending(path: "capsule.png"))
         model.setExpanded(true)
@@ -331,6 +332,9 @@ enum ConsoleSheet {
             write(PanelPreview(model: model), size: panel, to: folder.appending(path: "calendar-\(scope.rawValue).png"))
         }
         model.calendarScope = .day
+
+        // Меню маскота.
+        write(PulseMenuView(app: app) {}, size: CGSize(width: PulseMenuView.width + 16, height: 340), to: folder.appending(path: "menu.png"))
 
         // Перевод: шесть страниц — самая тесная строка навигации.
         if let text = model.pressTranslate(selection: "Привет, это проверка перевода", clipboard: nil) {

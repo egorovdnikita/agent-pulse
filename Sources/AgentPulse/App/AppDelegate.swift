@@ -19,6 +19,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     private let dictationHotKey = ConsoleHotKey(id: 5)
     private let translateHotKey = ConsoleHotKey(id: 6)
     private(set) var dictation: DictationController?
+    private var menuPanel: PulseMenuPanel?
     private var prompterPanel: PrompterPanel?
     private var codexTimer: Timer?
     private var codexFetchedAt = Date.distantPast
@@ -369,7 +370,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
             title: "Название трека", artist: "Исполнитель", isPlaying: true, duration: 240, elapsed: 80, at: now
         )))
         console.prompterDraft = "Здравствуйте! Сегодня покажу, что изменилось в Пульте."
-        ConsoleSheet.render(console, to: folder)
+        ConsoleSheet.render(console, app: self, to: folder)
         exit(0)
     }
 
@@ -793,6 +794,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
 
     /// Одно окно «Настройки» с вкладками; `tab` — сразу открыть нужную. Пока окно открыто,
     /// у приложения есть иконка в Dock и меню — как у обычного окна настроек; закрыли — снова только маскот.
+    func showMenu() {
+        let menu = menuPanel ?? PulseMenuPanel(app: self)
+        menuPanel = menu
+        menu.show(at: NSEvent.mouseLocation)
+    }
+
     func showSettings(_ tab: SettingsNavigation.Tab? = nil) {
         if let tab { settingsSelection.tab = tab }
         if settingsWindow == nil {
