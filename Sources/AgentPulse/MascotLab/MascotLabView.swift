@@ -36,7 +36,7 @@ struct MascotLabView: View {
                     if let message = model.visibleMessage {
                         BubbleView(message: message, tailOnRight: false)
                     } else {
-                        Text("Облачко появится здесь").font(SettingsStyle.caption).foregroundStyle(.secondary)
+                        Text("Облачко появится здесь").font(SettingsStyle.caption).foregroundStyle(SettingsStyle.muted)
                     }
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
@@ -46,17 +46,17 @@ struct MascotLabView: View {
             .frame(maxWidth: .infinity)
             .background(Color(nsColor: .windowBackgroundColor))
 
-            Form {
-                Section("Состояние") {
-                    Picker("Состояние", selection: $model.labOverride) {
+            SettingsPage {
+                SettingsBlock("Состояние") {
+                    SettingsPicker("Состояние", selection: $model.labOverride) {
                         ForEach(Self.states, id: \.0) { title, state in
                             Text(title).tag(state)
                         }
                     }
                     Toggle("Reduce Motion", isOn: $model.labReduceMotion)
                 }
-                Section("SignalSimulator") {
-                    Picker("Сигнал", selection: $inputs.kind) {
+                SettingsBlock("SignalSimulator") {
+                    SettingsPicker("Сигнал", selection: $inputs.kind) {
                         ForEach(SignalKind.allCases, id: \.self) { kind in
                             Text(kind.rawValue).tag(kind)
                         }
@@ -65,12 +65,12 @@ struct MascotLabView: View {
                     HStack {
                         Button("Отправить") { model.simulate(inputs.kind, value: Double(inputs.value)) }
                         Text(model.lastLine ?? model.lastReaction ?? "")
-                            .foregroundStyle(.secondary)
+                            .foregroundStyle(SettingsStyle.muted)
                     }
                     Text("Батарея 5% — batteryCritical; пятница 23:00 — сдвиньте часы системы. Бюджеты и кулдауны действуют.")
-                        .font(SettingsStyle.caption).foregroundStyle(.secondary)
+                        .font(SettingsStyle.caption).foregroundStyle(SettingsStyle.muted)
                 }
-                Section("Реакции вручную") {
+                SettingsBlock("Реакции вручную") {
                     LazyVGrid(columns: [GridItem(.adaptive(minimum: 104), spacing: 8)], spacing: 8) {
                         ForEach(MascotReaction.allCases, id: \.self) { reaction in
                             Button(reaction.rawValue) { model.playReaction(reaction) }
@@ -78,7 +78,7 @@ struct MascotLabView: View {
                         }
                     }
                 }
-                Section("Взгляд") {
+                SettingsBlock("Взгляд") {
                     slider("Жёсткость саккады ω", $model.tuning.saccadeOmega, 8...80)
                     slider("Радиус hover, pt", $model.tuning.hoverRadius, 40...300)
                     range("Фиксация idle, s", $model.tuning.idleFixation, 0.5...8)
@@ -86,18 +86,18 @@ struct MascotLabView: View {
                     range("Фиксация work, s", $model.tuning.workFixation, 0.1...3)
                     slider("Строка чтения, s", $model.tuning.readLineDuration, 0.4...4)
                 }
-                Section("Моргание") {
+                SettingsBlock("Моргание") {
                     slider("Закрытие, s", $model.tuning.blinkClose, 0.02...0.3)
                     slider("Открытие, s", $model.tuning.blinkOpen, 0.02...0.4)
                     range("Интервал, s", $model.tuning.blinkInterval, 0.5...12)
                     slider("Двойное, доля", $model.tuning.doubleBlinkChance, 0...1)
                 }
-                Section("Тело и свечение") {
+                SettingsBlock("Тело и свечение") {
                     slider("Подпрыгивание, pt", $model.tuning.hopHeight, 0...8)
                     slider("Радиус свечения", $model.tuning.glowRadius, 0...30)
                     slider("Яркость свечения", $model.tuning.glowOpacity, 0...1)
                 }
-                Section("Живость") {
+                SettingsBlock("Живость") {
                     slider("Растяжение в прыжке", $model.tuning.stretchPerSpeed, 0...0.006)
                     slider("Сплющивание при приземлении", $model.tuning.landingSquash, 0...0.2)
                     slider("Приседание перед прыжком, pt", $model.tuning.anticipation, 0...4)
@@ -105,19 +105,18 @@ struct MascotLabView: View {
                     slider("Микродвижения глаз", $model.tuning.microSaccade, 0...0.12)
                     slider("Наклон, когда думает", $model.tuning.thinkTilt, 0...0.4)
                 }
-                Section("Облачко") {
+                SettingsBlock("Облачко") {
                     slider("Фон не чаще, s", $model.tuning.bubble.ambientInterval, 2...30)
                     slider("Модус держится, s", $model.tuning.bubble.ambientMinHold, 0...6)
                     slider("Мин. показ, s", $model.tuning.bubble.minShow, 0.2...3)
                 }
-                Section {
+                SettingsBlock {
                     HStack {
                         Button("Сбросить") { model.tuning = MascotTuning() }
                         Button("Скопировать JSON") { copyTuning() }
                     }
                 }
             }
-            .formStyle(.grouped)
         }
     }
 

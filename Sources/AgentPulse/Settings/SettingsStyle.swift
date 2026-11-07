@@ -1,23 +1,12 @@
 import AppKit
 import SwiftUI
 
-/// Настройки на языке Пульта: Geist, спокойная палитра для светлой и тёмной темы. Значения — из CapaTheNotch (MIT).
+/// Настройки на языке Пульта: чёрная поверхность, карточки, слова вместо значков. Всегда тёмные, как и сам Пульт.
 enum SettingsStyle {
-    static let window = dynamic(light: 0xFAFAFA, dark: 0x171717)
-    static let sidebar = dynamic(light: 0xF4F4F5, dark: 0x1E1E1E)
-    static let selection = dynamic(light: 0xE5E5E5, dark: 0x2C2C2C)
-    static let hover = dynamic(light: 0xF4F4F5, dark: 0x2C2C2C)
-    static let control = dynamic(light: 0xFFFFFF, dark: 0x333333)
-    static let text = dynamic(light: 0x171717, dark: 0xF5F5F5)
-    static let muted = dynamic(light: 0x737373, dark: 0xA3A3A3)
-    static let icon = dynamic(light: 0x525252, dark: 0xA3A3A3)
-    static let switchOff = dynamic(light: 0xE5E5E5, dark: 0x404040)
-    static let accent = Color(hex: 0x6B97FF)
-    static let ring = Color(nsColor: NSColor(name: nil) { appearance in
-        (isDark(appearance) ? NSColor.white : NSColor.black).withAlphaComponent(0x0F / 255)
-    })
+    static let text = Color.white
+    static let muted = ConsoleStyle.caption
 
-    static let sidebarWidth = 200.0
+    static let sidebarWidth = 170.0
     /// Настройка, которая зависит от строки над ней.
     static let childIndent = 16.0
 
@@ -29,23 +18,122 @@ enum SettingsStyle {
     static func spring(reduced: Bool) -> Animation {
         reduced ? .easeInOut(duration: 0.15) : .spring(response: 0.3, dampingFraction: 0.75)
     }
+}
 
-    private static func isDark(_ appearance: NSAppearance) -> Bool {
-        appearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
-    }
+/// Страница настроек: столбец карточек.
+struct SettingsPage<Content: View>: View {
+    @ViewBuilder let content: Content
 
-    private static func dynamic(light: UInt32, dark: UInt32) -> Color {
-        Color(nsColor: NSColor(name: nil) { appearance in
-            let value = isDark(appearance) ? dark : light
-            return NSColor(
-                srgbRed: Double((value >> 16) & 0xFF) / 255, green: Double((value >> 8) & 0xFF) / 255,
-                blue: Double(value & 0xFF) / 255, alpha: 1
-            )
-        })
+    var body: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 20) { content }
+                .padding(.horizontal, 24)
+                .padding(.top, 16)
+                .padding(.bottom, 24)
+                .frame(maxWidth: .infinity, alignment: .leading)
+        }
+        .labeledContentStyle(SettingsRowStyle())
     }
 }
 
-/// Переключатель 34 × 20. Подпись остаётся столбцом: название и пояснение.
+/// Карточка настроек с заголовком над ней; строки разделены тонкой линией.
+struct SettingsBlock<Content: View>: View {
+    let title: String?
+    let content: Content
+
+    init(_ title: String? = nil, @ViewBuilder content: () -> Content) {
+        self.title = title
+        self.content = content()
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            if let title {
+                Text(title)
+                    .font(ConsoleStyle.font(12, .medium))
+                    .foregroundStyle(SettingsStyle.muted)
+                    .padding(.leading, ConsoleStyle.cardPadding)
+            }
+            _VariadicView.Tree(SettingsRows()) { content }
+        }
+    }
+}
+
+private struct SettingsRows: _VariadicView_UnaryViewRoot {
+    @ViewBuilder
+    func body(children: _VariadicView.Children) -> some View {
+        VStack(alignment: .leading, spacing: 0) {
+            ForEach(children) { child in
+                child
+                    .padding(.horizontal, ConsoleStyle.cardPadding)
+                    .padding(.vertical, 10)
+                    .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
+                if child.id != children.last?.id {
+                    Rectangle().fill(.white.opacity(0.06)).frame(height: 1).padding(.leading, ConsoleStyle.cardPadding)
+                }
+            }
+        }
+        .background(ConsoleStyle.card, in: RoundedRectangle(cornerRadius: ConsoleStyle.cardRadius, style: .continuous))
+    }
+}
+
+/// Название слева, значение справа; ползунок занимает всё свободное место.
+struct SettingsRowStyle: LabeledContentStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        HStack(spacing: 16) {
+            configuration.label
+                .fixedSize(horizontal: false, vertical: true)
+                .layoutPriority(1)
+            configuration.content
+                .foregroundStyle(SettingsStyle.muted)
+                .frame(maxWidth: .infinity, alignment: .trailing)
+        }
+    }
+}
+
+/// Выбор из списка: вне системной формы подпись и значение иначе слипаются.
+struct SettingsPicker<Value: Hashable, Items: View>: View {
+    let title: String
+    let selection: Binding<Value>
+    @ViewBuilder let items: Items
+
+    init(_ title: String, selection: Binding<Value>, @ViewBuilder content: () -> Items) {
+        self.title = title
+        self.selection = selection
+        items = content()
+    }
+
+    var body: some View {
+        LabeledContent(title) {
+            Picker(title, selection: selection) { items }
+                .labelsHidden()
+                .pickerStyle(.menu)
+                .fixedSize()
+        }
+    }
+}
+
+/// Переключатель Пульта: зелёный, как шкалы.
+struct ConsoleSwitch: View {
+    let isOn: Bool
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    var body: some View {
+        Capsule()
+            .fill(isOn ? ConsoleStyle.green : ConsoleStyle.track)
+            .frame(width: 34, height: 20)
+            .overlay(alignment: isOn ? .trailing : .leading) {
+                Circle()
+                    .fill(.white)
+                    .shadow(color: .black.opacity(0.1), radius: 1, y: 1)
+                    .frame(width: 16, height: 16)
+                    .padding(2)
+            }
+            .animation(SettingsStyle.spring(reduced: reduceMotion), value: isOn)
+    }
+}
+
+/// Подпись остаётся столбцом: название и пояснение.
 struct SettingsSwitchStyle: ToggleStyle {
     func makeBody(configuration: Configuration) -> some View {
         SettingsSwitch(configuration: configuration)
@@ -55,23 +143,12 @@ struct SettingsSwitchStyle: ToggleStyle {
 private struct SettingsSwitch: View {
     let configuration: ToggleStyleConfiguration
     @Environment(\.isEnabled) private var isEnabled
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         HStack(spacing: 12) {
             VStack(alignment: .leading, spacing: 2) { configuration.label }
                 .frame(maxWidth: .infinity, alignment: .leading)
-            Capsule()
-                .fill(configuration.isOn ? SettingsStyle.accent : SettingsStyle.switchOff)
-                .frame(width: 34, height: 20)
-                .overlay(alignment: configuration.isOn ? .trailing : .leading) {
-                    Circle()
-                        .fill(.white)
-                        .shadow(color: .black.opacity(0.1), radius: 1, y: 1)
-                        .frame(width: 16, height: 16)
-                        .padding(2)
-                }
-                .animation(SettingsStyle.spring(reduced: reduceMotion), value: configuration.isOn)
+            ConsoleSwitch(isOn: configuration.isOn)
         }
         .opacity(isEnabled ? 1 : 0.5)
         .contentShape(Rectangle())
@@ -83,70 +160,40 @@ private struct SettingsSwitch: View {
     }
 }
 
-/// Кнопка настроек: спокойная, с тонким краем.
+/// Кнопка как в Пульте: капсула без рамки.
 struct SettingsButtonStyle: ButtonStyle {
     @Environment(\.isEnabled) private var isEnabled
 
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
-            .font(SettingsStyle.body)
-            .foregroundStyle(SettingsStyle.text)
-            .padding(.horizontal, 10)
-            .frame(height: 26)
-            .background(
-                RoundedRectangle(cornerRadius: 6, style: .continuous)
-                    .fill(configuration.isPressed ? SettingsStyle.selection : SettingsStyle.control)
-                    .shadow(color: SettingsStyle.ring, radius: 1, y: 1)
-            )
-            .overlay(RoundedRectangle(cornerRadius: 6, style: .continuous).strokeBorder(SettingsStyle.ring, lineWidth: 1))
-            .opacity(isEnabled ? 1 : 0.5)
+            .font(ConsoleStyle.font(12, .medium))
+            .foregroundStyle(.white)
+            .padding(.horizontal, 12)
+            .frame(height: 28)
+            .background(ConsoleStyle.button, in: Capsule())
+            .scaleEffect(configuration.isPressed ? 0.96 : 1)
+            .opacity(isEnabled ? (configuration.isPressed ? 0.75 : 1) : 0.5)
+            .animation(.easeOut(duration: 0.1), value: configuration.isPressed)
     }
 }
 
-/// Строка боковой колонки.
+/// Раздел в боковой колонке: слово без подложки, как страницы Пульта.
 struct SettingsSidebarItem: View {
     let tab: SettingsNavigation.Tab
     let number: Int
     let isSelected: Bool
-    let highlight: Namespace.ID
     let action: () -> Void
-
-    // Обычный @State без Xcode недоступен: его макрос лежит только там.
-    private let hovering = State(initialValue: false)
 
     var body: some View {
         Button(action: action) {
-            HStack(spacing: 8) {
-                Image(nsImage: SolarIcons.image(tab.icon) ?? NSImage())
-                    .resizable()
-                    .frame(width: 16, height: 16)
-                    .foregroundStyle(isSelected ? SettingsStyle.text : SettingsStyle.icon)
-                Text(tab.title)
-                    .font(isSelected ? SettingsStyle.bodyMedium : SettingsStyle.body)
-                    .foregroundStyle(SettingsStyle.text)
-                    .lineLimit(1)
-                Spacer(minLength: 0)
-                Text("⌘\(number)")
-                    .font(.system(size: 11))
-                    .foregroundStyle(SettingsStyle.muted)
-                    .opacity(isSelected || hovering.wrappedValue ? 1 : 0)
-            }
-            .padding(.horizontal, 8)
-            .frame(height: 32)
-            .background {
-                if isSelected {
-                    RoundedRectangle(cornerRadius: 8, style: .continuous)
-                        .fill(SettingsStyle.selection)
-                        .matchedGeometryEffect(id: "selection", in: highlight)
-                } else if hovering.wrappedValue {
-                    RoundedRectangle(cornerRadius: 8, style: .continuous).fill(SettingsStyle.hover)
-                }
-            }
-            .contentShape(Rectangle())
+            Text(tab.title)
+                .font(ConsoleStyle.font(14, isSelected ? .semibold : .medium))
+                .foregroundStyle(isSelected ? .white : ConsoleStyle.caption)
+                .lineLimit(1)
+                .frame(maxWidth: .infinity, minHeight: 32, alignment: .leading)
+                .contentShape(Rectangle())
         }
-        .buttonStyle(.plain)
-        .onHover { hovering.wrappedValue = $0 }
-        .animation(.easeOut(duration: 0.12), value: hovering.wrappedValue)
+        .buttonStyle(ConsolePressStyle())
         .keyboardShortcut(KeyEquivalent(Character(String(number))), modifiers: .command)
         .accessibilityAddTraits(isSelected ? .isSelected : [])
     }
@@ -164,10 +211,10 @@ struct ShortcutRow: View {
                     ForEach(keys.split(separator: " ").map(String.init), id: \.self) { key in
                         Text(key)
                             .font(.system(size: 11))
-                            .foregroundStyle(SettingsStyle.text)
+                            .foregroundStyle(.white)
                             .padding(.horizontal, 6)
                             .frame(height: 20)
-                            .background(SettingsStyle.ring, in: RoundedRectangle(cornerRadius: 5, style: .continuous))
+                            .background(ConsoleStyle.card, in: RoundedRectangle(cornerRadius: 6, style: .continuous))
                     }
                 }
             } else {

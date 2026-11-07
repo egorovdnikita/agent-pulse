@@ -12,16 +12,16 @@ struct DictationSettings: View {
     private var settings: PulseConfig.Console { model.config.console }
 
     var body: some View {
-        Section("Диктовка") {
+        SettingsBlock("Диктовка") {
             Toggle(isOn: Binding(get: { settings.dictation }, set: { app.setDictationEnabled($0) })) {
                 Text("Диктовка")
                 Text("Зажми ⌃⌥D, говори, отпусти. Спросит микрофон. Всё на этом Mac, аудио не сохраняется")
-                    .font(SettingsStyle.caption).foregroundStyle(.secondary)
+                    .font(SettingsStyle.caption).foregroundStyle(SettingsStyle.muted)
             }
             .disabled(!settings.enabled)
             if settings.dictation {
                 if ConsoleTranslator.isAvailable {
-                    Picker("Язык", selection: Binding(get: { settings.dictationLanguage }, set: { app.setDictationLanguage($0) })) {
+                    SettingsPicker("Язык", selection: Binding(get: { settings.dictationLanguage }, set: { app.setDictationLanguage($0) })) {
                         Text("Русский").tag("ru")
                         Text("Английский").tag("en")
                     }
@@ -32,7 +32,7 @@ struct DictationSettings: View {
                 Toggle(isOn: Binding(get: { settings.dictationHistory }, set: { app.setDictationHistory($0) })) {
                     Text("Хранить историю")
                     Text("Только текст, 30 дней. Аудио не сохраняется никогда")
-                        .font(SettingsStyle.caption).foregroundStyle(.secondary)
+                        .font(SettingsStyle.caption).foregroundStyle(SettingsStyle.muted)
                 }
                 .padding(.leading, SettingsStyle.childIndent)
                 if let controller, !controller.history.entries.isEmpty {
@@ -44,11 +44,11 @@ struct DictationSettings: View {
             }
         }
         if ConsoleTranslator.isAvailable {
-            Section("Переводчик") {
+            SettingsBlock("Переводчик") {
                 Toggle(isOn: Binding(get: { settings.translator }, set: { app.setTranslatorEnabled($0) })) {
                     Text("Переводчик")
                     Text("Выдели текст и нажми ⌃⌥T. Русский ↔ английский, на этом Mac")
-                        .font(SettingsStyle.caption).foregroundStyle(.secondary)
+                        .font(SettingsStyle.caption).foregroundStyle(SettingsStyle.muted)
                 }
                 .disabled(!settings.enabled)
                 if settings.translator, !settings.dictation { accessibilityRow }
@@ -64,7 +64,7 @@ struct DictationSettings: View {
                 Button("Скачать, \(DictationModelSpec.downloadMB) MB") { models.download() }
             }
             Text("На диске займёт \(DictationModelSpec.diskMB) MB, при работе до 650 MB памяти, через 2 минуты память освобождается")
-                .font(SettingsStyle.caption).foregroundStyle(.secondary)
+                .font(SettingsStyle.caption).foregroundStyle(SettingsStyle.muted)
         case .downloading(let fraction):
             LabeledContent("Модель GigaAM") {
                 HStack {
@@ -77,7 +77,7 @@ struct DictationSettings: View {
         case .ready:
             LabeledContent("Модель GigaAM") {
                 HStack {
-                    Text("Скачана").foregroundStyle(.secondary)
+                    Text("Скачана").foregroundStyle(SettingsStyle.muted)
                     Button("Удалить") { models.remove() }
                 }
             }
@@ -85,7 +85,7 @@ struct DictationSettings: View {
             LabeledContent("Модель GigaAM") {
                 Button("Скачать ещё раз") { models.download() }
             }
-            Text(problem).font(SettingsStyle.caption).foregroundStyle(.secondary)
+            Text(problem).font(SettingsStyle.caption).foregroundStyle(SettingsStyle.muted)
         }
     }
 
@@ -94,11 +94,11 @@ struct DictationSettings: View {
         Toggle(isOn: Binding(get: { settings.accessibility }, set: { app.setConsoleAccessibility($0) })) {
             Text("Вставлять в поле и читать выделение")
             Text("Нужен Универсальный доступ. Без него диктовка кладёт текст в буфер обмена, прежнее содержимое буфера не сохраняется")
-                .font(SettingsStyle.caption).foregroundStyle(.secondary)
+                .font(SettingsStyle.caption).foregroundStyle(SettingsStyle.muted)
         }
         if settings.accessibility, !AXIsProcessTrusted() {
             Text("Разреши: Системные настройки → Конфиденциальность и безопасность → Универсальный доступ → Agent Pulse")
-                .font(SettingsStyle.caption).foregroundStyle(.secondary)
+                .font(SettingsStyle.caption).foregroundStyle(SettingsStyle.muted)
         }
     }
 }
@@ -114,11 +114,11 @@ private struct DictationRulesEditor: View {
         VStack(alignment: .leading, spacing: 6) {
             Text("Правила замены")
             Text("Уже есть: диплой → deploy, пул реквест → pull request, коммит → commit, гитхаб → GitHub")
-                .font(SettingsStyle.caption).foregroundStyle(.secondary)
+                .font(SettingsStyle.caption).foregroundStyle(SettingsStyle.muted)
             ForEach(rules.indices, id: \.self) { index in
                 HStack {
                     TextField("Произнесённое", text: field(index, \.spoken))
-                    Text("→").foregroundStyle(.secondary)
+                    Text("→").foregroundStyle(SettingsStyle.muted)
                     TextField("Записанное", text: field(index, \.written))
                     Button("Удалить") {
                         var list = rules

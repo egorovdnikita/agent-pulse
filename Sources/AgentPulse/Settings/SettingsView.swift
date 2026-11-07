@@ -28,18 +28,6 @@ enum SettingsNavigation {
             case .lab: "Состояния и реакции вручную, числа пластики"
             }
         }
-
-        /// Иконка Solar.
-        var icon: String {
-            switch self {
-            case .general: "tuning-2"
-            case .character: "emoji-funny-circle"
-            case .console: "devices"
-            case .news: "document-text"
-            case .sources: "wi-fi-router-round"
-            case .lab: "atom"
-            }
-        }
     }
 }
 
@@ -72,61 +60,64 @@ final class SettingsSelection {
     var tab: SettingsNavigation.Tab = .general
 }
 
-/// Окно «Настройки»: слева разделы, справа заголовок и раздел.
+/// Окно «Настройки»: слева разделы словами, справа заголовок и карточки, как в Пульте.
 struct SettingsRoot: View {
     let app: AppDelegate
     @Bindable var selection: SettingsSelection
-    @Namespace private var highlight
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         HStack(spacing: 0) {
             sidebar
-            VStack(alignment: .leading, spacing: 0) {
-                VStack(alignment: .leading, spacing: 4) {
-                    Text(selection.tab.title)
-                        .font(SettingsStyle.title)
-                        .tracking(-0.22)
-                        .foregroundStyle(SettingsStyle.text)
-                        .accessibilityAddTraits(.isHeader)
-                    Text(selection.tab.subtitle)
-                        .font(SettingsStyle.body)
-                        .foregroundStyle(SettingsStyle.muted)
-                }
-                .padding(.horizontal, 32)
-                .padding(.top, 44)
-                .padding(.bottom, 4)
-                SettingsWindow.content(selection.tab, app: app).id(selection.tab)
+            ZStack {
+                section
+                    .id(selection.tab)
+                    .transition(.opacity)
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+            .animation(.easeOut(duration: 0.16), value: selection.tab)
         }
         .frame(width: SettingsWindow.size.width, height: SettingsWindow.size.height)
-        .background(SettingsStyle.window)
+        .background(Color.black)
         .font(SettingsStyle.body)
-        .tint(SettingsStyle.accent)
+        .foregroundStyle(.white)
+        .tint(.white)
         .toggleStyle(SettingsSwitchStyle())
         .buttonStyle(SettingsButtonStyle())
-        .scrollContentBackground(.hidden)
+        .preferredColorScheme(.dark)
         .ignoresSafeArea(.container, edges: .top)
+    }
+
+    private var section: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            VStack(alignment: .leading, spacing: 4) {
+                Text(selection.tab.title)
+                    .font(SettingsStyle.title)
+                    .tracking(-0.22)
+                    .accessibilityAddTraits(.isHeader)
+                Text(selection.tab.subtitle)
+                    .font(SettingsStyle.body)
+                    .foregroundStyle(SettingsStyle.muted)
+            }
+            .padding(.horizontal, 24 + ConsoleStyle.cardPadding)
+            .padding(.top, 44)
+            SettingsWindow.content(selection.tab, app: app)
+        }
     }
 
     private var sidebar: some View {
         VStack(alignment: .leading, spacing: 2) {
             ForEach(Array(SettingsNavigation.Tab.allCases.enumerated()), id: \.element) { index, tab in
-                SettingsSidebarItem(
-                    tab: tab, number: index + 1, isSelected: selection.tab == tab, highlight: highlight
-                ) { selection.tab = tab }
+                SettingsSidebarItem(tab: tab, number: index + 1, isSelected: selection.tab == tab) { selection.tab = tab }
             }
             Spacer()
         }
         .padding(.top, 52)
-        .padding(.horizontal, 8)
-        .padding(.bottom, 8)
+        .padding(.leading, 20)
+        .padding(.trailing, 8)
         .frame(width: SettingsStyle.sidebarWidth)
         .frame(maxHeight: .infinity)
-        .background(SettingsStyle.sidebar)
-        .overlay(alignment: .trailing) { Rectangle().fill(SettingsStyle.ring).frame(width: 1) }
-        .animation(SettingsStyle.spring(reduced: reduceMotion), value: selection.tab)
+        .overlay(alignment: .trailing) { Rectangle().fill(ConsoleStyle.edge).frame(width: 1) }
     }
 }
 
@@ -137,8 +128,8 @@ private struct GeneralSettings: View {
 
     var body: some View {
         let model = app.model
-        Form {
-            Section {
+        SettingsPage {
+            SettingsBlock {
                 HStack(alignment: .top, spacing: 16) {
                     MascotView(animator: model.animator, diameter: 48)
                         .frame(width: 104, height: 104)
@@ -146,39 +137,39 @@ private struct GeneralSettings: View {
                     VStack(alignment: .leading, spacing: 6) {
                         Text(Self.now(model)).font(.headline)
                         if let today = Self.today(model) {
-                            Text(today).font(.callout).foregroundStyle(.secondary)
+                            Text(today).font(.callout).foregroundStyle(SettingsStyle.muted)
                         }
                         MoodBars(mood: model.mood).padding(.top, 2)
                     }
                 }
                 .padding(.vertical, 4)
             }
-            Section("Облик") {
+            SettingsBlock("Облик") {
                 let bots = PalSkin.installed()
                 let mode = PalWardrobe.Mode(config: model.config.mascot.skin)
-                Picker("Кто на маскоте", selection: Binding(get: { model.config.mascot.skin }, set: { app.setSkin($0) })) {
+                SettingsPicker("Кто на маскоте", selection: Binding(get: { model.config.mascot.skin }, set: { app.setSkin($0) })) {
                     Text("Светящийся круг").tag(PalSkin.classic)
                     if !bots.isEmpty { Text("Меняется сам").tag(PalWardrobe.Mode.shuffleConfig) }
                     ForEach(bots, id: \.bot) { Text($0.bot).tag($0.configValue) }
                 }
                 if bots.isEmpty {
                     Text("Боты Agent Pals не установлены: scripts/install-agent-pals.sh путь/к/паку.zip")
-                        .font(SettingsStyle.caption).foregroundStyle(.secondary)
+                        .font(SettingsStyle.caption).foregroundStyle(SettingsStyle.muted)
                 } else if mode != .classic {
                     if mode == .shuffle {
                         Text("Новая задача любого агента или пробуждение — новый бот, не чаще раза в 3 мин. Все \(bots.count) по очереди, без повторов")
-                            .font(SettingsStyle.caption).foregroundStyle(.secondary)
+                            .font(SettingsStyle.caption).foregroundStyle(SettingsStyle.muted)
                     }
                     if let skin = model.animator.skin, bots.contains(skin) {
                         DisclosureGroup("Сценарии: анимации и облачка") { PalGallery(skin: skin, diameter: model.config.display.mascotSize) }
                     }
                 }
             }
-            Section("Где живёт") {
+            SettingsBlock("Где живёт") {
                 LabeledContent("Угол экрана") {
                     CornerPicker(anchor: Binding(get: { model.config.display.anchor }, set: { app.setAnchor($0) }))
                 }
-                Picker("Дисплей", selection: Binding(get: { model.config.display.screen }, set: { app.setScreen($0) })) {
+                SettingsPicker("Дисплей", selection: Binding(get: { model.config.display.screen }, set: { app.setScreen($0) })) {
                     Text("С Dock").tag("dock")
                     Text("Основной").tag("main")
                     Text("С курсором").tag("active")
@@ -188,32 +179,31 @@ private struct GeneralSettings: View {
                     HStack {
                         Slider(value: Binding(get: { model.config.display.mascotSize }, set: { app.setMascotSize($0) }),
                                in: 40...72, step: 4)
-                        Text("\(Int(model.config.display.mascotSize)) pt").monospacedDigit().foregroundStyle(.secondary)
+                        Text("\(Int(model.config.display.mascotSize)) pt").monospacedDigit().foregroundStyle(SettingsStyle.muted)
                             .frame(width: 44, alignment: .trailing)
                     }
                 }
                 Button("Вернуть маскота в угол") { app.panel?.resetPosition() }
             }
-            Section("Поведение") {
+            SettingsBlock("Поведение") {
                 Toggle("Показывать маскота", isOn: Binding(get: { model.overlayVisible }, set: { app.setOverlayVisible($0) }))
                 Toggle(isOn: Binding(get: { model.config.display.gravity }, set: { app.setGravity($0) })) {
                     Text("Гравитация")
-                    Text("Отпущенный маскот падает на «пол» с отскоками").font(SettingsStyle.caption).foregroundStyle(.secondary)
+                    Text("Отпущенный маскот падает на «пол» с отскоками").font(SettingsStyle.caption).foregroundStyle(SettingsStyle.muted)
                 }
                 Toggle("Запускать при входе", isOn: Binding(get: { model.launchAtLogin }, set: { app.setLaunchAtLogin($0) }))
                 if let error = model.serverError {
                     Text("Сокет недоступен: \(error)").foregroundStyle(.red)
                 }
             }
-            Section("О программе") {
+            SettingsBlock("О программе") {
                 Text("Иконки категорий — Solar Icons, 480 Design, лицензия CC BY 4.0. Анимации ботов играет Lottie от Airbnb, лицензия Apache 2.0. «Музыка» работает через mediaremote-adapter, Jonas van den Berg, лицензия BSD-3. Диктовка: GigaAM (лицензия MIT), sherpa-onnx (Apache 2.0), ONNX Runtime (MIT).")
-                    .font(SettingsStyle.caption).foregroundStyle(.secondary)
+                    .font(SettingsStyle.caption).foregroundStyle(SettingsStyle.muted)
                 Button("Лицензии") {
                     if let url = Bundle.main.url(forResource: "Licenses", withExtension: nil) { NSWorkspace.shared.open(url) }
                 }
             }
         }
-        .formStyle(.grouped)
     }
 
     /// Что делаю сейчас — тем же языком, что в облачке при наведении.
@@ -250,7 +240,7 @@ private struct MoodBars: View {
 
     private func row(_ title: String, _ value: Double, _ color: Color) -> some View {
         GridRow {
-            Text(title).foregroundStyle(.secondary)
+            Text(title).foregroundStyle(SettingsStyle.muted)
             // Своя шкала: системная в неактивном окне теряет цвет.
             Capsule().fill(Color.secondary.opacity(0.2))
                 .frame(width: 140, height: 6)
@@ -308,8 +298,8 @@ private struct CharacterSettings: View {
 
     var body: some View {
         @Bindable var model = app.model
-        Form {
-            Section {
+        SettingsPage {
+            SettingsBlock {
                 LabeledContent("Болтливость") {
                     Slider(value: $model.config.character.talkativeness, in: 0...1) { editing in
                         if !editing { model.applyCharacter() }
@@ -321,9 +311,9 @@ private struct CharacterSettings: View {
                     }
                 }
                 Text("Болтливость — как часто облачко вне работы агентов. Озорство — до \(Int((model.config.character.mischief * 8).rounded())) приколов в день.")
-                    .font(SettingsStyle.caption).foregroundStyle(.secondary)
+                    .font(SettingsStyle.caption).foregroundStyle(SettingsStyle.muted)
             }
-            Section("Тишина") {
+            SettingsBlock("Тишина") {
                 LabeledContent("Тихие часы") {
                     HStack(spacing: 6) {
                         TextField("", text: Binding(
@@ -350,9 +340,9 @@ private struct CharacterSettings: View {
                     ), in: 5...240, step: 5)
                 }
                 Text("Созвон, полный экран и тихие часы — облачко молчит, приколов нет. «Жду тебя» слышно всегда, а в тихие часы — и ответ на твоё действие: кабель, тычок, поглаживание.")
-                    .font(SettingsStyle.caption).foregroundStyle(.secondary)
+                    .font(SettingsStyle.caption).foregroundStyle(SettingsStyle.muted)
             }
-            Section("День рождения") {
+            SettingsBlock("День рождения") {
                 Toggle("Знаю день рождения", isOn: $form.known)
                 if form.known {
                     DatePicker("Дата", selection: $form.date, displayedComponents: .date)
@@ -360,7 +350,7 @@ private struct CharacterSettings: View {
             }
             .onChange(of: form.known) { saveBirthday() }
             .onChange(of: form.date) { saveBirthday() }
-            Section("Мило и бесит") {
+            SettingsBlock("Мило и бесит") {
                 LabeledContent("Сегодня") {
                     Text("мило \(model.feedbackToday["мило", default: 0]) · бесит \(model.feedbackToday["бесит", default: 0])")
                 }
@@ -368,13 +358,12 @@ private struct CharacterSettings: View {
                     Text("\(model.mutedReactions.count)")
                 }
             }
-            Section("Память") {
+            SettingsBlock("Память") {
                 Text("Только счётчики дня — задачи, ошибки, перерывы, поглаживания. Хранится 30 дней на этом Mac.")
-                    .font(SettingsStyle.caption).foregroundStyle(.secondary)
+                    .font(SettingsStyle.caption).foregroundStyle(SettingsStyle.muted)
                 Button("Забыть всё", role: .destructive) { model.resetMemory() }
             }
         }
-        .formStyle(.grouped)
         .onAppear(perform: loadBirthday)
     }
 
@@ -414,13 +403,13 @@ private struct NewsSettings: View {
     var body: some View {
         let model = app.model
         let on = model.config.character.designNews
-        Form {
-            Section {
+        SettingsPage {
+            SettingsBlock {
                 Toggle("Рассказывать новости", isOn: Binding(get: { on }, set: { app.setDesignNews($0) }))
                 Text("Каждые 15 минут, с 9 до 22, когда ты рядом и не занят созвоном или агентом. Дизайн — большая часть.")
-                    .font(SettingsStyle.caption).foregroundStyle(.secondary)
+                    .font(SettingsStyle.caption).foregroundStyle(SettingsStyle.muted)
             }
-            Section("Темы") {
+            SettingsBlock("Темы") {
                 ForEach(NewsTopic.allCases, id: \.self) { topic in
                     let sources = NewsFeeds.all.filter { $0.topic == topic }
                     Toggle(isOn: Binding(
@@ -435,7 +424,7 @@ private struct NewsSettings: View {
                             VStack(alignment: .leading, spacing: 2) {
                                 Text(topic.title)
                                 Text(Set(sources.map(\.name).map { $0.components(separatedBy: " · ").first ?? $0 }).sorted().joined(separator: ", "))
-                                    .font(SettingsStyle.caption).foregroundStyle(.secondary)
+                                    .font(SettingsStyle.caption).foregroundStyle(SettingsStyle.muted)
                                     .lineLimit(2)
                             }
                         }
@@ -443,12 +432,11 @@ private struct NewsSettings: View {
                 }
             }
             .disabled(!on)
-            Section {
+            SettingsBlock {
                 Text("Только публичные ленты и открытые Telegram-каналы, без данных о тебе. Показанное помнится на этом Mac.")
-                    .font(SettingsStyle.caption).foregroundStyle(.secondary)
+                    .font(SettingsStyle.caption).foregroundStyle(SettingsStyle.muted)
             }
         }
-        .formStyle(.grouped)
     }
 }
 
@@ -460,47 +448,47 @@ private struct ConsoleSettings: View {
     var body: some View {
         let model = app.model
         let settings = model.config.console
-        Form {
-            Section {
+        SettingsPage {
+            SettingsBlock {
                 Toggle(isOn: Binding(get: { settings.enabled }, set: { app.setConsoleEnabled($0) })) {
                     Text("Показывать Пульт")
                     Text("Виджет в углу напротив маскота. Свёрнутый всегда показывает лимиты")
-                        .font(SettingsStyle.caption).foregroundStyle(.secondary)
+                        .font(SettingsStyle.caption).foregroundStyle(SettingsStyle.muted)
                 }
-                Picker("Клавиша раскрытия", selection: Binding(get: { settings.hotkey }, set: { app.setConsoleHotKey($0) })) {
+                SettingsPicker("Клавиша раскрытия", selection: Binding(get: { settings.hotkey }, set: { app.setConsoleHotKey($0) })) {
                     ForEach(ConsoleHotKey.letters, id: \.self) { Text("⌃⌥\($0.uppercased())").tag($0) }
                     Text("Нет").tag("")
                 }
                 .disabled(!settings.enabled)
             }
-            Section("Клавиши") {
+            SettingsBlock("Клавиши") {
                 ShortcutRow(title: "Раскрыть Пульт", keys: settings.hotkey.isEmpty ? nil : "⌃⌥\(settings.hotkey.uppercased())")
                 if settings.prompter { ShortcutRow(title: "Суфлёр: старт и стоп", keys: "⌃⌥P") }
                 if settings.prompter { ShortcutRow(title: "Суфлёр: скорость", keys: "⌃⌥↑ ⌃⌥↓") }
                 if settings.dictation { ShortcutRow(title: "Диктовка: держи и говори", keys: "⌃⌥D") }
                 if settings.translator, ConsoleTranslator.isAvailable { ShortcutRow(title: "Перевести выделенное", keys: "⌃⌥T") }
             }
-            Section("Модули") {
+            SettingsBlock("Модули") {
                 Toggle("Лимиты", isOn: Binding(get: { settings.limits }, set: { app.setLimitsEnabled($0) }))
                     .disabled(!settings.enabled)
                 Toggle(isOn: Binding(get: { settings.prompter }, set: { app.setPrompterEnabled($0) })) {
                     Text("Суфлёр")
                     Text("Текст под камерой. ⌃⌥P — старт и стоп, ⌃⌥↑ и ⌃⌥↓ — скорость, клик — пауза")
-                        .font(SettingsStyle.caption).foregroundStyle(.secondary)
+                        .font(SettingsStyle.caption).foregroundStyle(SettingsStyle.muted)
                 }
                 .disabled(!settings.enabled)
                 if settings.prompter {
                     Toggle(isOn: Binding(get: { settings.prompterHidden }, set: { app.setPrompterHidden($0) })) {
                         Text("Скрывать суфлёр при показе экрана")
                         Text("В Zoom на macOS 15 и новее суфлёр может быть виден. Meet, Teams, Телемост и QuickTime не проверены")
-                            .font(SettingsStyle.caption).foregroundStyle(.secondary)
+                            .font(SettingsStyle.caption).foregroundStyle(SettingsStyle.muted)
                     }
                     .padding(.leading, SettingsStyle.childIndent)
                     .disabled(!settings.enabled)
                     Toggle(isOn: Binding(get: { settings.prompterVoice }, set: { app.setPrompterVoice($0) })) {
                         Text("Суфлёр идёт за голосом")
                         Text("Спросит микрофон и распознавание речи. Всё на этом Mac, аудио не пишется")
-                            .font(SettingsStyle.caption).foregroundStyle(.secondary)
+                            .font(SettingsStyle.caption).foregroundStyle(SettingsStyle.muted)
                     }
                     .padding(.leading, SettingsStyle.childIndent)
                     .disabled(!settings.enabled)
@@ -508,7 +496,7 @@ private struct ConsoleSettings: View {
                 Toggle(isOn: Binding(get: { settings.calendar }, set: { app.setCalendarEnabled($0) })) {
                     Text("Календарь")
                     Text("Спросит доступ к Календарям. Только чтение. Идущий звонок включает тишину маскота")
-                        .font(SettingsStyle.caption).foregroundStyle(.secondary)
+                        .font(SettingsStyle.caption).foregroundStyle(SettingsStyle.muted)
                 }
                 .disabled(!settings.enabled)
                 Toggle("Полка", isOn: Binding(get: { settings.shelf }, set: { app.setShelfEnabled($0) }))
@@ -517,7 +505,7 @@ private struct ConsoleSettings: View {
                     Toggle(isOn: Binding(get: { settings.shelfScreenshots }, set: { app.setShelfScreenshots($0) })) {
                         Text("Новые снимки экрана — на полку")
                         Text("Хранятся только ссылки на файлы, выход из приложения очищает полку")
-                            .font(SettingsStyle.caption).foregroundStyle(.secondary)
+                            .font(SettingsStyle.caption).foregroundStyle(SettingsStyle.muted)
                     }
                     .padding(.leading, SettingsStyle.childIndent)
                     .disabled(!settings.enabled)
@@ -525,17 +513,17 @@ private struct ConsoleSettings: View {
                 Toggle(isOn: Binding(get: { settings.music }, set: { app.setMusicEnabled($0) })) {
                     Text("Музыка")
                     if model.console.media.availability == .unavailable {
-                        Text("Недоступно на этой системе").font(SettingsStyle.caption).foregroundStyle(.secondary)
+                        Text("Недоступно на этой системе").font(SettingsStyle.caption).foregroundStyle(SettingsStyle.muted)
                     }
                 }
                 .disabled(!settings.enabled)
             }
             DictationSettings(model: model, app: app, controller: app.dictation)
-            Section("Лимиты Claude") {
+            SettingsBlock("Лимиты Claude") {
                 LabeledContent("Statusline", value: model.statuslineInstalled ? "подключена" : "не подключена")
                 if model.statuslineBroken {
                     Text("Исходная команда ссылается на скрипт Orca, которого больше нет. Отключите и подключите снова")
-                        .font(SettingsStyle.caption).foregroundStyle(.secondary)
+                        .font(SettingsStyle.caption).foregroundStyle(SettingsStyle.muted)
                 }
                 if model.statuslineInstalled {
                     Button("Отключить") { app.uninstallStatusline() }
@@ -543,23 +531,22 @@ private struct ConsoleSettings: View {
                     Button("Подключить…") { app.installStatusline() }
                 }
                 Text("Данные приходят только с подпиской Pro или Max и после первого ответа в сессии")
-                    .font(SettingsStyle.caption).foregroundStyle(.secondary)
+                    .font(SettingsStyle.caption).foregroundStyle(SettingsStyle.muted)
             }
-            Section("Лимиты Codex") {
+            SettingsBlock("Лимиты Codex") {
                 LabeledContent("Состояние", value: model.codexStatus ?? "ещё не проверялось")
                 TextField("Путь к codex", text: Binding(get: { settings.codexPath ?? "" }, set: { app.setCodexPath($0) }),
                           prompt: Text("найти самому"))
-                Picker("Аккаунт", selection: Binding(get: { settings.codexHome ?? "" }, set: { app.setCodexHome($0) })) {
+                SettingsPicker("Аккаунт", selection: Binding(get: { settings.codexHome ?? "" }, set: { app.setCodexHome($0) })) {
                     Text("~/.codex").tag("")
                     ForEach(Array(CodexAppServer.accountHomes().enumerated()), id: \.element) { index, home in
                         Text("Orca, аккаунт \(index + 1)").tag(home)
                     }
                 }
                 Text("В Orca свой аккаунт Codex: выберите его, иначе лимиты будут от ~/.codex")
-                    .font(SettingsStyle.caption).foregroundStyle(.secondary)
+                    .font(SettingsStyle.caption).foregroundStyle(SettingsStyle.muted)
             }
         }
-        .formStyle(.grouped)
     }
 }
 
@@ -570,8 +557,8 @@ private struct SourcesSettings: View {
 
     var body: some View {
         @Bindable var model = app.model
-        Form {
-            Section("Claude Code") {
+        SettingsPage {
+            SettingsBlock("Claude Code") {
                 LabeledContent("Хуки", value: model.hooksInstalled ? "установлены" + Self.ago(model, .claudeCode) : "не установлены")
                 if model.hooksInstalled {
                     Button("Удалить хуки") { app.uninstallHooks() }
@@ -579,24 +566,24 @@ private struct SourcesSettings: View {
                     Button("Установить хуки…") { app.installHooks() }
                 }
             }
-            Section("Claude Cowork") {
+            SettingsBlock("Claude Cowork") {
                 Toggle(isOn: Binding(get: { model.config.sources.cowork }, set: { app.setCoworkEnabled($0) })) {
                     Text("Следить за Cowork")
-                    Text(coworkStatus(model)).font(SettingsStyle.caption).foregroundStyle(.secondary)
+                    Text(coworkStatus(model)).font(SettingsStyle.caption).foregroundStyle(SettingsStyle.muted)
                 }
             }
-            Section("ChatGPT") {
+            SettingsBlock("ChatGPT") {
                 LabeledContent("Хуки Codex", value: Self.codexHooked ? "зовут маскота" + Self.ago(model, .codex) : "не найдены")
                 Text("Приложение ChatGPT перенимает хуки Claude Code: маскот видит его работу")
-                    .font(SettingsStyle.caption).foregroundStyle(.secondary)
+                    .font(SettingsStyle.caption).foregroundStyle(SettingsStyle.muted)
             }
-            Section("Orca") {
+            SettingsBlock("Orca") {
                 Toggle(isOn: Binding(get: { model.config.sources.orca }, set: { app.setOrcaEnabled($0) })) {
                     Text("Следить за агентами в Orca")
-                    Text(orcaStatus(model)).font(SettingsStyle.caption).foregroundStyle(.secondary)
+                    Text(orcaStatus(model)).font(SettingsStyle.caption).foregroundStyle(SettingsStyle.muted)
                 }
             }
-            Section("Claude в браузере") {
+            SettingsBlock("Claude в браузере") {
                 LabeledContent("Мост для расширения", value: model.browserBridgeInstalled ? "установлен" + Self.ago(model, .claudeChat) : "не установлен")
                 if model.browserBridgeInstalled {
                     HStack {
@@ -607,25 +594,25 @@ private struct SourcesSettings: View {
                     Button("Подключить…") { app.installBrowserBridge() }
                 }
             }
-            Section("Claude Chat в приложении") {
+            SettingsBlock("Claude Chat в приложении") {
                 Toggle(isOn: Binding(get: { model.config.sources.claudeChat }, set: { app.setChatWindowEnabled($0) })) {
                     Text("Следить за чатом")
                     Text(model.config.sources.claudeChat && !model.accessibilityTrusted
                          ? "Нужен «Универсальный доступ» в Системных настройках"
                          : "Через «Универсальный доступ»: видно только, что Claude отвечает")
-                        .font(SettingsStyle.caption).foregroundStyle(.secondary)
+                        .font(SettingsStyle.caption).foregroundStyle(SettingsStyle.muted)
                 }
                 if model.config.sources.claudeChat && model.accessibilityTrusted {
                     Button("Снимок окна Claude для настройки") { app.saveChatWindowSnapshot() }
                 }
             }
-            Section("Figma") {
+            SettingsBlock("Figma") {
                 Button("Показать плагин-компаньон") { app.revealFigmaPlugin() }
                 if let error = model.companionError {
                     Text("Порт занят — \(error)").foregroundStyle(.red)
                 }
             }
-            Section("Органы чувств") {
+            SettingsBlock("Органы чувств") {
                 Toggle("Агенты", isOn: senseBinding(\.agents))
                 Toggle("Тело ноутбука", isOn: senseBinding(\.body))
                 Toggle("Ритм и время", isOn: senseBinding(\.rhythm))
@@ -633,7 +620,6 @@ private struct SourcesSettings: View {
                 Toggle("Эксперименты (угол крышки)", isOn: senseBinding(\.experimental))
             }
         }
-        .formStyle(.grouped)
     }
 
     private func senseBinding(_ keyPath: WritableKeyPath<PulseConfig.Senses, Bool>) -> Binding<Bool> {

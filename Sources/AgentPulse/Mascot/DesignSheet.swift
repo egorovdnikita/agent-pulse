@@ -101,7 +101,7 @@ enum BubbleSheet {
 enum SettingsSheet {
     static func render(app: AppDelegate, to directory: URL) {
         try? FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
-        for (suffix, appearance) in [("dark", NSAppearance.Name.darkAqua), ("light", .aqua)] {
+        for (suffix, appearance) in [("dark", NSAppearance.Name.darkAqua)] {
             for tab in SettingsNavigation.Tab.allCases {
                 let selection = SettingsSelection()
                 selection.tab = tab
