@@ -47,6 +47,8 @@ final class ConsolePanel: NSPanel {
     private var outsideMonitor: Any?
     private var localMonitor: Any?
     private var swipe = PageSwipe()
+    private var axis = ScrollAxis()
+    private var heldEvents: [NSEvent] = []
 
     init(model: ConsoleModel) {
         self.model = model
@@ -124,11 +126,7 @@ final class ConsolePanel: NSPanel {
             outsideMonitor = NSEvent.addGlobalMonitorForEvents(matching: [.leftMouseDown, .rightMouseDown]) { [weak self] _ in
                 MainActor.assumeIsolated { self?.model.setExpanded(false) }
             }
-            localMonitor = NSEvent.addLocalMonitorForEvents(matching: [.keyDown, .leftMouseDown, .scrollWheel]) { [weak self] event in
-                if event.type == .scrollWheel {
-                    MainActor.assumeIsolated { self?.handleScroll(event) }
-                    return event
-                }
+            localMonitor = NSEvent.addLocalMonitorForEvents(matching: [.keyDown, .leftMouseDown]) { [weak self] event in
                 if event.type == .keyDown, MainActor.assumeIsolated({ self?.handlePageKey(event) == true }) { return nil }
                 // У приложения без меню ⌘V и остальные некому обработать: поле суфлёра осталось бы без вставки.
                 if event.type == .keyDown, event.modifierFlags.intersection(.deviceIndependentFlagsMask) == .command,
@@ -159,23 +157,60 @@ final class ConsolePanel: NSPanel {
         "a": #selector(NSText.selectAll(_:)), "z": Selector(("undo:")),
     ]
 
-    /// Горизонтальный свайп листает страницы; вертикальный остаётся спискам.
-    private func handleScroll(_ event: NSEvent) {
-        guard event.window === self else { return }
-        let phase: PageSwipe.Phase
-        if !event.momentumPhase.isEmpty {
-            phase = .momentum
-        } else if event.phase.isEmpty {
-            phase = .wheel
-        } else if event.phase.contains(.began) || event.phase.contains(.mayBegin) {
-            phase = .began
-        } else if event.phase.contains(.ended) || event.phase.contains(.cancelled) {
-            phase = .ended
-        } else {
-            phase = .moved
+    /// Прокрутка разбирается здесь, а не в мониторе: поле и списки забирают жест в свой цикл, и монитор его больше не видит.
+    /// Вбок — страницы, вверх-вниз — тому, кто под курсором. Пока направление неясно, события придерживаются.
+    override func sendEvent(_ event: NSEvent) {
+        guard event.type == .scrollWheel, model.expanded else {
+            super.sendEvent(event)
+            return
         }
-        // Вперёд — движение пальцев влево, при любом направлении прокрутки в системе.
-        let forward = event.isDirectionInvertedFromDevice ? -event.scrollingDeltaX : event.scrollingDeltaX
+        // Мышь с колесом: фаз у неё нет, каждое событие решается само.
+        if event.phase.isEmpty, event.momentumPhase.isEmpty {
+            guard abs(event.scrollingDeltaX) > abs(event.scrollingDeltaY) else {
+                super.sendEvent(event)
+                return
+            }
+            turnPage(event, phase: .wheel)
+            return
+        }
+        if !event.momentumPhase.isEmpty {
+            if axis.owner == .pages { turnPage(event, phase: .momentum) } else { super.sendEvent(event) }
+            return
+        }
+        if event.phase.contains(.mayBegin) || event.phase.contains(.began) {
+            axis.begin()
+            heldEvents = [event]
+            turnPage(event, phase: .began)
+            return
+        }
+        let ended = event.phase.contains(.ended) || event.phase.contains(.cancelled)
+        if axis.owner == nil, !ended {
+            heldEvents.append(event)
+            guard let owner = axis.feed(dx: event.scrollingDeltaX, dy: event.scrollingDeltaY) else { return }
+            if owner == .list {
+                heldEvents.forEach { super.sendEvent($0) }
+            } else {
+                heldEvents.dropFirst().forEach { turnPage($0, phase: .moved) }
+            }
+            heldEvents = []
+            return
+        }
+        switch axis.owner {
+        case .pages:
+            turnPage(event, phase: ended ? .ended : .moved)
+        case .list:
+            super.sendEvent(event)
+        case nil:
+            // Палец лёг и убран: жест никому не нужен, но начало и конец список должен получить парой.
+            heldEvents.forEach { super.sendEvent($0) }
+            heldEvents = []
+            super.sendEvent(event)
+        }
+    }
+
+    private func turnPage(_ event: NSEvent, phase: PageSwipe.Phase) {
+        // Пальцы вправо — следующая страница, при любом направлении прокрутки в системе.
+        let forward = event.isDirectionInvertedFromDevice ? event.scrollingDeltaX : -event.scrollingDeltaX
         if let step = swipe.feed(dx: forward, dy: event.scrollingDeltaY, phase: phase, at: Date()) {
             model.movePage(by: step)
         }

@@ -194,16 +194,14 @@ private struct PageSwitcher: View {
             }
         }
         .frame(maxWidth: .infinity)
+        // Название страницы видно всегда: одних точек мало, чтобы понять, где ты.
         .overlay(alignment: .leading) {
-            if open {
-                Text(model.tabs.first { $0.id == shown }?.title ?? "")
-                    .font(ConsoleStyle.font(11, .medium))
-                    .foregroundStyle(ConsoleStyle.caption)
-                    .lineLimit(1)
-                    .fixedSize()
-                    .padding(.leading, 6)
-                    .transition(.opacity)
-            }
+            Text(model.tabs.first { $0.id == shown }?.title ?? "")
+                .font(ConsoleStyle.font(10, .medium))
+                .foregroundStyle(ConsoleStyle.caption)
+                .lineLimit(1)
+                .fixedSize()
+                .padding(.leading, 8)
         }
         .padding(.horizontal, ConsoleStyle.inset)
         .frame(height: open ? ConsoleLook.pagesOpen : ConsoleLook.pagesClosed, alignment: .center)
@@ -260,13 +258,13 @@ private struct ExpandedBody: View {
         ZStack(alignment: .bottom) {
             page
                 .id(model.tab)
-                .transition(pageTransition)
+                .transition(.opacity)
             PageSwitcher(model: model)
         }
         .frame(width: model.expandedWidth, height: ConsoleLayout.expandedHeight, alignment: .topLeading)
         .background(Color.black)
         .clipShape(RoundedRectangle(cornerRadius: ConsoleStyle.surfaceRadius, style: .continuous))
-        .animation(ConsoleStyle.motion(opening: true, reduced: reduce), value: model.tab)
+        .animation(.easeOut(duration: ConsoleLook.pageFade), value: model.tab)
         .overlay {
             RoundedRectangle(cornerRadius: ConsoleStyle.surfaceRadius, style: .continuous).strokeBorder(ConsoleStyle.edge, lineWidth: 1)
         }
@@ -274,8 +272,6 @@ private struct ExpandedBody: View {
 }
 
 private extension ExpandedBody {
-    var reduce: Bool { NSWorkspace.shared.accessibilityDisplayShouldReduceMotion }
-
     var page: some View {
         VStack(alignment: .leading, spacing: 0) {
             switch model.tab {
@@ -290,16 +286,6 @@ private extension ExpandedBody {
         }
         .padding([.horizontal, .top], ConsoleStyle.inset)
         .padding(.bottom, ConsoleLook.pagesClosed)
-    }
-
-    /// Страницы едут вслед за пальцами. Reduce Motion — только смена прозрачности.
-    var pageTransition: AnyTransition {
-        guard !reduce else { return .opacity }
-        let forward = model.pageTravel > 0
-        return .asymmetric(
-            insertion: .move(edge: forward ? .trailing : .leading).combined(with: .opacity),
-            removal: .move(edge: forward ? .leading : .trailing).combined(with: .opacity)
-        )
     }
 }
 

@@ -464,7 +464,7 @@ private struct ConsoleSettings: View {
             Section {
                 Toggle(isOn: Binding(get: { settings.enabled }, set: { app.setConsoleEnabled($0) })) {
                     Text("Показывать Пульт")
-                    Text("Виджет в углу напротив маскота. Выключен — маскот работает как раньше")
+                    Text("Виджет в углу напротив маскота. Свёрнутый всегда показывает лимиты")
                         .font(SettingsStyle.caption).foregroundStyle(.secondary)
                 }
                 Picker("Клавиша раскрытия", selection: Binding(get: { settings.hotkey }, set: { app.setConsoleHotKey($0) })) {
@@ -472,6 +472,13 @@ private struct ConsoleSettings: View {
                     Text("Нет").tag("")
                 }
                 .disabled(!settings.enabled)
+            }
+            Section("Клавиши") {
+                ShortcutRow(title: "Раскрыть Пульт", keys: settings.hotkey.isEmpty ? nil : "⌃⌥\(settings.hotkey.uppercased())")
+                if settings.prompter { ShortcutRow(title: "Суфлёр: старт и стоп", keys: "⌃⌥P") }
+                if settings.prompter { ShortcutRow(title: "Суфлёр: скорость", keys: "⌃⌥↑ ⌃⌥↓") }
+                if settings.dictation { ShortcutRow(title: "Диктовка: держи и говори", keys: "⌃⌥D") }
+                if settings.translator, ConsoleTranslator.isAvailable { ShortcutRow(title: "Перевести выделенное", keys: "⌃⌥T") }
             }
             Section("Модули") {
                 Toggle("Лимиты", isOn: Binding(get: { settings.limits }, set: { app.setLimitsEnabled($0) }))
@@ -488,12 +495,14 @@ private struct ConsoleSettings: View {
                         Text("В Zoom на macOS 15 и новее суфлёр может быть виден. Meet, Teams, Телемост и QuickTime не проверены")
                             .font(SettingsStyle.caption).foregroundStyle(.secondary)
                     }
+                    .padding(.leading, SettingsStyle.childIndent)
                     .disabled(!settings.enabled)
                     Toggle(isOn: Binding(get: { settings.prompterVoice }, set: { app.setPrompterVoice($0) })) {
                         Text("Суфлёр идёт за голосом")
                         Text("Спросит микрофон и распознавание речи. Всё на этом Mac, аудио не пишется")
                             .font(SettingsStyle.caption).foregroundStyle(.secondary)
                     }
+                    .padding(.leading, SettingsStyle.childIndent)
                     .disabled(!settings.enabled)
                 }
                 Toggle(isOn: Binding(get: { settings.calendar }, set: { app.setCalendarEnabled($0) })) {
@@ -510,6 +519,7 @@ private struct ConsoleSettings: View {
                         Text("Хранятся только ссылки на файлы, выход из приложения очищает полку")
                             .font(SettingsStyle.caption).foregroundStyle(.secondary)
                     }
+                    .padding(.leading, SettingsStyle.childIndent)
                     .disabled(!settings.enabled)
                 }
                 Toggle(isOn: Binding(get: { settings.music }, set: { app.setMusicEnabled($0) })) {

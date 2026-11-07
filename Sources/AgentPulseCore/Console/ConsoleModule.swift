@@ -5,8 +5,9 @@ public enum ConsoleModuleID: String, Sendable, Codable, CaseIterable {
 }
 
 /// Кто занимает свёрнутый Пульт, сверху вниз. Порядок не настраивается.
+/// По умолчанию там лимиты: их вытесняют только запись, встреча и тревога. Музыка и полка видны точками.
 public enum ConsolePriority: Int, Sendable, Comparable, CaseIterable {
-    case activeMode = 0, meetingSoon, limitCritical, music, shelf, limitsNormal
+    case activeMode = 0, meetingSoon, limitCritical, limitsNormal, music, shelf
 
     public static func < (lhs: ConsolePriority, rhs: ConsolePriority) -> Bool { lhs.rawValue < rhs.rawValue }
 }

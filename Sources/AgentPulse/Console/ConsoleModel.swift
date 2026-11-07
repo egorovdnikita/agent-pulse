@@ -30,12 +30,7 @@ final class ConsoleModel {
     private(set) var hovering = false
     private(set) var expanded = false
     /// Открытая вкладка.
-    var tab = ConsoleModuleID.limits {
-        didSet {
-            let ids = tabs.map(\.id)
-            if let old = ids.firstIndex(of: oldValue), let new = ids.firstIndex(of: tab), old != new { pageTravel = new > old ? 1 : -1 }
-        }
-    }
+    var tab = ConsoleModuleID.limits
     var calendarScope = CalendarScope.day
     var calendarDay = Date()
     /// Над Пультом несут файл.
@@ -58,8 +53,6 @@ final class ConsoleModel {
     /// Столбики волны, 0…1, новые справа.
     private(set) var dictationLevels = [Float](repeating: 0, count: DictationLook.bars)
     var activeWidth = ConsoleLayout.activeWidth
-    /// Куда ушла страница: новая въезжает с той стороны.
-    private(set) var pageTravel = 1
     /// Курсор над точками-страницами: они становятся кнопками.
     var pagesHovered = false
     /// Над какой страницей курсор: подпись показывает её.
@@ -650,6 +643,7 @@ enum ConsoleLook {
     /// Строка точек и она же кнопками.
     static let pagesClosed = 20.0
     static let pagesOpen = 34.0
+    static let pageFade = 0.14
     static let labelGap = 8.0
     static let padding = 12.0
     static let joinWidth = 40.0

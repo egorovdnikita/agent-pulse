@@ -126,11 +126,12 @@ private func snapshot(_ used: Double, at: Date = t0, service: LimitService = .cl
         director.update(candidates: [limits], now: t0, agentWaiting: false, expanded: false)
         #expect(director.leader == limits)
         // Вверх по списку — сразу.
-        director.update(candidates: [limits, music], now: t0.addingTimeInterval(1), agentWaiting: false, expanded: false)
-        #expect(director.leader == music)
+        let meeting = ConsoleCandidate(module: .calendar, priority: .meetingSoon)
+        director.update(candidates: [limits, meeting], now: t0.addingTimeInterval(1), agentWaiting: false, expanded: false)
+        #expect(director.leader == meeting)
         // Вниз — только после удержания.
         director.update(candidates: [limits], now: t0.addingTimeInterval(8), agentWaiting: false, expanded: false)
-        #expect(director.leader == music)
+        #expect(director.leader == meeting)
         director.update(candidates: [limits], now: t0.addingTimeInterval(9), agentWaiting: false, expanded: false)
         #expect(director.leader == limits)
     }
@@ -184,7 +185,7 @@ private func snapshot(_ used: Double, at: Date = t0, service: LimitService = .cl
 @Suite struct LimitsModuleTests {
     @Test func priorityFollowsZones() {
         var module = LimitsModule()
-        #expect(module.priority(now: t0) == nil)
+        #expect(module.priority(now: t0) == .limitsNormal)
         _ = module.book.ingest(snapshot(50), now: t0)
         #expect(module.priority(now: t0) == .limitsNormal)
         _ = module.book.ingest(snapshot(95), now: t0)
@@ -871,5 +872,50 @@ private func snapshot(_ used: Double, at: Date = t0, service: LimitService = .cl
         #expect(swipe.feed(dx: 40, dy: 0, phase: .wheel, at: start) == 1)
         #expect(swipe.feed(dx: 40, dy: 0, phase: .wheel, at: start.addingTimeInterval(0.1)) == nil)
         #expect(swipe.feed(dx: 40, dy: 0, phase: .wheel, at: start.addingTimeInterval(1)) == 1)
+    }
+}
+
+@Suite struct ScrollAxisTests {
+    @Test func sidewaysBelongsToPages() {
+        var axis = ScrollAxis()
+        #expect(axis.feed(dx: 1, dy: 0) == nil)
+        #expect(axis.feed(dx: 5, dy: 1) == .pages)
+    }
+
+    @Test func upDownBelongsToList() {
+        var axis = ScrollAxis()
+        #expect(axis.feed(dx: 1, dy: 6) == .list)
+    }
+
+    @Test func decisionHoldsForWholeGesture() {
+        var axis = ScrollAxis()
+        _ = axis.feed(dx: 6, dy: 0)
+        #expect(axis.feed(dx: 0, dy: 100) == .pages)
+        axis.begin()
+        #expect(axis.feed(dx: 0, dy: 10) == .list)
+    }
+
+    @Test func emptyEventsDecideNothing() {
+        var axis = ScrollAxis()
+        #expect(axis.feed(dx: 0, dy: 0) == nil)
+        #expect(axis.owner == nil)
+    }
+}
+
+@Suite struct CapsuleDefaultTests {
+    @Test func limitsLeadEvenWithoutData() {
+        let module = LimitsModule()
+        let now = Date()
+        #expect(module.priority(now: now) == .limitsNormal)
+        let rings = module.capsule(now: now).rings
+        #expect(rings.count == LimitService.allCases.count)
+        #expect(rings.allSatisfy { $0.fraction == nil })
+    }
+
+    @Test func limitsBeatMusicAndShelfButNotMeetingOrRecording() {
+        #expect(ConsolePriority.limitsNormal < .music)
+        #expect(ConsolePriority.limitsNormal < .shelf)
+        #expect(ConsolePriority.meetingSoon < .limitsNormal)
+        #expect(ConsolePriority.activeMode < .limitsNormal)
     }
 }

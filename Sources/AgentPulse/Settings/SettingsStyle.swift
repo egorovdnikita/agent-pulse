@@ -18,6 +18,8 @@ enum SettingsStyle {
     })
 
     static let sidebarWidth = 200.0
+    /// Настройка, которая зависит от строки над ней.
+    static let childIndent = 16.0
 
     static let title = ConsoleStyle.font(22, .semibold)
     static let body = ConsoleStyle.font(13)
@@ -147,5 +149,30 @@ struct SettingsSidebarItem: View {
         .animation(.easeOut(duration: 0.12), value: hovering.wrappedValue)
         .keyboardShortcut(KeyEquivalent(Character(String(number))), modifiers: .command)
         .accessibilityAddTraits(isSelected ? .isSelected : [])
+    }
+}
+
+/// Строка со списком клавиш: что нажать, видно в одном месте.
+struct ShortcutRow: View {
+    let title: String
+    let keys: String?
+
+    var body: some View {
+        LabeledContent(title) {
+            if let keys {
+                HStack(spacing: 4) {
+                    ForEach(keys.split(separator: " ").map(String.init), id: \.self) { key in
+                        Text(key)
+                            .font(.system(size: 11))
+                            .foregroundStyle(SettingsStyle.text)
+                            .padding(.horizontal, 6)
+                            .frame(height: 20)
+                            .background(SettingsStyle.ring, in: RoundedRectangle(cornerRadius: 5, style: .continuous))
+                    }
+                }
+            } else {
+                Text("Нет").foregroundStyle(SettingsStyle.muted)
+            }
+        }
     }
 }

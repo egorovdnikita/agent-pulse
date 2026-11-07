@@ -61,3 +61,33 @@ public struct PageSwipe: Sendable, Equatable {
         return x > 0 ? 1 : -1
     }
 }
+
+/// Чей жест: страниц или списка под курсором. Решается один раз за жест, по первым пунктам движения.
+/// Решать надо до того, как событие дойдёт до поля или списка: они забирают жест себе целиком.
+public struct ScrollAxis: Sendable, Equatable {
+    public enum Owner: Sendable, Equatable {
+        case pages, list
+    }
+
+    /// Столько пунктов движения хватает, чтобы понять направление.
+    public static let decisionDistance = 4.0
+
+    public private(set) var owner: Owner?
+    private var x = 0.0
+    private var y = 0.0
+
+    public init() {}
+
+    public mutating func begin() {
+        self = ScrollAxis()
+    }
+
+    public mutating func feed(dx: Double, dy: Double) -> Owner? {
+        if let owner { return owner }
+        x += dx
+        y += dy
+        guard abs(x) + abs(y) >= Self.decisionDistance else { return nil }
+        owner = abs(x) > abs(y) ? .pages : .list
+        return owner
+    }
+}

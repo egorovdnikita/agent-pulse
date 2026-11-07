@@ -11,11 +11,12 @@ public struct LimitsModule: ConsoleModule {
 
     public func priority(now: Date) -> ConsolePriority? {
         if LimitService.allCases.contains(where: { book.isCritical($0, now: now) }) { return .limitCritical }
-        return book.snapshots.isEmpty ? nil : .limitsNormal
+        return .limitsNormal
     }
 
     public func capsule(now: Date) -> CapsuleContent {
-        let rings = LimitService.allCases.filter { book.snapshots[$0] != nil }.map { service in
+        // Все сервисы всегда на месте: нет данных — прочерк, а не пустая капсула.
+        let rings = LimitService.allCases.map { service in
             let top = book.tightest(service, now: now)
             return CapsuleRing(
                 service: service, fraction: top.map { min(1, Double($0.usedPercent) / 100) },

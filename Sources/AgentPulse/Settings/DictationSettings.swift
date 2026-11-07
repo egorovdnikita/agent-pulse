@@ -34,6 +34,7 @@ struct DictationSettings: View {
                     Text("Только текст, 30 дней. Аудио не сохраняется никогда")
                         .font(SettingsStyle.caption).foregroundStyle(.secondary)
                 }
+                .padding(.leading, SettingsStyle.childIndent)
                 if let controller, !controller.history.entries.isEmpty {
                     ForEach(controller.history.entries.prefix(5)) { entry in
                         Text(entry.text).font(SettingsStyle.caption).textSelection(.enabled).lineLimit(3)
