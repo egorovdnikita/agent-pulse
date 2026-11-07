@@ -463,10 +463,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
             self.prompterFaster.set(code: on ? kVK_UpArrow : nil) { [weak console] in console?.changePrompterSpeed(faster: true) }
             self.prompterSlower.set(code: on ? kVK_DownArrow : nil) { [weak console] in console?.changePrompterSpeed(faster: false) }
             if on {
-                panel.place(fallback: self.consoleScreen, hiddenFromSharing: self.model.config.console.prompterHidden)
-                panel.orderFrontRegardless()
+                panel.show(fallback: self.consoleScreen, hiddenFromSharing: self.model.config.console.prompterHidden)
             } else {
-                panel.orderOut(nil)
+                panel.hide()
             }
         }
         console.onPrompterVoice = { [weak self, weak console] on in

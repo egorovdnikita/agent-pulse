@@ -1,10 +1,18 @@
 import AgentPulseCore
 import AppKit
 import CoreGraphics
+import Observation
 import SwiftUI
 
 /// Суфлёр — единственное, что уходит из угла: текст должен идти под камерой, иначе взгляд бегает.
 /// Панель не становится key и не забирает фокус у созвона.
+@MainActor
+@Observable
+final class PrompterReveal {
+    var open = false
+    var contentShown = false
+}
+
 @MainActor
 final class PrompterPanel: NSPanel {
     private final class Host<Content: View>: NSHostingView<Content> {
@@ -12,6 +20,8 @@ final class PrompterPanel: NSPanel {
     }
 
     private let model: ConsoleModel
+    private let reveal = PrompterReveal()
+    private var hideTask: Task<Void, Never>?
 
     init(model: ConsoleModel) {
         self.model = model
@@ -27,10 +37,10 @@ final class PrompterPanel: NSPanel {
         collectionBehavior = OverlayPanel.spaceBehavior.union(.fullScreenAuxiliary)
         isOpaque = false
         backgroundColor = .clear
-        hasShadow = true
+        hasShadow = false
         hidesOnDeactivate = false
         isMovable = false
-        let host = Host(rootView: PrompterView(model: model))
+        let host = Host(rootView: PrompterSurface(model: model, reveal: reveal))
         host.sizingOptions = []
         contentView = host
     }
@@ -46,7 +56,32 @@ final class PrompterPanel: NSPanel {
         }
     }
 
-    func place(fallback: NSScreen?, hiddenFromSharing: Bool) {
+    func show(fallback: NSScreen?, hiddenFromSharing: Bool) {
+        hideTask?.cancel()
+        reveal.open = false
+        reveal.contentShown = false
+        place(fallback: fallback, hiddenFromSharing: hiddenFromSharing)
+        orderFrontRegardless()
+        DispatchQueue.main.async { [reveal] in
+            MainActor.assumeIsolated {
+                reveal.open = true
+                reveal.contentShown = true
+            }
+        }
+    }
+
+    /// Форма уходит обратно к камере, и только потом окно прячется.
+    func hide() {
+        reveal.open = false
+        reveal.contentShown = false
+        hideTask = Task { [weak self] in
+            try? await Task.sleep(for: .milliseconds(ConsoleLook.closeMilliseconds))
+            guard !Task.isCancelled else { return }
+            self?.orderOut(nil)
+        }
+    }
+
+    private func place(fallback: NSScreen?, hiddenFromSharing: Bool) {
         sharingType = hiddenFromSharing ? .none : .readOnly
         guard let screen = Self.cameraScreen() ?? fallback else { return }
         // Отладка: `--prompter-notch 37` — показать вид с вырезом на Mac без него.
@@ -54,7 +89,10 @@ final class PrompterPanel: NSPanel {
         let forced = arguments.firstIndex(of: "--prompter-notch").flatMap { $0 + 1 < arguments.count ? Double(arguments[$0 + 1]) : nil }
         let notch = forced ?? Double(screen.safeAreaInsets.top)
         model.prompterNotch = notch
-        setFrame(PrompterLayout.frame(screen: screen.frame, visible: screen.visibleFrame, notch: notch), display: true)
+        let frame = PrompterLayout.frame(screen: screen.frame, visible: screen.visibleFrame, notch: notch)
+        // Запас под пружину и тень: форма рисуется внутри окна.
+        let room = PrompterSurface.room
+        setFrame(NSRect(x: frame.minX - room, y: frame.minY - room, width: frame.width + room * 2, height: frame.height + room), display: true)
     }
 }
 
@@ -83,8 +121,8 @@ struct PrompterView: View {
         let notched = model.prompterNotch > 0
         let lines = model.prompterLines
         let shape = UnevenRoundedRectangle(
-            topLeadingRadius: notched ? 0 : 22, bottomLeadingRadius: 22, bottomTrailingRadius: 22,
-            topTrailingRadius: notched ? 0 : 22, style: .continuous
+            topLeadingRadius: notched ? 0 : 20, bottomLeadingRadius: 20, bottomTrailingRadius: 20,
+            topTrailingRadius: notched ? 0 : 20, style: .continuous
         )
         ZStack(alignment: .topLeading) {
             ForEach(lines.indices.filter { $0 >= current - 1 && $0 < current + PrompterLook.visibleLines + 1 }, id: \.self) { index in
@@ -131,12 +169,46 @@ struct PrompterView: View {
         .frame(width: PrompterLayout.width, height: PrompterLayout.textHeight, alignment: .topLeading)
         .clipped()
         .padding(.top, model.prompterNotch)
-        .background(shape.fill(.black))
-        .overlay { if !notched { shape.strokeBorder(ConsoleStyle.edge, lineWidth: 1) } }
         .contentShape(shape)
         .onTapGesture { model.togglePrompterPause() }
         .animation(reduce ? nil : .linear(duration: PrompterLook.tick), value: scroll)
         .accessibilityLabel("Суфлёр")
+    }
+}
+
+/// Как и Пульт, суфлёр раскрывается формой: чёрное вырастает из-под камеры, текст проявляется уже в нём.
+private struct PrompterSurface: View {
+    let model: ConsoleModel
+    let reveal: PrompterReveal
+    static let room = 24.0
+    static let startWidth = 180.0
+
+    var body: some View {
+        let reduce = NSWorkspace.shared.accessibilityDisplayShouldReduceMotion
+        let open = reveal.open
+        let notched = model.prompterNotch > 0
+        let height = PrompterLayout.textHeight + model.prompterNotch
+        let width = open ? PrompterLayout.width : Self.startWidth
+        let shown = open ? height : max(model.prompterNotch, 32)
+        let radius = open ? 20.0 : 16.0
+        let shape = UnevenRoundedRectangle(
+            topLeadingRadius: notched ? 0 : radius, bottomLeadingRadius: radius, bottomTrailingRadius: radius,
+            topTrailingRadius: notched ? 0 : radius, style: .continuous
+        )
+        ZStack(alignment: .top) {
+            shape.fill(.black)
+                .frame(width: width, height: shown)
+                .shadow(color: .black.opacity(0.45), radius: 12, y: 4)
+            PrompterView(model: model)
+                .opacity(reveal.contentShown ? 1 : 0)
+                .animation(ConsoleStyle.contentMotion(appearing: reveal.contentShown, reduced: reduce), value: reveal.contentShown)
+                .mask(alignment: .top) { shape.frame(width: width, height: shown) }
+            if !notched { shape.strokeBorder(ConsoleStyle.edge, lineWidth: 1).frame(width: width, height: shown) }
+        }
+        .frame(width: PrompterLayout.width, height: height, alignment: .top)
+        .animation(ConsoleStyle.panelMotion(opening: open, reduced: reduce), value: open)
+        .padding([.horizontal, .bottom], Self.room)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
     }
 }
 
