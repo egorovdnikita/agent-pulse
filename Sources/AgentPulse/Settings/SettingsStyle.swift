@@ -92,7 +92,7 @@ private struct SettingsRows: _VariadicView_UnaryViewRoot {
                     .padding(.vertical, 10)
                     .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
                 if child.id != children.last?.id {
-                    Rectangle().fill(.white.opacity(0.06)).frame(height: 1).padding(.leading, ConsoleStyle.cardPadding)
+                    Rectangle().fill(ConsoleStyle.edge).frame(height: 1).padding(.leading, ConsoleStyle.cardPadding)
                 }
             }
         }

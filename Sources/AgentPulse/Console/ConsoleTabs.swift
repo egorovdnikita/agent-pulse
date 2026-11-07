@@ -563,7 +563,7 @@ struct MediaTab: View {
                 if let artwork = model.artwork {
                     Image(nsImage: artwork).resizable().scaledToFill()
                 } else {
-                    solar("music-note", 40).opacity(0.5).frame(maxWidth: .infinity, maxHeight: .infinity).background(ConsoleStyle.card)
+                    solar("music-note", 40).opacity(ConsoleStyle.iconOpacity).frame(maxWidth: .infinity, maxHeight: .infinity).background(ConsoleStyle.card)
                 }
             }
             .frame(width: 178, height: 178).clipShape(RoundedRectangle(cornerRadius: ConsoleStyle.cardRadius, style: .continuous))
@@ -788,7 +788,7 @@ struct PrompterTab: View {
                             Button {
                                 model.forgetPrompterText(text)
                                 if model.prompterLibrary.texts.isEmpty { model.prompterRecentOpen = false }
-                            } label: { solar("close-circle", 16).opacity(0.5) }
+                            } label: { solar("close-circle", 16).opacity(ConsoleStyle.iconOpacity) }
                             .buttonStyle(ConsolePressStyle())
                             .accessibilityLabel("Удалить")
                         }

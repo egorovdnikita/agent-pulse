@@ -67,7 +67,7 @@ private struct CapsuleBody: View {
                     .resizable()
                     .frame(width: 14, height: 14)
                     .foregroundStyle(.white)
-                    .opacity(0.4)
+                    .opacity(ConsoleStyle.iconOpacity)
             } else if model.capsule?.wave == true {
                 DictationWave(levels: model.dictationLevels, listening: model.dictation.phase == .recording)
             } else if let capsule = model.capsule {
@@ -116,7 +116,7 @@ private struct CapsuleBody: View {
                                 .resizable()
                                 .frame(width: ConsoleLook.indicator, height: ConsoleLook.indicator)
                                 .foregroundStyle(.white)
-                                .opacity(0.55)
+                                .opacity(ConsoleStyle.iconOpacity)
                                 .accessibilityLabel(model.tabs.first { $0.id == module }?.title ?? "")
                         }
                     }
@@ -228,7 +228,7 @@ private struct PageTabs: View {
                     .resizable()
                     .frame(width: 18, height: 18)
                     .foregroundStyle(.white)
-                    .opacity(0.55)
+                    .opacity(ConsoleStyle.iconOpacity)
                     .frame(width: ConsoleLook.tabs, height: ConsoleLook.tabs, alignment: .trailing)
                     .contentShape(Rectangle())
             }

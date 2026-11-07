@@ -11,6 +11,8 @@ enum ConsoleStyle {
     static let orange = Color(hex: 0xFF9F0A)
 
     static let caption = Color.white.opacity(0x8C / 255)
+    /// Приглушённый значок: та же яркость, что у подписи.
+    static let iconOpacity = 0x8C / 255.0
     /// Дорожки ползунков и выключенные переключатели: не меньше 3:1 к карточке.
     static let track = Color.white.opacity(0.32)
     /// Дорожка шкалы спокойнее: это фон, главное в шкале — дуга и число.
