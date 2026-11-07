@@ -379,7 +379,7 @@ private struct ConsoleSettings: View {
                     .disabled(!settings.enabled)
             }
             VStack(spacing: 8) {
-                card("Лимиты", "Сколько осталось у Claude и Codex", icon: "speedometer-middle", isOn: settings.limits, toggle: { app.setLimitsEnabled($0) }) {
+                card("Лимиты", "Сколько осталось у Claude и Codex", icon: "pie-chart-2", isOn: settings.limits, toggle: { app.setLimitsEnabled($0) }) {
                     ModuleOption {
                         Button("Подключить в разделе «Агенты»") { app.showSettings(.sources, anchor: "Лимиты") }
                     }

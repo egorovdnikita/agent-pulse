@@ -772,7 +772,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
             let snapshot = await CodexAppServer.fetch(codex: codex, home: settings.codexHome)
             if let snapshot { inbox.yield(.limits(snapshot)) }
             self?.codexFetching = false
-            self?.model.codexStatus = snapshot == nil ? "нет данных: войди в Codex" : "работает"
+            self?.model.codexStatus = snapshot == nil ? "Нет данных: войди в Codex" : "Работает"
         }
     }
 
