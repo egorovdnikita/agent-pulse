@@ -77,7 +77,7 @@ private struct MonthGrid: View {
             }
             ForEach(0..<(lead + days), id: \.self) { index in
                 if index < lead {
-                    Color.clear.frame(height: 22)
+                    Color.clear.frame(height: 24)
                 } else if let day = calendar.date(byAdding: .day, value: index - lead, to: start) {
                     cell(day, number: index - lead + 1, isToday: calendar.isDate(day, inSameDayAs: today))
                 }
@@ -97,7 +97,7 @@ private struct MonthGrid: View {
                     Circle().fill(isToday ? Color.black : ConsoleStyle.orange).frame(width: 3, height: 3).offset(y: 8)
                 }
             }
-            .frame(maxWidth: .infinity, minHeight: 22)
+            .frame(maxWidth: .infinity, minHeight: 24)
             .contentShape(Rectangle())
         }
         .buttonStyle(ConsolePressStyle())

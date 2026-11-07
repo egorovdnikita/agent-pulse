@@ -47,6 +47,8 @@ final class ConsolePanel: NSPanel {
     private var outsideMonitor: Any?
     private var localMonitor: Any?
     private var swipe = PageSwipe()
+    private weak var placedScreen: NSScreen?
+    private var placedVisible = NSRect.zero
     private var axis = ScrollAxis()
     private var heldEvents: [NSEvent] = []
 
@@ -74,27 +76,24 @@ final class ConsolePanel: NSPanel {
         host.onDropTarget = { [weak model] on in model?.dropTargeted = on }
         host.onDrop = { [weak model] urls in model?.dropped(urls) }
         contentView = host
+        // Изменили размер Dock или скрыли его: система сдвинула видимую область, Пульт идёт за ней.
+        model.placementChanged = { [weak self] in
+            guard let self, let screen = self.placedScreen else { return false }
+            return screen.visibleFrame != self.placedVisible
+        }
     }
 
     override var canBecomeKey: Bool { model.expanded }
     override var canBecomeMain: Bool { false }
 
-    /// Пульт в углу, противоположном маскоту, всегда внизу. Перетаскивание меняет только отступ маскота.
+    /// Пульт в углу, противоположном маскоту, над Dock. Перетаскивание меняет только отступ маскота.
     func place(on screen: NSScreen, anchor: PulseConfig.Display.Anchor, animated: Bool = false) {
-        let dock = DockReader.read()
         model.onLeft = anchor.isRight
-        model.fit = ConsoleLayout.fit(screenWidth: screen.frame.width, dock: dock)
-        model.expandedWidth = ConsoleLayout.expandedWidth(screenWidth: screen.frame.width, dock: dock)
-        model.activeWidth = ConsoleLayout.activeWidth(screenWidth: screen.frame.width, dock: dock)
         let size = model.panelSize
         model.placedSize = size
-        let inset = ConsoleLayout.sideInset(dock: dock, onRight: !model.onLeft)
-        let frameRect = screen.frame
-        let x = model.onLeft ? frameRect.minX + inset : frameRect.maxX - inset - size.width
-        // На уровне Dock: по центру его полосы, а если Dock скрыт — у края, как маскот.
-        let band = screen.visibleFrame.minY - frameRect.minY
-        let y = frameRect.minY + max(4, (band - ConsoleLayout.capsuleHeight) / 2)
-        apply(NSRect(x: x, y: y, width: size.width, height: size.height))
+        placedScreen = screen
+        placedVisible = screen.visibleFrame
+        apply(NSRect(origin: ConsoleLayout.origin(visible: screen.visibleFrame, size: size, onLeft: model.onLeft), size: size))
     }
 
     /// Пружина ширины идёт внутри панели, поэтому панель растёт сразу, а сжимается после анимации.
@@ -212,7 +211,7 @@ final class ConsolePanel: NSPanel {
         // Пальцы вправо — следующая страница, при любом направлении прокрутки в системе.
         let forward = event.isDirectionInvertedFromDevice ? event.scrollingDeltaX : -event.scrollingDeltaX
         if let step = swipe.feed(dx: forward, dy: event.scrollingDeltaY, phase: phase, at: Date()) {
-            model.movePage(by: step)
+            model.movePage(by: step, fromSwipe: true)
         }
     }
 
@@ -241,22 +240,5 @@ enum DroppedFiles {
     static func urls(_ info: any NSDraggingInfo) -> [URL] {
         let options: [NSPasteboard.ReadingOptionKey: Any] = [.urlReadingFileURLsOnly: true]
         return info.draggingPasteboard.readObjects(forClasses: [NSURL.self], options: options) as? [URL] ?? []
-    }
-}
-
-/// Настройки Dock: только размер иконок, их число и край. Названия не читаются, Accessibility не нужен.
-@MainActor
-enum DockReader {
-    static func read() -> DockMetrics? {
-        guard let dock = UserDefaults.standard.persistentDomain(forName: "com.apple.dock") else { return nil }
-        let tile = (dock["tilesize"] as? NSNumber)?.doubleValue ?? 48
-        let count = { (key: String) in (dock[key] as? [Any])?.count ?? 0 }
-        let recents = (dock["show-recents"] as? NSNumber)?.boolValue ?? true ? count("recent-apps") : 0
-        // Запущенные, но не закреплённые приложения тоже в Dock: считаем по верхней оценке, без названий.
-        let running = NSWorkspace.shared.runningApplications.filter { $0.activationPolicy == .regular }.count
-        let pinned = count("persistent-apps") + count("persistent-others") + recents
-        let icons = max(pinned, running) + 2
-        let edge = DockMetrics.Edge(rawValue: dock["orientation"] as? String ?? "bottom") ?? .bottom
-        return DockMetrics(edge: edge, tileSize: tile, icons: icons, hidden: (dock["autohide"] as? NSNumber)?.boolValue ?? false)
     }
 }

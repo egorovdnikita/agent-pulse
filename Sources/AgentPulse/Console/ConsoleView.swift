@@ -167,87 +167,75 @@ private struct LimitsTab: View {
     }
 }
 
-private extension ConsoleModuleID {
-    var pageIcon: String {
-        switch self {
-        case .limits: "tuning-2"
-        case .prompter: "document-text"
-        case .calendar: "calendar"
-        case .shelf: "folder-with-files"
-        case .media: "music-note"
-        case .translate: "translation"
-        case .dictation: "document-text"
+/// Шапка: тот же маскот, что живёт в углу, и то, что он сказал бы при наведении.
+private struct MascotHeader: View {
+    let model: ConsoleModel
+
+    var body: some View {
+        // Фраза перечитывается раз в секунду: `now` обновляет тик.
+        let _ = model.now
+        HStack(spacing: 8) {
+            if let animator = model.mascotAnimator {
+                // У маскота холст с запасом под «Zzz» и прыжки: он шире строки, это нормально.
+                let box = MascotView.boxSize(ConsoleLook.mascot)
+                MascotView(animator: animator, diameter: ConsoleLook.mascot, paused: !model.expanded)
+                    .frame(width: box, height: box)
+                    .frame(width: ConsoleLook.header, height: ConsoleLook.header)
+                    .accessibilityHidden(true)
+            }
+            Text(model.mascotLine())
+                .font(ConsoleStyle.font(13, .medium))
+                .foregroundStyle(.white)
+                .lineLimit(2)
+                .fixedSize(horizontal: false, vertical: true)
+            Spacer(minLength: 0)
+        }
+        .frame(height: ConsoleLook.header)
+    }
+}
+
+/// Страницы текстом, без подложек: в слово легко попасть мышью.
+private struct PageTabs: View {
+    let model: ConsoleModel
+
+    var body: some View {
+        HStack(spacing: 14) {
+            ForEach(model.tabs, id: \.id) { tab in
+                Button { model.openPage(tab.id) } label: {
+                    Text(tab.title)
+                        .font(ConsoleStyle.font(13, model.tab == tab.id ? .semibold : .medium))
+                        .foregroundStyle(model.tab == tab.id ? .white : ConsoleStyle.caption)
+                        .lineLimit(1)
+                        .fixedSize()
+                        .frame(height: ConsoleLook.tabs)
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(ConsolePressStyle())
+            }
+            Spacer(minLength: 0)
         }
     }
 }
 
-/// Страницы: точки, под курсором — кнопки с иконками и подписью.
-private struct PageSwitcher: View {
+/// Точки: где ты среди страниц. Нажимаются, но главная навигация — слова.
+private struct PageDots: View {
     let model: ConsoleModel
 
     var body: some View {
-        let open = model.pagesHovered
-        let shown = model.pageUnderCursor ?? model.tab
-        HStack(spacing: 4) {
+        HStack(spacing: 0) {
             ForEach(model.tabs, id: \.id) { tab in
-                page(tab.id, title: tab.title, open: open)
+                Button { model.openPage(tab.id) } label: {
+                    Circle()
+                        .fill(Color.white.opacity(model.tab == tab.id ? 0xB3 / 255 : 0x3D / 255))
+                        .frame(width: 6, height: 6)
+                        .frame(width: 14, height: ConsoleLook.dots)
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel(tab.title)
             }
         }
         .frame(maxWidth: .infinity)
-        // Название страницы видно всегда: одних точек мало, чтобы понять, где ты.
-        .overlay(alignment: .leading) {
-            Text(model.tabs.first { $0.id == shown }?.title ?? "")
-                .font(ConsoleStyle.font(10, .medium))
-                .foregroundStyle(ConsoleStyle.caption)
-                .lineLimit(1)
-                .fixedSize()
-                .padding(.leading, 8)
-        }
-        .padding(.horizontal, ConsoleStyle.inset)
-        .frame(height: open ? ConsoleLook.pagesOpen : ConsoleLook.pagesClosed, alignment: .center)
-        .frame(maxWidth: .infinity)
-        .background(alignment: .bottom) {
-            // Кнопки встают поверх страницы: край уходит в чёрное, а не обрезается.
-            if open {
-                VStack(spacing: 0) {
-                    LinearGradient(colors: [.clear, .black], startPoint: .top, endPoint: .bottom).frame(height: 14)
-                    Color.black.frame(height: ConsoleLook.pagesOpen)
-                }
-                .allowsHitTesting(false)
-            }
-        }
-        .contentShape(Rectangle())
-        .onHover { inside in
-            model.pagesHovered = inside
-            if !inside { model.pageUnderCursor = nil }
-        }
-        .animation(ConsoleStyle.motion(opening: open, reduced: false), value: open)
-    }
-
-    private func page(_ id: ConsoleModuleID, title: String, open: Bool) -> some View {
-        let current = model.tab == id
-        let opacity: Double = if open {
-            current ? 0x66 / 255 : 0x2E / 255
-        } else {
-            current ? 0xB3 / 255 : 0x3D / 255
-        }
-        return Button { model.tab = id } label: {
-            RoundedRectangle(cornerRadius: open ? 4 : 3, style: .continuous)
-                .fill(Color.white.opacity(opacity))
-                .frame(width: open ? 22 : 6, height: open ? 22 : 6)
-                .overlay {
-                    Image(nsImage: SolarIcons.image(id.pageIcon) ?? NSImage())
-                        .resizable()
-                        .frame(width: 16, height: 16)
-                        .foregroundStyle(.white)
-                        .opacity(open ? (current ? 1 : 0.6) : 0)
-                }
-                .frame(width: open ? 22 : 8, height: open ? 22 : 8)
-                .contentShape(Rectangle())
-        }
-        .buttonStyle(ConsolePressStyle())
-        .onHover { model.pageUnderCursor = $0 ? id : nil }
-        .accessibilityLabel(title)
     }
 }
 
@@ -255,24 +243,37 @@ private struct ExpandedBody: View {
     let model: ConsoleModel
 
     var body: some View {
-        ZStack(alignment: .bottom) {
-            page
-                .id(model.tab)
-                .transition(.opacity)
-            PageSwitcher(model: model)
+        let reduce = NSWorkspace.shared.accessibilityDisplayShouldReduceMotion
+        VStack(alignment: .leading, spacing: 0) {
+            VStack(alignment: .leading, spacing: 0) {
+                MascotHeader(model: model)
+                PageTabs(model: model)
+            }
+            .padding(.horizontal, ConsoleStyle.inset + 4)
+            .padding(.top, ConsoleStyle.inset - 4)
+            ZStack(alignment: .topLeading) {
+                page
+                    .id(model.tab)
+                    .transition(pageTransition(reduced: reduce))
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+            .padding(.top, 6)
+            .clipped()
+            PageDots(model: model)
         }
-        .frame(width: model.expandedWidth, height: ConsoleLayout.expandedHeight, alignment: .topLeading)
+        .opacity(model.contentShown ? 1 : 0)
+        .offset(y: model.contentShown || reduce ? 0 : 8)
+        .animation(ConsoleStyle.contentMotion(appearing: model.contentShown, reduced: reduce), value: model.contentShown)
+        .animation(ConsoleStyle.pageMotion(reduced: reduce), value: model.tab)
+        .frame(width: ConsoleLayout.expandedWidth, height: ConsoleLayout.expandedHeight, alignment: .topLeading)
         .background(Color.black)
         .clipShape(RoundedRectangle(cornerRadius: ConsoleStyle.surfaceRadius, style: .continuous))
-        .animation(.easeOut(duration: ConsoleLook.pageFade), value: model.tab)
         .overlay {
             RoundedRectangle(cornerRadius: ConsoleStyle.surfaceRadius, style: .continuous).strokeBorder(ConsoleStyle.edge, lineWidth: 1)
         }
     }
-}
 
-private extension ExpandedBody {
-    var page: some View {
+    private var page: some View {
         VStack(alignment: .leading, spacing: 0) {
             switch model.tab {
             case .prompter: PrompterTab(model: model)
@@ -284,8 +285,16 @@ private extension ExpandedBody {
             }
             Spacer(minLength: 0)
         }
-        .padding([.horizontal, .top], ConsoleStyle.inset)
-        .padding(.bottom, ConsoleLook.pagesClosed)
+        .padding(.horizontal, ConsoleStyle.inset)
+    }
+
+    /// Старая страница просто гаснет, новая приходит сбоку: одновременно двигается только одна, глаз не теряет её.
+    private func pageTransition(reduced: Bool) -> AnyTransition {
+        guard !reduced else { return .opacity }
+        return .asymmetric(
+            insertion: .opacity.combined(with: .offset(x: Double(model.pageTravel) * ConsoleLook.pageShift)),
+            removal: .opacity.animation(.easeOut(duration: 0.09))
+        )
     }
 }
 
@@ -311,16 +320,24 @@ struct PanelPreview: View {
 struct ConsoleRootView: View {
     let model: ConsoleModel
 
+    /// Панель вырастает из капсулы, из своего угла, и уходит туда же, но быстрее.
+    private func panelTransition(reduced: Bool) -> AnyTransition {
+        guard !reduced else { return .opacity }
+        let anchor: UnitPoint = model.onLeft ? .bottomLeading : .bottomTrailing
+        return .asymmetric(
+            insertion: .scale(scale: 0.88, anchor: anchor).combined(with: .opacity),
+            removal: .scale(scale: 0.95, anchor: anchor).combined(with: .opacity)
+        )
+    }
+
     var body: some View {
         let reduce = NSWorkspace.shared.accessibilityDisplayShouldReduceMotion
         VStack(alignment: model.onLeft ? .leading : .trailing, spacing: ConsoleLayout.expandedGap) {
-            if model.expanded { ExpandedBody(model: model).transition(.opacity) }
+            if model.expanded { ExpandedBody(model: model).transition(panelTransition(reduced: reduce)) }
             CapsuleBody(model: model)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: model.onLeft ? .bottomLeading : .bottomTrailing)
         .animation(model.director.quietChange ? nil : ConsoleStyle.motion(opening: true, reduced: reduce), value: model.capsuleWidth)
-        .animation(
-            model.director.quietChange ? nil : ConsoleStyle.motion(opening: model.expanded, reduced: reduce), value: model.expanded
-        )
+        .animation(model.director.quietChange ? nil : ConsoleStyle.panelMotion(opening: model.expanded, reduced: reduce), value: model.expanded)
     }
 }

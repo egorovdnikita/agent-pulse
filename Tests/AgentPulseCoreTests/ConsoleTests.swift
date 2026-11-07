@@ -225,38 +225,30 @@ private func snapshot(_ used: Double, at: Date = t0, service: LimitService = .cl
 }
 
 @Suite struct ConsoleLayoutTests {
-    @Test func narrowsWhenDockIsWide() {
-        let small = DockMetrics(edge: .bottom, tileSize: 48, icons: 11, hidden: false)
-        #expect(ConsoleLayout.fit(screenWidth: 1680, dock: small) == .full(width: 220))
-        let wide = DockMetrics(edge: .bottom, tileSize: 60, icons: 22, hidden: false)
-        #expect(ConsoleLayout.fit(screenWidth: 1680, dock: wide) == .leader)
-        let huge = DockMetrics(edge: .bottom, tileSize: 80, icons: 22, hidden: false)
-        #expect(ConsoleLayout.fit(screenWidth: 1680, dock: huge) == .dot)
+    private let size = CGSize(width: 220, height: 32)
+
+    @Test func standsAboveDockByTheSameGapAsFromTheEdge() {
+        // Экран 1680 × 1050, Dock 90 pt снизу: система отдаёт видимую область от 90.
+        let origin = ConsoleLayout.origin(visible: CGRect(x: 0, y: 90, width: 1680, height: 935), size: size, onLeft: true)
+        #expect(Double(origin.x) == ConsoleLayout.screenGap)
+        #expect(Double(origin.y) == 90 + ConsoleLayout.screenGap)
     }
 
-    /// Замер: 11 иконок при tilesize 81 дают Dock 988 pt.
-    @Test func dockLengthMatchesMeasurement() {
-        let dock = DockMetrics(edge: .bottom, tileSize: 81, icons: 11, hidden: false)
-        #expect(abs(dock.length - 988) < 8)
+    @Test func followsDockHeight() {
+        let tall = ConsoleLayout.origin(visible: CGRect(x: 0, y: 130, width: 1680, height: 895), size: size, onLeft: true)
+        let hidden = ConsoleLayout.origin(visible: CGRect(x: 0, y: 4, width: 1680, height: 1021), size: size, onLeft: true)
+        #expect(Double(tall.y) == 130 + ConsoleLayout.screenGap)
+        #expect(Double(hidden.y) == 4 + ConsoleLayout.screenGap)
     }
 
-    @Test func expandedStaysClearOfDock() {
-        let dock = DockMetrics(edge: .bottom, tileSize: 81, icons: 11, hidden: false)
-        let width = ConsoleLayout.expandedWidth(screenWidth: 1680, dock: dock)
-        #expect(width < 360)
-        #expect(ConsoleLayout.screenMargin + width + ConsoleLayout.dockGap <= (1680 - dock.length) / 2)
-        #expect(ConsoleLayout.expandedWidth(screenWidth: 3000, dock: dock) == 360)
+    @Test func sideDockMovesItAside() {
+        let origin = ConsoleLayout.origin(visible: CGRect(x: 80, y: 0, width: 1600, height: 1025), size: size, onLeft: true)
+        #expect(Double(origin.x) == 80 + ConsoleLayout.screenGap)
     }
 
-    @Test func unknownDockShrinksToLeader() {
-        #expect(ConsoleLayout.fit(screenWidth: 1680, dock: nil) == .leader)
-    }
-
-    @Test func sideDockMovesConsoleAside() {
-        let left = DockMetrics(edge: .left, tileSize: 48, icons: 11, hidden: false)
-        #expect(ConsoleLayout.sideInset(dock: left, onRight: false) > ConsoleLayout.screenMargin)
-        #expect(ConsoleLayout.sideInset(dock: left, onRight: true) == ConsoleLayout.screenMargin)
-        #expect(ConsoleLayout.fit(screenWidth: 1680, dock: left) == .full(width: 220))
+    @Test func mirrorsToTheRight() {
+        let origin = ConsoleLayout.origin(visible: CGRect(x: 0, y: 90, width: 1680, height: 935), size: size, onLeft: false)
+        #expect(Double(origin.x) == 1680 - ConsoleLayout.screenGap - size.width)
     }
 }
 

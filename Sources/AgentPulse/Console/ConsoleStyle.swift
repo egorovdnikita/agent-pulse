@@ -4,7 +4,6 @@ import CoreText
 import SwiftUI
 
 /// Язык Пульта: чёрная поверхность, карточки, дуговые шкалы и точки-страницы. Значения сняты с CapaTheNotch (MIT).
-/// Панель Пульта ниже его шторки, поэтому размеры шкалы — те же пропорции в масштабе 0.82.
 enum ConsoleStyle {
     static let green = Color(hex: 0x30D158)
     static let yellow = Color(hex: 0xFFD60A)
@@ -22,15 +21,26 @@ enum ConsoleStyle {
     static let inset = 12.0
     static let cardRadius = 20.0
     static let surfaceRadius = cardRadius + inset
-    static let cardPadding = 12.0
+    static let cardPadding = 14.0
 
-    static let gaugeSize = 72.0
-    static let gaugeLine = 6.0
+    static let gaugeSize = 88.0
+    static let gaugeLine = 7.0
 
     /// Открытие с лёгкой отдачей, закрытие без перелёта.
     static func motion(opening: Bool, reduced: Bool) -> Animation {
         if reduced { return .easeInOut(duration: 0.15) }
         return opening ? .spring(response: 0.42, dampingFraction: 0.8) : .spring(response: 0.45, dampingFraction: 1)
+    }
+
+    /// Панель: открытие с лёгкой отдачей, закрытие быстрое: на выходе ждать нечего.
+    static func panelMotion(opening: Bool, reduced: Bool) -> Animation {
+        if reduced { return .easeInOut(duration: 0.15) }
+        return opening ? .spring(response: 0.38, dampingFraction: 0.82) : .easeIn(duration: 0.16)
+    }
+
+    /// Смена страницы.
+    static func pageMotion(reduced: Bool) -> Animation {
+        reduced ? .easeInOut(duration: 0.15) : .spring(response: 0.3, dampingFraction: 0.86)
     }
 
     /// Содержимое отстаёт от формы на такт: форма открывает его, а не пустоту.
@@ -142,18 +152,18 @@ struct LimitGauge: View {
             }
             VStack(spacing: 0) {
                 Text(reading.map { "\($0.usedPercent)%" } ?? "—")
-                    .font(ConsoleStyle.font(18, .semibold))
+                    .font(ConsoleStyle.font(22, .semibold))
                     .monospacedDigit()
                     .foregroundStyle(exhausted ? ConsoleStyle.red : reading == nil ? ConsoleStyle.caption : .white)
                 Text(kind.title)
-                    .font(ConsoleStyle.font(10))
+                    .font(ConsoleStyle.font(11))
                     .foregroundStyle(.white.opacity(0.6))
                     .lineLimit(1)
             }
             VStack {
                 Spacer()
                 Text(bottom)
-                    .font(ConsoleStyle.font(10))
+                    .font(ConsoleStyle.font(11))
                     .monospacedDigit()
                     .foregroundStyle(exhausted ? ConsoleStyle.red : ConsoleStyle.caption)
                     .lineLimit(1)
@@ -309,19 +319,12 @@ enum ConsoleSheet {
         try? FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
         write(CapsulePreview(model: model), size: CGSize(width: model.capsuleWidth + 16, height: 48), to: folder.appending(path: "capsule.png"))
         model.setExpanded(true)
-        let panel = CGSize(width: ConsoleLayout.expandedMinWidth + 16, height: ConsoleLayout.expandedHeight + 16)
-        for width in [ConsoleLayout.expandedMaxWidth, ConsoleLayout.expandedMinWidth] {
-            model.expandedWidth = width
-            for tab in model.tabs {
-                model.tab = tab.id
-                write(
-                    PanelPreview(model: model),
-                    size: CGSize(width: width + 16, height: ConsoleLayout.expandedHeight + 16),
-                    to: folder.appending(path: "\(tab.id.rawValue)-\(Int(width)).png")
-                )
-            }
+        model.contentShown = true
+        let panel = CGSize(width: ConsoleLayout.expandedWidth + 16, height: ConsoleLayout.expandedHeight + 16)
+        for tab in model.tabs {
+            model.tab = tab.id
+            write(PanelPreview(model: model), size: panel, to: folder.appending(path: "\(tab.id.rawValue).png"))
         }
-        model.expandedWidth = ConsoleLayout.expandedMinWidth
         for scope in [CalendarScope.week, .month] {
             model.tab = .calendar
             model.calendarScope = scope
@@ -329,12 +332,14 @@ enum ConsoleSheet {
         }
         model.calendarScope = .day
 
-        // Перевод.
+        // Перевод: шесть страниц — самая тесная строка навигации.
         if let text = model.pressTranslate(selection: "Привет, это проверка перевода", clipboard: nil) {
             model.finishTranslate(source: text, result: .success("Hello, this is a translation check"))
+            model.contentShown = true
             write(PanelPreview(model: model), size: panel, to: folder.appending(path: "translate.png"))
         }
         model.setExpanded(true)
+        model.contentShown = true
 
         // Суфлёр идёт: текст запоминается, поэтому сразу забывается.
         let draft = model.prompterDraft
@@ -343,10 +348,6 @@ enum ConsoleSheet {
         if model.prompter.isActive {
             model.tab = .prompter
             write(PanelPreview(model: model), size: panel, to: folder.appending(path: "prompter-running.png"))
-            write(
-                PrompterPreview(model: model), size: CGSize(width: PrompterLayout.width + 16, height: PrompterLayout.textHeight + 16),
-                to: folder.appending(path: "prompter-panel.png")
-            )
             model.stopPrompter()
             model.forgetPrompterText(draft)
         }
@@ -358,14 +359,6 @@ enum ConsoleSheet {
             model.tab = tab
             write(PanelPreview(model: model), size: panel, to: folder.appending(path: "\(tab.rawValue)-empty.png"))
         }
-
-        model.tab = .limits
-        model.pagesHovered = true
-        write(
-            PanelPreview(model: model),
-            size: CGSize(width: ConsoleLayout.expandedMinWidth + 16, height: ConsoleLayout.expandedHeight + 16),
-            to: folder.appending(path: "pages-open.png")
-        )
     }
 
     private static func write(_ view: some View, size: CGSize, to url: URL) {

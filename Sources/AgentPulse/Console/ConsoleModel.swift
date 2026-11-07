@@ -39,8 +39,6 @@ final class ConsoleModel {
     private(set) var shelfThumbnail: NSImage?
     private(set) var artwork: NSImage?
     /// Сколько места оставляет Dock.
-    var fit = ConsoleFit.full(width: ConsoleLayout.maxWidth) { didSet { if fit != oldValue { onLayoutChange?() } } }
-    var expandedWidth = ConsoleLayout.expandedMaxWidth
     /// Пульт на левом краю экрана: растёт вправо. Зеркально — влево.
     var onLeft = true
     var enabled = true
@@ -52,11 +50,15 @@ final class ConsoleModel {
     var dictationRules: [DictationRule] = []
     /// Столбики волны, 0…1, новые справа.
     private(set) var dictationLevels = [Float](repeating: 0, count: DictationLook.bars)
-    var activeWidth = ConsoleLayout.activeWidth
-    /// Курсор над точками-страницами: они становятся кнопками.
-    var pagesHovered = false
-    /// Над какой страницей курсор: подпись показывает её.
-    var pageUnderCursor: ConsoleModuleID?
+    /// С какой стороны въезжает новая страница: 1 — справа, −1 — слева, 0 — снизу, при раскрытии.
+    private(set) var pageTravel = 0
+    /// Содержимое проявляется на такт позже панели: форма открывает его, а не пустоту.
+    var contentShown = false
+    /// Тот же маскот, что в углу, и то, что он сказал бы при наведении.
+    @ObservationIgnored var mascotAnimator: MascotAnimator?
+    @ObservationIgnored var mascotLine: () -> String = { "Я тут" }
+    /// Система сдвинула видимую область экрана.
+    @ObservationIgnored var placementChanged: () -> Bool = { false }
     /// Перевод только что скопирован.
     var translateCopied = false
     var calendarEnabled = false
@@ -490,7 +492,7 @@ final class ConsoleModel {
         director.update(candidates: candidates, now: now, agentWaiting: agentWaiting, expanded: expanded)
         if director.leader != before { onLeaderChange?() }
         // Раскладка читает настройки Dock: только когда размер правда изменился, а не на каждом тике.
-        if panelSize != placedSize { onLayoutChange?() }
+        if panelSize != placedSize || placementChanged() { onLayoutChange?() }
     }
 
     // MARK: - Состояния
@@ -523,10 +525,15 @@ final class ConsoleModel {
             calendarDay = now
         }
         expanded = on
-        if !on {
+        contentShown = false
+        if on {
+            pageTravel = 0
+            DispatchQueue.main.async { [weak self] in
+                MainActor.assumeIsolated { self?.contentShown = true }
+            }
+            onLeaderChange?()
+        } else {
             forgetTranslation()
-            pagesHovered = false
-            pageUnderCursor = nil
         }
         onLayoutChange?()
     }
@@ -534,15 +541,27 @@ final class ConsoleModel {
     func toggle() { setExpanded(!expanded) }
 
     /// Соседняя страница: клавиши и свайп. По кругу не идёт: край страниц должен чувствоваться.
-    func movePage(by step: Int) {
+    func movePage(by step: Int, fromSwipe: Bool = false) {
         let ids = tabs.map(\.id)
         guard let index = ids.firstIndex(of: tab), ids.indices.contains(index + step) else { return }
-        tab = ids[index + step]
+        // Пальцы вправо — следующая страница: она приходит с той стороны, откуда её тянут.
+        openPage(ids[index + step], enteringFrom: fromSwipe ? -step : step)
     }
 
     func selectPage(number: Int) {
         let ids = tabs.map(\.id)
-        if ids.indices.contains(number - 1) { tab = ids[number - 1] }
+        if ids.indices.contains(number - 1) { openPage(ids[number - 1]) }
+    }
+
+    /// Открыть страницу: новая приходит со стороны, где стоит её название.
+    func openPage(_ id: ConsoleModuleID, enteringFrom side: Int? = nil) {
+        let ids = tabs.map(\.id)
+        guard id != tab, let old = ids.firstIndex(of: tab), let new = ids.firstIndex(of: id) else {
+            tab = id
+            return
+        }
+        pageTravel = side ?? (new > old ? 1 : -1)
+        tab = id
     }
 
     func copyTranslation(_ text: String) {
@@ -558,7 +577,6 @@ final class ConsoleModel {
 
     var showsDot: Bool {
         if dropTargeted { return false }
-        if case .dot = fit { return true }
         return capsule == nil
     }
 
@@ -571,12 +589,7 @@ final class ConsoleModel {
         return [tightest]
     }
 
-    private var capsuleLimit: Double {
-        switch fit {
-        case .full(let width): width
-        case .leader, .dot: ConsoleLayout.minWidth
-        }
-    }
+    private var capsuleLimit: Double { ConsoleLayout.maxWidth }
 
     private func ringsWidth(_ rings: [CapsuleRing]) -> Double {
         let sides = rings.map { ring in
@@ -588,23 +601,19 @@ final class ConsoleModel {
 
     /// Показать подпись: курсор над капсулой и хватает места. У встречи и трека строка видна и так.
     var showsLabel: Bool {
-        guard hovering, !expanded, capsule != nil, capsule?.text == nil, capsule?.wave != true, case .full = fit else { return false }
+        guard hovering, !expanded, capsule != nil, capsule?.text == nil, capsule?.wave != true else { return false }
         return true
     }
 
     /// Строка в капсуле, если на неё хватает места.
     var capsuleText: String? {
-        guard case .full = fit else { return nil }
         return capsule?.text ?? (showsLabel ? capsule?.label : nil)
     }
 
     /// Ширина капсулы по содержимому: 96–220 pt; Dock может её сузить.
     var capsuleWidth: Double {
         guard !showsDot else { return ConsoleLayout.dotSize }
-        if capsule?.wave == true {
-            if case .full = fit { return activeWidth }
-            return ConsoleLayout.minWidth
-        }
+        if capsule?.wave == true { return ConsoleLayout.activeWidth }
         let limit = capsuleLimit
         let dots = Double(indicators.count)
         let extras = (capsule?.action != nil ? ConsoleLook.joinWidth + ConsoleLook.labelGap : 0)
@@ -622,7 +631,7 @@ final class ConsoleModel {
 
     var panelSize: CGSize {
         guard expanded else { return CGSize(width: capsuleWidth, height: capsuleHeight) }
-        return CGSize(width: expandedWidth, height: ConsoleLayout.expandedHeight + ConsoleLayout.expandedGap + capsuleHeight)
+        return CGSize(width: ConsoleLayout.expandedWidth, height: ConsoleLayout.expandedHeight + ConsoleLayout.expandedGap + capsuleHeight)
     }
 }
 
@@ -640,10 +649,12 @@ enum ConsoleLook {
     static let ringGap = 14.0
     static let mark = 15.0
     static let sideGap = 7.0
-    /// Строка точек и она же кнопками.
-    static let pagesClosed = 20.0
-    static let pagesOpen = 34.0
-    static let pageFade = 0.14
+    static let header = 44.0
+    static let mascot = 30.0
+    /// Настолько новая страница сдвинута в начале: заметно, но без полёта через всю панель.
+    static let pageShift = 28.0
+    static let tabs = 28.0
+    static let dots = 22.0
     static let labelGap = 8.0
     static let padding = 12.0
     static let joinWidth = 40.0
