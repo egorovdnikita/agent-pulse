@@ -11,8 +11,10 @@ enum ConsoleStyle {
     static let orange = Color(hex: 0xFF9F0A)
 
     static let caption = Color.white.opacity(0x8C / 255)
-    /// Дорожки и выключенные переключатели: не меньше 3:1 к карточке.
+    /// Дорожки ползунков и выключенные переключатели: не меньше 3:1 к карточке.
     static let track = Color.white.opacity(0.32)
+    /// Дорожка шкалы спокойнее: это фон, главное в шкале — дуга и число.
+    static let gaugeTrack = Color.white.opacity(0x26 / 255)
     static let card = Color.white.opacity(0x14 / 255)
     static let button = Color.white.opacity(0x33 / 255)
     /// Край на тёмных обоях: у референса чёрное сливается со шторкой, Пульту сливаться не с чем.
@@ -24,8 +26,8 @@ enum ConsoleStyle {
     static let surfaceRadius = cardRadius + inset
     static let cardPadding = 14.0
 
-    static let gaugeSize = 112.0
-    static let gaugeLine = 8.0
+    static let gaugeSize = 96.0
+    static let gaugeLine = 7.0
 
     /// Открытие с лёгкой отдачей, закрытие без перелёта.
     static func motion(opening: Bool, reduced: Bool) -> Animation {
@@ -147,13 +149,13 @@ struct LimitGauge: View {
         let used = reading.map { min(1, Double($0.usedPercent) / 100) }
         let exhausted = reading?.zone == .exhausted
         ZStack {
-            arc(to: 1).stroke(exhausted ? ConsoleStyle.red.opacity(0.22) : ConsoleStyle.track, style: stroke)
+            arc(to: 1).stroke(exhausted ? ConsoleStyle.red.opacity(0.22) : ConsoleStyle.gaugeTrack, style: stroke)
             if let reading, let used, !exhausted {
                 arc(to: used).stroke(ConsoleStyle.color(reading.zone), style: stroke).opacity(reading.stale ? 0.45 : 1)
             }
             VStack(spacing: 0) {
                 Text(reading.map { "\($0.usedPercent)%" } ?? "—")
-                    .font(ConsoleStyle.font(26, .semibold))
+                    .font(ConsoleStyle.font(20, .semibold))
                     .monospacedDigit()
                     .foregroundStyle(exhausted ? ConsoleStyle.red : reading == nil ? ConsoleStyle.caption : .white)
                 Text(kind.title)

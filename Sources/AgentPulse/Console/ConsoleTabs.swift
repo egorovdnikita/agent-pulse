@@ -113,7 +113,7 @@ struct CalendarTab: View {
 
     var body: some View {
         HStack(spacing: 8) {
-            ConsoleCard {
+            ConsoleCard(padding: 12) {
                 VStack(alignment: .leading, spacing: 2) {
                     Text(CalendarText.formatter("LLLL yyyy").string(from: model.now).capitalized)
                         .font(ConsoleStyle.font(13, .semibold))

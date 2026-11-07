@@ -48,7 +48,7 @@ public enum ConsoleLayout {
     public static let activeWidth = 240.0
     /// Широкая и низкая: сервисы и колонки страниц стоят рядом, а не друг под другом.
     public static let expandedWidth = 640.0
-    public static let expandedHeight = 250.0
+    public static let expandedHeight = 232.0
     /// Запас окна: пружина формы слегка заходит за её размер, и край не должен обрезаться.
     public static let overshoot = 24.0
     /// Наименьший зазор между панелью и капсулой, если Dock скрыт.
