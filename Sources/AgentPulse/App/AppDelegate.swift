@@ -624,12 +624,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         applyDictationHotKeys()
     }
 
-    func setCapsuleWindow(_ value: String) {
-        model.config.console.capsuleWindow = value
-        try? model.config.save()
-        model.console.setCapsuleWindow(LimitWindowKind(rawValue: value))
-    }
-
     func applyTrackpadGesture() {
         let config = model.config
         trackpadGesture.setEnabled(config.console.enabled && config.senses.experimental && config.console.trackpadGesture)

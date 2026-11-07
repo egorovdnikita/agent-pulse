@@ -1081,8 +1081,6 @@ private func snapshot(_ used: Double, at: Date = t0, service: LimitService = .cl
             LimitWindow(kind: .fiveHour, usedPercent: 20, resetsAt: now.addingTimeInterval(3600)),
             LimitWindow(kind: .week, usedPercent: 70, resetsAt: now.addingTimeInterval(86_400)),
         ], at: now), now: now)
-        #expect(module.capsule(now: now).rings.first?.figure == "70%")
-        module.capsuleWindow = .fiveHour
         #expect(module.capsule(now: now).rings.first?.figure == "20%")
     }
 }

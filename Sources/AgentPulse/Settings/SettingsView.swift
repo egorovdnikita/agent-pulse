@@ -471,14 +471,6 @@ private struct ConsoleSettings: View {
             SettingsBlock("Модули") {
                 Toggle("Лимиты", isOn: Binding(get: { settings.limits }, set: { app.setLimitsEnabled($0) }))
                     .disabled(!settings.enabled)
-                if settings.limits {
-                    SettingsPicker("В капсуле", selection: Binding(get: { settings.capsuleWindow }, set: { app.setCapsuleWindow($0) })) {
-                        Text("Самое тесное окно").tag("")
-                        ForEach(LimitWindowKind.allCases, id: \.self) { Text($0.title).tag($0.rawValue) }
-                    }
-                    .padding(.leading, SettingsStyle.childIndent)
-                    .disabled(!settings.enabled)
-                }
                 Toggle(isOn: Binding(get: { settings.prompter }, set: { app.setPrompterEnabled($0) })) {
                     Text("Суфлёр")
                     Text("Текст под камерой. Клик по панели — пауза")

@@ -6,9 +6,6 @@ public struct LimitsModule: ConsoleModule {
     public let title = "Лимиты"
     public let accent: UInt32 = 0x34C759
     public var book = LimitsBook()
-    /// Какое окно в капсуле; nil — самое тесное.
-    public var capsuleWindow: LimitWindowKind?
-
     public init() {}
 
     public func priority(now: Date) -> ConsolePriority? {
@@ -19,7 +16,8 @@ public struct LimitsModule: ConsoleModule {
     public func capsule(now: Date) -> CapsuleContent {
         // Все сервисы всегда на месте: нет данных — прочерк, а не пустая капсула.
         let rings = LimitService.allCases.map { service in
-            let top = capsuleWindow.flatMap { book.reading(service, $0, now: now) } ?? book.tightest(service, now: now)
+            // В капсуле всегда пять часов: то, что кончится сегодня. Неделя — на странице.
+            let top = book.reading(service, .fiveHour, now: now)
             return CapsuleRing(
                 service: service, fraction: top.map { min(1, Double($0.usedPercent) / 100) },
                 zone: top?.zone ?? .normal, stale: top?.stale ?? false
