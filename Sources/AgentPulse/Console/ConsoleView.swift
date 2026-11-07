@@ -150,7 +150,7 @@ private struct LimitCard: View {
                     Text(service.title).font(ConsoleStyle.font(15, .semibold)).foregroundStyle(.white).lineLimit(1)
                     Spacer(minLength: 0)
                     if readings.allSatisfy({ $0.reading == nil }) {
-                        Button("Подключить") { model.onOpenSettings?("Лимиты \(service.title)") }
+                        Button("Подключить") { model.onOpenSettings?("Лимиты") }
                             .buttonStyle(ConsolePressStyle())
                             .font(.system(size: 11, weight: .semibold))
                             .foregroundStyle(.white)

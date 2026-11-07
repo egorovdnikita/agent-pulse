@@ -412,7 +412,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
             self.model.animator.watchesConsole = on ? (self.model.config.display.anchor.isRight ? -1 : 1) : nil
             self.updateConsoleVisibility()
         }
-        console.onOpenSettings = { [weak self] anchor in self?.showSettings(.console, anchor: anchor) }
+        console.onOpenSettings = { [weak self] anchor in self?.showSettings(anchor == nil ? .console : .sources, anchor: anchor) }
         applyDictationHotKeys()
         // Отладка: `--dictation-model` — скачать модель, `--dictation-demo файл.wav [секунд]` — весь путь без микрофона.
         if CommandLine.arguments.contains("--dictation-model") { controller.models.download() }
@@ -877,8 +877,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
             window.styleMask = [.titled, .closable, .miniaturizable, .fullSizeContentView]
             window.titlebarAppearsTransparent = true
             window.titleVisibility = .hidden
-            window.appearance = NSAppearance(named: .darkAqua)
-            window.backgroundColor = .black
+            window.backgroundColor = SettingsStyle.windowColor
             window.isReleasedWhenClosed = false
             window.delegate = self
             window.center()

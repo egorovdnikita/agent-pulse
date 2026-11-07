@@ -7,6 +7,13 @@ struct MascotLabView: View {
     @Bindable var model: PulseModel
     /// `@State` без Xcode недоступен (нет плагина макроса) — локальное состояние в наблюдаемом классе.
     @Bindable private var inputs = SimulatorInputs()
+    /// Редкие настройки над ручным запуском.
+    private let extras: AnyView
+
+    init(model: PulseModel, extras: AnyView) {
+        _model = Bindable(model)
+        self.extras = extras
+    }
 
     private static let states: [(String, MascotState?)] = [
         ("Живое — по событиям", nil),
@@ -46,6 +53,7 @@ struct MascotLabView: View {
             .frame(maxWidth: .infinity)
 
             SettingsPage {
+                extras
                 SettingsBlock("Состояние") {
                     SettingsPicker("Состояние", selection: $model.labOverride) {
                         ForEach(Self.states, id: \.0) { title, state in

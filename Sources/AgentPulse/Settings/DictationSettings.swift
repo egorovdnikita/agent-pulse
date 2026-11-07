@@ -3,8 +3,8 @@ import AppKit
 import ApplicationServices
 import SwiftUI
 
-/// Настройки диктовки и переводчика. Каждое разрешение спрашивается только при включении.
-struct DictationSettings: View {
+/// Настройки диктовки: каждое разрешение спрашивается только при включении.
+struct DictationOptions: View {
     let model: PulseModel
     let app: AppDelegate
     let controller: DictationController?
@@ -12,47 +12,32 @@ struct DictationSettings: View {
     private var settings: PulseConfig.Console { model.config.console }
 
     var body: some View {
-        SettingsBlock("Диктовка") {
-            Toggle(isOn: Binding(get: { settings.dictation }, set: { app.setDictationEnabled($0) })) {
-                Text("Диктовка")
-                Text("Зажми ⌃⌥D, говори, отпусти. Спросит микрофон. Всё на этом Mac, аудио не сохраняется")
-                    .font(SettingsStyle.caption).foregroundStyle(SettingsStyle.muted)
+        ModuleOption { ShortcutRow(title: "Держи и говори", keys: "⌃⌥D", busy: model.console.busyKeys.contains("d")) }
+        if ConsoleTranslator.isAvailable {
+            ModuleOption {
+                SettingsPicker("Язык", selection: Binding(get: { settings.dictationLanguage }, set: { app.setDictationLanguage($0) })) {
+                    Text("Русский").tag("ru")
+                    Text("Английский").tag("en")
+                }
             }
-            .disabled(!settings.enabled)
-            if settings.dictation {
-                if ConsoleTranslator.isAvailable {
-                    SettingsPicker("Язык", selection: Binding(get: { settings.dictationLanguage }, set: { app.setDictationLanguage($0) })) {
-                        Text("Русский").tag("ru")
-                        Text("Английский").tag("en")
-                    }
-                }
-                if let models = controller?.models { modelRow(models) }
-                accessibilityRow
-                DictationRulesEditor(model: model, app: app)
-                Toggle(isOn: Binding(get: { settings.dictationHistory }, set: { app.setDictationHistory($0) })) {
-                    Text("Хранить историю")
-                    Text("Только текст, 30 дней. Аудио не сохраняется никогда")
-                        .font(SettingsStyle.caption).foregroundStyle(SettingsStyle.muted)
-                }
-                .padding(.leading, SettingsStyle.childIndent)
-                if let controller, !controller.history.entries.isEmpty {
+        }
+        if let models = controller?.models { ModuleOption { VStack(alignment: .leading, spacing: 4) { modelRow(models) } } }
+        AccessibilityOption(model: model, app: app)
+        ModuleOption { DictationRulesEditor(model: model, app: app) }
+        ModuleOption {
+            Toggle(isOn: Binding(get: { settings.dictationHistory }, set: { app.setDictationHistory($0) })) {
+                Text("Хранить историю")
+                Text("Только текст, 30 дней").font(SettingsStyle.caption).foregroundStyle(SettingsStyle.muted)
+            }
+        }
+        if let controller, !controller.history.entries.isEmpty {
+            ModuleOption {
+                VStack(alignment: .leading, spacing: 6) {
                     ForEach(controller.history.entries.prefix(5)) { entry in
                         Text(entry.text).font(SettingsStyle.caption).textSelection(.enabled).lineLimit(3)
                     }
                     Button("Очистить историю") { controller.clearHistory() }
                 }
-            }
-        }
-        if ConsoleTranslator.isAvailable {
-            SettingsBlock("Переводчик") {
-                Toggle(isOn: Binding(get: { settings.translator }, set: { app.setTranslatorEnabled($0) })) {
-                    Text("Переводчик")
-                    Text("Выдели текст и нажми ⌃⌥T. Русский ↔ английский, на этом Mac")
-                        .font(SettingsStyle.caption).foregroundStyle(SettingsStyle.muted)
-                }
-                .disabled(!settings.enabled)
-                if settings.translator { TranslatorLanguagesRow() }
-                if settings.translator, !settings.dictation { accessibilityRow }
             }
         }
     }
@@ -89,18 +74,31 @@ struct DictationSettings: View {
             Text(problem).font(SettingsStyle.caption).foregroundStyle(SettingsStyle.muted)
         }
     }
+}
 
-    @ViewBuilder
-    private var accessibilityRow: some View {
-        Toggle(isOn: Binding(get: { settings.accessibility }, set: { app.setConsoleAccessibility($0) })) {
-            Text("Вставлять в поле и читать выделение")
-            Text("Нужен Универсальный доступ. Без него диктовка кладёт текст в буфер обмена, прежнее содержимое буфера не сохраняется")
-                .font(SettingsStyle.caption).foregroundStyle(SettingsStyle.muted)
-        }
-        if settings.accessibility {
-            LabeledContent("Универсальный доступ", value: AXIsProcessTrusted() ? "Разрешён" : "Нужно разрешить")
-            if !AXIsProcessTrusted() {
-                Text("Системные настройки → Конфиденциальность и безопасность → Универсальный доступ → Agent Pulse")
+/// Настройки перевода.
+struct TranslatorOptions: View {
+    let model: PulseModel
+    let app: AppDelegate
+
+    var body: some View {
+        ModuleOption { ShortcutRow(title: "Перевести выделенное", keys: "⌃⌥T", busy: model.console.busyKeys.contains("t")) }
+        ModuleOption { TranslatorLanguagesRow() }
+        AccessibilityOption(model: model, app: app)
+    }
+}
+
+/// Вставка в поле и чтение выделения: нужен Универсальный доступ.
+struct AccessibilityOption: View {
+    let model: PulseModel
+    let app: AppDelegate
+
+    var body: some View {
+        let on = model.config.console.accessibility
+        ModuleOption {
+            Toggle(isOn: Binding(get: { on }, set: { app.setConsoleAccessibility($0) })) {
+                Text("Вставлять в поле и читать выделение")
+                Text(on && !AXIsProcessTrusted() ? "Разреши в Системных настройках: Конфиденциальность → Универсальный доступ" : "Нужен Универсальный доступ")
                     .font(SettingsStyle.caption).foregroundStyle(SettingsStyle.muted)
             }
         }
