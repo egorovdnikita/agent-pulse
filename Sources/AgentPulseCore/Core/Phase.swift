@@ -39,8 +39,8 @@ public enum Phase: Sendable, Equatable {
     /// Строка для меню и тултипа. В облачко не попадает.
     public var text: String {
         switch self {
-        case .idle: "Свободен"
-        case .received: "Получил задачу"
+        case .idle: "Свободно"
+        case .received: "Задача получена"
         case .thinking: "Думает"
         case .working(let activity): activity.text
         case .awaitingUser(let reason, let message):

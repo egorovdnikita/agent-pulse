@@ -52,17 +52,20 @@ struct PulseMenuView: View {
                     .foregroundStyle(ConsoleStyle.caption)
             } else {
                 ForEach(active.prefix(6)) { session in
-                    HStack(spacing: 8) {
-                        Circle().fill(ConsoleStyle.green).frame(width: 6, height: 6)
-                        Text("\(BubbleCategory.sessionTitle(session)) — \(session.phase.text)")
-                            .font(ConsoleStyle.font(13, .medium))
-                            .foregroundStyle(.white)
-                            .lineLimit(2)
+                    HStack(alignment: .top, spacing: 8) {
+                        Circle().fill(ConsoleStyle.green).frame(width: 6, height: 6).padding(.top, 6)
+                        VStack(alignment: .leading, spacing: 1) {
+                            Text(BubbleCategory.sessionTitle(session))
+                                .font(ConsoleStyle.font(13, .medium))
+                                .foregroundStyle(.white)
+                                .lineLimit(1)
+                            Text(session.phase.text).font(ConsoleStyle.font(11)).foregroundStyle(ConsoleStyle.caption).lineLimit(1)
+                        }
                     }
                 }
             }
-            if let error = model.serverError {
-                Text("Сокет недоступен: \(error)").font(ConsoleStyle.font(11)).foregroundStyle(ConsoleStyle.red).lineLimit(2)
+            if model.serverError != nil {
+                Text("Не вижу агентов. Перезапусти приложение").font(ConsoleStyle.font(11)).foregroundStyle(ConsoleStyle.red).lineLimit(2)
             }
             if !model.hooksInstalled {
                 PrompterSmallButton(title: "Подключить Claude Code") { act { app.showSettings(.sources) } }
