@@ -297,9 +297,9 @@ final class PulseModel {
 
     var menuSymbol: String {
         switch state {
-        case .waitYou: "exclamationmark.circle.fill"
-        case .sleep: "moon.circle"
-        default: "circle.circle"
+        case .waitYou: "bell-bing"
+        case .sleep: "moon-sleep"
+        default: "sleeping-circle"
         }
     }
 
