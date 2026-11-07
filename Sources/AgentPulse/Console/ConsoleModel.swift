@@ -157,10 +157,10 @@ final class ConsoleModel {
         leaderModule?.capsule(now: now)
     }
 
-    /// До трёх точек других модулей, которым есть что показать. С кнопкой им нет места: строка важнее.
-    var indicators: [UInt32] {
+    /// До трёх значков других модулей, которым есть что показать. С кнопкой им нет места: строка важнее.
+    var indicators: [ConsoleModuleID] {
         guard capsule?.action == nil, capsule?.wave != true else { return [] }
-        return modules.filter { $0.id != director.leader?.module && $0.priority(now: now) != nil }.prefix(3).map(\.accent)
+        return modules.filter { $0.id != director.leader?.module && $0.priority(now: now) != nil }.prefix(3).map(\.id)
     }
 
     /// Картинка лидера вместо иконки: миниатюра файла, обложка.
@@ -607,9 +607,9 @@ final class ConsoleModel {
         let limit = capsuleLimit
         let dots = Double(indicators.count)
         let extras = (capsule?.action != nil ? ConsoleLook.joinWidth + ConsoleLook.labelGap : 0)
-            + (dots > 0 ? ConsoleLook.labelGap + dots * ConsoleLook.dot + (dots - 1) * 4 : 0)
+            + (dots > 0 ? ConsoleLook.labelGap + dots * ConsoleLook.indicator + (dots - 1) * 6 : 0)
         guard let text = capsuleText else {
-            let content = ringsWidth(visibleRings) + (dots > 0 ? ConsoleLook.labelGap + dots * ConsoleLook.dot + (dots - 1) * 4 : 0)
+            let content = ringsWidth(visibleRings) + (dots > 0 ? ConsoleLook.labelGap + dots * ConsoleLook.indicator + (dots - 1) * 6 : 0)
             return min(limit, max(ConsoleLayout.minWidth, ceil(content) + ConsoleLook.padding * 2))
         }
         let full = capsule?.tail.map { "\(text) \($0)" } ?? text
@@ -647,6 +647,7 @@ enum ConsoleLook {
     static let padding = 12.0
     static let joinWidth = 40.0
     static let dot = 6.0
+    static let indicator = 14.0
     static let alertColor: UInt32 = 0xFF453A
     @MainActor static let labelFont = ConsoleStyle.nsFont(13, .medium)
     @MainActor static let figureFont = ConsoleStyle.nsFont(15, .medium)

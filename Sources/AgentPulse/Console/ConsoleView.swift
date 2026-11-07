@@ -2,6 +2,20 @@ import AgentPulseCore
 import AppKit
 import SwiftUI
 
+private extension ConsoleModuleID {
+    /// Значок модуля в капсуле.
+    var icon: String {
+        switch self {
+        case .limits: "tuning-2"
+        case .prompter, .dictation: "document-text"
+        case .calendar: "calendar"
+        case .translate: "translation"
+        case .shelf: "folder-with-files"
+        case .media: "music-note"
+        }
+    }
+}
+
 /// Сторона капсулы: значок, число, точка зоны. Шесть пунктов цвета: число и так говорит, что происходит.
 private struct LimitSide: View {
     let ring: CapsuleRing
@@ -95,9 +109,15 @@ private struct CapsuleBody: View {
                         .frame(width: ConsoleLook.joinWidth)
                 }
                 if !model.indicators.isEmpty {
-                    HStack(spacing: 4) {
-                        ForEach(Array(model.indicators.enumerated()), id: \.offset) { _, color in
-                            Circle().fill(Color(hex: color)).frame(width: ConsoleLook.dot, height: ConsoleLook.dot)
+                    // Значки, а не цветные точки: точка рядом с числом уже значит зону лимита.
+                    HStack(spacing: 6) {
+                        ForEach(model.indicators, id: \.self) { module in
+                            Image(nsImage: SolarIcons.image(module.icon) ?? NSImage())
+                                .resizable()
+                                .frame(width: ConsoleLook.indicator, height: ConsoleLook.indicator)
+                                .foregroundStyle(.white)
+                                .opacity(0.55)
+                                .accessibilityLabel(model.tabs.first { $0.id == module }?.title ?? "")
                         }
                     }
                 }
