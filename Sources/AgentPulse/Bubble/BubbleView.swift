@@ -105,18 +105,19 @@ struct BubbleShape: Shape {
         let body = tailOnRight
             ? CGRect(x: rect.minX, y: rect.minY, width: rect.width - tail, height: rect.height)
             : CGRect(x: rect.minX + tail, y: rect.minY, width: rect.width - tail, height: rect.height)
-        var path = Path(roundedRect: body, cornerRadius: min(14, body.height / 2), style: .continuous)
         let midY = rect.midY
+        var tailPath = Path()
         if tailOnRight {
-            path.move(to: CGPoint(x: body.maxX - 1, y: midY - 4))
-            path.addLine(to: CGPoint(x: rect.maxX, y: midY))
-            path.addLine(to: CGPoint(x: body.maxX - 1, y: midY + 4))
+            tailPath.move(to: CGPoint(x: body.maxX - 1, y: midY - 4))
+            tailPath.addLine(to: CGPoint(x: rect.maxX, y: midY))
+            tailPath.addLine(to: CGPoint(x: body.maxX - 1, y: midY + 4))
         } else {
-            path.move(to: CGPoint(x: body.minX + 1, y: midY - 4))
-            path.addLine(to: CGPoint(x: rect.minX, y: midY))
-            path.addLine(to: CGPoint(x: body.minX + 1, y: midY + 4))
+            tailPath.move(to: CGPoint(x: body.minX + 1, y: midY - 4))
+            tailPath.addLine(to: CGPoint(x: rect.minX, y: midY))
+            tailPath.addLine(to: CGPoint(x: body.minX + 1, y: midY + 4))
         }
-        path.closeSubpath()
-        return path
+        tailPath.closeSubpath()
+        // Одна фигура, а не две: иначе край рисуется поперёк хвостика.
+        return Path(roundedRect: body, cornerRadius: min(14, body.height / 2), style: .continuous).union(tailPath)
     }
 }
