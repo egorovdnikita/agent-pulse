@@ -341,9 +341,10 @@ private func snapshot(_ used: Double, at: Date = t0, service: LimitService = .cl
         return MeetingEvent(id: "e\(minutes)", title: title, start: start, end: start.addingTimeInterval(1800), isAllDay: allDay, link: link)
     }
 
-    @Test func leaderTenMinutesBefore() {
+    @Test func leaderTwoMinutesBefore() {
         let module = module(event(in: 8, link: call))
-        #expect(module.priority(now: t0) == .meetingSoon)
+        #expect(module.priority(now: t0) == nil)
+        #expect(module.priority(now: t0.addingTimeInterval(8 * 60)) == .meetingSoon)
         #expect(module.capsule(now: t0).label == "Синк · через 8 мин")
         #expect(module.capsule(now: t0).tail == "· через 8 мин")
         #expect(module.capsule(now: t0).action == .join(call.url))
