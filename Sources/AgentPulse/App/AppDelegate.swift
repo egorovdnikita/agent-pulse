@@ -867,15 +867,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         settingsSelection.anchor = anchor
         if settingsWindow == nil {
             let controller = NSHostingController(rootView: SettingsRoot(app: self, selection: settingsSelection))
-            controller.sizingOptions = [.preferredContentSize]
-            // Заголовок прозрачный и лежит поверх содержимого: запас под него дал бы пустую полосу внизу окна.
-            controller.safeAreaRegions = []
+            controller.sizingOptions = [.minSize]
+            controller.sceneBridgingOptions = [.title, .toolbars]
             let window = NSWindow(contentViewController: controller)
             window.title = "Настройки"
-            window.styleMask = [.titled, .closable, .miniaturizable, .fullSizeContentView]
-            window.titlebarAppearsTransparent = true
-            window.titleVisibility = .hidden
-            window.backgroundColor = SettingsStyle.windowColor
+            window.styleMask = [.titled, .closable, .miniaturizable, .resizable, .fullSizeContentView]
+            window.toolbarStyle = .unified
+            window.setContentSize(SettingsWindow.size)
             window.isReleasedWhenClosed = false
             window.delegate = self
             window.center()

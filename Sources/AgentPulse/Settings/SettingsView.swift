@@ -23,7 +23,7 @@ enum SettingsNavigation {
             case .general: "Где живёт маскот и как запускается."
             case .character: "Как часто он говорит и когда молчит."
             case .sources: "Откуда маскот знает, что делают агенты."
-            case .console: "Что есть в Пульте. Клик по модулю открывает его настройки."
+            case .console: "Что есть в Пульте. Настройки модуля видны, пока он включён."
             case .news: "О чём маскот рассказывает, когда ты не занят."
             case .lab: "Состояния и реакции вручную."
             }
@@ -45,7 +45,7 @@ enum SettingsNavigation {
 /// Одно окно: всё, что не нужно каждый день, живёт здесь, а не в меню.
 @MainActor
 enum SettingsWindow {
-    static let size = CGSize(width: SettingsStyle.sidebarWidth + 640, height: 640)
+    static let size = CGSize(width: 820, height: 620)
 
     @ViewBuilder
     static func content(_ tab: SettingsNavigation.Tab, app: AppDelegate, selection: SettingsSelection) -> some View {
@@ -73,74 +73,40 @@ final class SettingsSelection {
     var module: String?
 }
 
-/// Окно «Настройки»: слева разделы, справа заголовок и карточки.
+/// Окно «Настройки» — как системные: боковая колонка и сгруппированная форма.
 struct SettingsRoot: View {
     let app: AppDelegate
     @Bindable var selection: SettingsSelection
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
-        HStack(spacing: 0) {
-            sidebar
-            ZStack {
-                section
-                    .id(selection.tab)
-                    .transition(reduceMotion ? .opacity : .opacity.combined(with: .offset(y: 6)))
+        NavigationSplitView {
+            List(selection: Binding(
+                get: { Optional(selection.tab) },
+                set: { tab in
+                    guard let tab else { return }
+                    selection.anchor = nil
+                    selection.tab = tab
+                }
+            )) {
+                ForEach(tabs, id: \.self) { tab in
+                    Label { Text(tab.title) } icon: { SettingsIcon(name: tab.icon) }
+                        .tag(tab)
+                }
             }
-            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-            .animation(.easeOut(duration: 0.16), value: selection.tab)
-        }
-        .frame(width: SettingsWindow.size.width, height: SettingsWindow.size.height)
-        .background(SettingsStyle.window)
-        .font(SettingsStyle.body)
-        .foregroundStyle(SettingsStyle.text)
-        .tint(SettingsStyle.accent)
-        .toggleStyle(SettingsSwitchStyle())
-        .buttonStyle(SettingsButtonStyle())
-        .environment(\.settingsAnchor, selection.anchor)
-        .ignoresSafeArea(.container, edges: .top)
-    }
-
-    private var section: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            VStack(alignment: .leading, spacing: 4) {
-                Text(selection.tab.title)
-                    .font(SettingsStyle.title)
-                    .tracking(-0.22)
-                    .frame(height: 28)
-                    .accessibilityAddTraits(.isHeader)
-                Text(selection.tab.subtitle)
-                    .font(SettingsStyle.body)
-                    .foregroundStyle(SettingsStyle.muted)
-            }
-            .padding(.horizontal, SettingsStyle.contentInset)
-            .padding(.top, 52)
+            .navigationSplitViewColumnWidth(min: 180, ideal: 200, max: 260)
+            .toolbar(removing: .sidebarToggle)
+        } detail: {
             SettingsWindow.content(selection.tab, app: app, selection: selection)
+                .id(selection.tab)
+                .navigationTitle(selection.tab.title)
         }
+        .frame(minWidth: 720, minHeight: 480)
+        .environment(\.settingsAnchor, selection.anchor)
     }
 
     /// «Лаборатория» — только с включёнными экспериментами.
     private var tabs: [SettingsNavigation.Tab] {
         SettingsNavigation.Tab.allCases.filter { $0 != .lab || app.model.config.senses.experimental || selection.tab == .lab }
-    }
-
-    private var sidebar: some View {
-        VStack(alignment: .leading, spacing: 2) {
-            ForEach(Array(tabs.enumerated()), id: \.element) { index, tab in
-                SettingsSidebarItem(tab: tab, number: index + 1, isSelected: selection.tab == tab) {
-                    selection.anchor = nil
-                    selection.tab = tab
-                }
-            }
-            Spacer()
-        }
-        .padding(.top, 52)
-        .padding(.horizontal, 8)
-        .padding(.bottom, 8)
-        .frame(width: SettingsStyle.sidebarWidth)
-        .frame(maxHeight: .infinity)
-        .background(SettingsStyle.sidebar)
-        .overlay(alignment: .trailing) { Rectangle().fill(SettingsStyle.ring).frame(width: 1) }
     }
 }
 
@@ -357,10 +323,7 @@ private struct ConsoleSettings: View {
         @ViewBuilder options: () -> Options
     ) -> some View {
         ModuleCard(
-            title: title, summary: summary, icon: icon, isOn: isOn, toggle: toggle,
-            expanded: selection.module == title,
-            expand: { selection.module = selection.module == title ? nil : title },
-            options: options
+            title: title, summary: summary, icon: icon, isOn: isOn, toggle: toggle, options: options
         )
     }
 
@@ -378,7 +341,7 @@ private struct ConsoleSettings: View {
                 Toggle("Звуки", isOn: Binding(get: { settings.sounds }, set: { app.setSounds($0) }))
                     .disabled(!settings.enabled)
             }
-            VStack(spacing: 8) {
+            Group {
                 card("Лимиты", "Сколько осталось у Claude и Codex", icon: "pie-chart-2", isOn: settings.limits, toggle: { app.setLimitsEnabled($0) }) {
                     ModuleOption {
                         Button("Подключить в разделе «Агенты»") { app.showSettings(.sources, anchor: "Лимиты") }
@@ -446,13 +409,11 @@ private struct SourcesSettings: View {
     let app: AppDelegate
 
     private func row<Trailing: View>(_ title: String, _ status: String, @ViewBuilder trailing: () -> Trailing) -> some View {
-        HStack(spacing: 12) {
-            VStack(alignment: .leading, spacing: 2) {
-                Text(title)
-                Text(status).font(SettingsStyle.caption).foregroundStyle(SettingsStyle.muted).lineLimit(1)
-            }
-            Spacer(minLength: 8)
-            trailing()
+        LabeledContent {
+            HStack(spacing: 8) { trailing() }
+        } label: {
+            Text(title)
+            Text(status)
         }
     }
 
@@ -628,7 +589,7 @@ private struct MoodBars: View {
         GridRow {
             Text(title).foregroundStyle(SettingsStyle.muted)
             // Своя шкала: системная в неактивном окне теряет цвет.
-            Capsule().fill(SettingsStyle.switchOff)
+            Capsule().fill(SettingsStyle.track)
                 .frame(width: 140, height: 6)
                 .overlay(alignment: .leading) {
                     Capsule().fill(color).frame(width: 140 * min(max(value, 0.03), 1), height: 6)
