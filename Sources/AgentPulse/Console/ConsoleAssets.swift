@@ -55,7 +55,7 @@ struct LibraryEmptyCharacter: View {
             layer("star-front", 8, 8, 30.89, 40.71)
             layer("dot-front", 5, 5, -3.36, 35.84)
         }
-        .frame(width: 60, height: 60)
+        .frame(width: 60, height: 60, alignment: .topLeading)
         .accessibilityHidden(true)
     }
 }
