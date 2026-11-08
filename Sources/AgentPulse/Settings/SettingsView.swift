@@ -127,18 +127,31 @@ struct SettingsRoot: View {
             .safeAreaInset(edge: .top, spacing: 0) {
                 SidebarSearch(text: $selection.query)
                     .padding(.horizontal, 10)
-                    // Отступ под панель снят: поле сразу под кнопками окна.
-                    .padding(.top, 40)
+                    // Поле сразу под кнопками окна.
+                    .padding(.top, 34)
                     .padding(.bottom, 6)
             }
             .ignoresSafeArea(.container, edges: .top)
-            .frame(width: 260)
-            .navigationSplitViewColumnWidth(260)
+            .frame(width: 220)
+            .navigationSplitViewColumnWidth(220)
             .toolbar(removing: .sidebarToggle)
         } detail: {
             SettingsWindow.content(selection.tab, app: app, selection: selection)
                 .id(selection.tab)
-                .navigationTitle(selection.tab.title)
+                // Полоса с названием: 44 pt, как у Системных настроек, название по центру — сверху и снизу поровну.
+                // Системная панель на macOS 26 выше и прижимает название к кнопкам окна.
+                .safeAreaInset(edge: .top, spacing: 0) {
+                    VStack(spacing: 0) {
+                        Text(selection.tab.title)
+                            .font(.system(size: 15, weight: .bold))
+                            .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
+                            .padding(.horizontal, 20)
+                            .accessibilityAddTraits(.isHeader)
+                        Divider()
+                    }
+                    .background(Color(nsColor: .windowBackgroundColor))
+                }
+                .ignoresSafeArea(.container, edges: .top)
                 .background(WindowTitle(title: selection.tab.title))
         }
         .frame(minWidth: 720, minHeight: 480)
