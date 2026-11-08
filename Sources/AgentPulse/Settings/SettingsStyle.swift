@@ -141,11 +141,14 @@ struct ModuleCard<Options: View>: View {
     var body: some View {
         Section {
             Toggle(isOn: Binding(get: { isOn }, set: toggle)) {
-                Label {
-                    Text(title)
-                    Text(summary)
-                } icon: {
+                HStack(alignment: .center, spacing: 10) {
                     SettingsIcon(name: icon, tint: tint)
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(title)
+                        Text(summary)
+                            .font(.subheadline)
+                            .foregroundStyle(.secondary)
+                    }
                 }
             }
             if isOn { options }
