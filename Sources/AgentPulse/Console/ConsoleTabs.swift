@@ -218,7 +218,7 @@ struct ShelfTab: View {
     var body: some View {
         Group {
             if model.shelf.items.isEmpty {
-                VStack(spacing: 12) {
+                VStack(spacing: 24) {
                     LibraryCharacter(skin: model.librarySkin, paused: !model.expanded)
                     VStack(spacing: 4) {
                         Text("Перетащите сюда файлы, чтобы держать их под рукой")
@@ -446,10 +446,11 @@ struct PrompterTab: View {
         .padding(12)
         .background(ConsoleStyle.card, in: RoundedRectangle(cornerRadius: ConsoleStyle.cardRadius, style: .continuous))
         .overlay {
-            if model.prompterInputInvalid {
-                RoundedRectangle(cornerRadius: ConsoleStyle.cardRadius, style: .continuous)
-                    .strokeBorder(ConsoleStyle.red, lineWidth: 1)
-            }
+            RoundedRectangle(cornerRadius: ConsoleStyle.cardRadius, style: .continuous)
+                .strokeBorder(ConsoleStyle.red, lineWidth: 1)
+                .opacity(model.prompterInputInvalid ? 1 : 0)
+                .animation(.easeOut(duration: 0.45), value: model.prompterInputInvalid)
+                .allowsHitTesting(false)
         }
     }
 
