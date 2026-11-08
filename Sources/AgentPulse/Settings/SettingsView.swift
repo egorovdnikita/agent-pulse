@@ -130,9 +130,12 @@ struct SettingsRoot: View {
             .safeAreaInset(edge: .top, spacing: 0) {
                 SidebarSearch(text: $selection.query)
                     .padding(.horizontal, 10)
-                    .padding(.top, 4)
+                    // Отступ под панель снят: поле сразу под кнопками окна, центр в 66 pt от верха, как у Системных настроек.
+                    .padding(.top, 52)
                     .padding(.bottom, 6)
             }
+            .ignoresSafeArea(.container, edges: .top)
+            .frame(width: 260)
             .navigationSplitViewColumnWidth(260)
             .toolbar(removing: .sidebarToggle)
         } detail: {
