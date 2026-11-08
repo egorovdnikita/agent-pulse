@@ -111,6 +111,7 @@ struct SettingsRoot: View {
             SettingsWindow.content(selection.tab, app: app, selection: selection)
                 .id(selection.tab)
                 .navigationTitle(selection.tab.title)
+                .background(WindowTitle(title: selection.tab.title))
         }
         .frame(minWidth: 720, minHeight: 480)
         .environment(\.settingsAnchor, selection.anchor)
@@ -132,6 +133,17 @@ private extension AppDelegate {
                 self.startSenses()
             }
         )
+    }
+}
+
+/// Название раздела в заголовке окна: само из формы оно туда не доходит.
+private struct WindowTitle: NSViewRepresentable {
+    let title: String
+
+    func makeNSView(context: Context) -> NSView { NSView() }
+
+    func updateNSView(_ view: NSView, context: Context) {
+        DispatchQueue.main.async { view.window?.title = title }
     }
 }
 
