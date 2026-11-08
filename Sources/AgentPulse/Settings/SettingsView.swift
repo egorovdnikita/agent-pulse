@@ -60,12 +60,12 @@ enum SettingsNavigation {
 
         var icon: String {
             switch self {
-            case .general: "gearshape"
-            case .character: "face.smiling"
-            case .sources: "cpu"
-            case .console: "square.grid.2x2"
-            case .news: "newspaper"
-            case .lab: "flask"
+            case .general: "gearshape.fill"
+            case .character: "face.smiling.inverse"
+            case .sources: "cpu.fill"
+            case .console: "square.grid.2x2.fill"
+            case .news: "newspaper.fill"
+            case .lab: "flask.fill"
             }
         }
     }
