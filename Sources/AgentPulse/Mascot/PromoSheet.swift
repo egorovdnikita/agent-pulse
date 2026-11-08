@@ -122,11 +122,11 @@ enum PromoSheet {
         func page(_ name: String, _ tab: ConsoleModuleID, reveal: PromoGaugeReveal? = nil) {
             model.tab = tab
             snapshot(PanelPreview(model: model).environment(\.promoGaugeReveal, reveal).frame(width: panel.width, height: panel.height)
-                .overlay(RoundedRectangle(cornerRadius: ConsoleStyle.surfaceRadius).strokeBorder(ConsoleStyle.edge, lineWidth: 1)).padding(8),
+                .overlay(RoundedRectangle(cornerRadius: ConsoleStyle.surfaceRadius).strokeBorder(ConsoleStyle.edge, lineWidth: 1)).clipShape(RoundedRectangle(cornerRadius: ConsoleStyle.surfaceRadius)).padding(8),
                      scale: scale, to: folder.appending(path: "panel-\(name).png"))
         }
         func capsule(_ name: String, reveal: PromoGaugeReveal? = nil) {
-            snapshot(CapsulePreview(model: model).environment(\.promoGaugeReveal, reveal).overlay(Capsule().strokeBorder(ConsoleStyle.edge, lineWidth: 1)).padding(8),
+            snapshot(CapsulePreview(model: model).environment(\.promoGaugeReveal, reveal).overlay(Capsule().strokeBorder(ConsoleStyle.edge, lineWidth: 1)).clipShape(Capsule()).padding(8),
                      scale: scale, to: folder.appending(path: "capsule-\(name).png"))
         }
         page("limits-empty", .limits)
@@ -146,7 +146,7 @@ enum PromoSheet {
                 capsule("reveal-\(service.rawValue)-\(index)", reveal: PromoGaugeReveal(service: service, progress: p))
             }
         }
-        snapshot(CapsulePreview(model: model).overlay(Capsule().strokeBorder(ConsoleStyle.edge, lineWidth: 1)).padding(8), scale: scale, to: folder.appending(path: "capsule.png"))
+        snapshot(CapsulePreview(model: model).overlay(Capsule().strokeBorder(ConsoleStyle.edge, lineWidth: 1)).clipShape(Capsule()).padding(8), scale: scale, to: folder.appending(path: "capsule.png"))
         page("shelf-empty", .shelf)
         model.dropTargeted = true
         page("shelf-drop", .shelf)
@@ -224,10 +224,10 @@ enum PromoSheet {
             snapshot(PrompterPreview(model: model)
                 .environment(\.promoReadPosition, model.prompter.position)
                 .background(.black, in: RoundedRectangle(cornerRadius: 20))
-                .overlay(RoundedRectangle(cornerRadius: 20).strokeBorder(ConsoleStyle.edge, lineWidth: 1)).padding(8),
+                .overlay(RoundedRectangle(cornerRadius: 20).strokeBorder(ConsoleStyle.edge, lineWidth: 1)).clipShape(RoundedRectangle(cornerRadius: 20)).padding(8),
                 scale: script.scale, to: directory.appending(path: String(format: "%04d.png", i)))
             if i % Int(script.fps) == 0 {
-                snapshot(CapsulePreview(model: model).overlay(Capsule().strokeBorder(ConsoleStyle.edge, lineWidth: 1)).padding(8),
+                snapshot(CapsulePreview(model: model).overlay(Capsule().strokeBorder(ConsoleStyle.edge, lineWidth: 1)).clipShape(Capsule()).padding(8),
                          scale: script.scale, to: directory.appending(path: String(format: "capsule-%02d.png", i / Int(script.fps))))
             }
         }
@@ -255,6 +255,7 @@ enum PromoSheet {
             bitmapDataPlanes: nil, pixelsWide: Int(size.width * scale), pixelsHigh: Int(size.height * scale), bitsPerSample: 8,
             samplesPerPixel: 4, hasAlpha: true, isPlanar: false, colorSpaceName: .deviceRGB, bytesPerRow: 0, bitsPerPixel: 0
         ) else { return }
+        bitmap.bitmapData?.initialize(repeating: 0, count: bitmap.bytesPerRow * bitmap.pixelsHigh)
         bitmap.size = size
         host.cacheDisplay(in: host.bounds, to: bitmap)
         try? bitmap.representation(using: .png, properties: [:])?.write(to: url)

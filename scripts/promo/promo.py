@@ -406,6 +406,8 @@ def bubble_state(tl, t):
 
 def draw_mascot(frame, assets, tl, t, index):
     sprite = assets.mascot(index)
+    reset = ease_out((t - (tl.duration - .4)) / .35)
+    if reset > 0: sprite = Image.blend(sprite, assets.mascot(0), reset)
     frame.paste(sprite, MASCOT[0], MASCOT[1], anchor=(.5, .5))
     state = bubble_state(tl, t)
     if state:
@@ -450,7 +452,34 @@ def rounded_mask(size, radius):
     return mask
 
 
+def capsule_content(img):
+    out = img.copy()
+    mask = Image.new("L",out.size)
+    inset = round(1.5*ASSET_SCALE)
+    ImageDraw.Draw(mask).rounded_rectangle((inset,inset,out.width-inset-1,out.height-inset-1), radius=out.height/2-inset,fill=255)
+    out.putalpha(ImageChops.multiply(out.getchannel("A"),mask))
+    return out
+
+
 def capsule_image(assets, tl, t):
+    if t >= tl.duration - .45:
+        old = crop_panel(Image.open(assets.folder / "capsule-filled.png").convert("RGBA"))
+        new = crop_panel(Image.open(assets.folder / "capsule-empty.png").convert("RGBA"))
+        dt = t - (tl.duration - .45)
+        if dt >= .4:
+            return Image.open(assets.folder / "capsule-empty.png").convert("RGBA")
+        p = cubic_in_out(dt / .4)
+        width = round(old.width + (new.width - old.width) * p)
+        height = old.height
+        body = Image.new("RGBA", (width, height), (10,10,10,255))
+        for src, alpha in [(capsule_content(old), 1-ease_out(dt/.16)), (capsule_content(new), ease_out((dt-.18)/.18))]:
+            src.putalpha(src.getchannel("A").point(lambda v: round(v*alpha)))
+            body.alpha_composite(src, (0,0))
+        body.putalpha(rounded_mask(body.size,height/2))
+        ImageDraw.Draw(body).rounded_rectangle((1,1,width-2,height-2), radius=height/2, outline=(255,255,255,18), width=4)
+        pad=round(8*ASSET_SCALE)
+        out=Image.new("RGBA",(width+2*pad,height+2*pad));out.alpha_composite(body,(pad,pad))
+        return out
     start,end=tl.prompter
     if start <= t < end:
         index=min(round((end-start)*FPS)-1, max(0,int((t-start)*FPS)))
@@ -461,7 +490,7 @@ def capsule_image(assets, tl, t):
             current=Image.open(assets.folder/f"capsule-reveal-{service}-{min(60,round(dt*FPS))}.png").convert("RGBA")
             if dt>=.6:return current
             old=Image.open(assets.folder/f"capsule-{previous}.png").convert("RGBA")
-            a,b=crop_panel(old),crop_panel(current)
+            a,b=capsule_content(crop_panel(old)),capsule_content(crop_panel(current))
             p=spring(dt,.42,.8)
             width=max(1,round(a.width+(b.width-a.width)*p));height=b.height
             body=Image.new("RGBA",(width,height),(10,10,10,255))
@@ -488,12 +517,12 @@ def draw_console(frame, assets, tl, t, geometry):
         frame.paste(cap, cx - 8, cy - 8)
         return
     px_, py_, pw, ph = panel
-    # Форма растёт из капсулы: ширина, высота и радиус от капсулы к панели, низ и левый край на месте.
+    # Форма сначала поднимается выше Dock, затем раскрывается в ширину; левый край фиксирован.
     o = openness
     width = cw + (pw - cw) * o
     height = ch + (ph - ch) * o
     radius = ch / 2 + (24 - ch / 2) * min(1.0, max(0.0, o))
-    bottom = cy + ch + (py_ + ph - (cy + ch)) * o
+    bottom = cy + ch + (py_ + ph - (cy + ch)) * ease_out(o / .1)
     left = px_
     top = bottom - height
     l, tp = frame.px(left, top)
@@ -516,6 +545,10 @@ def draw_console(frame, assets, tl, t, geometry):
         ImageDraw.Draw(edge).rounded_rectangle((.5,.5,wpx-1,hpx-1),radius=radius*frame.k,
             outline=(255,255,255,18),width=max(1,round(frame.k)))
         shape.alpha_composite(edge)
+    closing = next((when for when,kind,arg in reversed(tl.panel) if when <= t and kind in ("open","close")), None)
+    if closing is not None and any(when == closing and kind == "close" for when,kind,arg in tl.panel):
+        opacity = 1-ease_out((t-closing)/.18)
+        shape.putalpha(shape.getchannel("A").point(lambda v:round(v*opacity)))
     frame._paste_clipped(shape, round(l), round(tp)) if l < 0 or tp < 0 else frame.img.alpha_composite(shape, (round(l), round(tp)))
     # Капсула в приложении лежит поверх формы (VStack: панель, затем капсула).
     frame.paste(cap, cx - 8, cy - 8)
@@ -549,6 +582,13 @@ def shelf_transition(assets, tab, prev, dt):
     a,b=base(old,before),base(current,after)
     mix=ease_out(dt/.22)
     out=Image.blend(a,b,mix)
+    # Подписи подвала меняются последовательно, без двойного текста.
+    band = (round(10*ASSET_SCALE), round(202*ASSET_SCALE), round(630*ASSET_SCALE), round(234*ASSET_SCALE))
+    ImageDraw.Draw(out).rectangle(band, fill=(10,10,10,255))
+    footer = (a if dt < .1 else b).crop(band)
+    opacity = 1-ease_out(dt/.1) if dt < .1 else ease_out((dt-.1)/.12)
+    footer.putalpha(footer.getchannel("A").point(lambda v:round(v*opacity)))
+    out.alpha_composite(footer, band[:2])
     incoming=sorted(set(after)-set(before),key=lambda k:after[k][0])
     outgoing=sorted(set(before)-set(after),key=lambda k:before[k][0])
     for name,rect in before.items():
@@ -787,6 +827,18 @@ def verify_assets(assets, tl, geometry):
         targets=json.loads((assets.folder/"prompter"/f"{i:04d}.targets.json").read_text())
         if "spoken-word" in targets:word_boxes.add(tuple(round(v,1) for v in targets["spoken-word"]))
     assert len(word_boxes)>10,"Нет движущейся подсветки слов"
+    for i in range(count):
+        targets=json.loads((assets.folder/"prompter"/f"{i:04d}.targets.json").read_text())
+        if "spoken-word" in targets:
+            x,y,w,h=targets["spoken-word"]
+            assert y >= 8 and y+h <= 156, f"Текущее слово обрезано: {i}: {y}, {h}"
+    for path in list(assets.folder.glob("capsule*.png"))+list(assets.folder.glob("panel*.png")):
+        img=Image.open(path).convert("RGBA")
+        radius=(img.height-16*ASSET_SCALE)/2 if path.name.startswith("capsule") else 24*ASSET_SCALE
+        mask=Image.new("L",img.size)
+        inset=round(8*ASSET_SCALE)
+        ImageDraw.Draw(mask).rounded_rectangle((inset,inset,img.width-inset-1,img.height-inset-1),radius=radius,fill=255)
+        assert ImageChops.subtract(img.getchannel("A"),mask).getbbox() is None, f"Пиксели вне контура: {path.name}"
     for service in ("claude","codex"):
         assert len({hashlib.sha256((assets.folder/f"panel-limits-reveal-{service}-{i}.png").read_bytes()).digest() for i in range(61)})>40
     assert abs(cap[1]+cap[3]/2-MASCOT[1])<.001
@@ -798,6 +850,21 @@ def verify_assets(assets, tl, geometry):
             "console_side_padding":[left,right],"menu_height":MENU_HEIGHT,"prompter_top":PROMPTER_TOP,"word_highlight_positions":len(word_boxes)}
     (assets.folder/"verification.json").write_text(json.dumps(report,ensure_ascii=False,indent=2))
     print("Проверка исходников:",json.dumps(report,ensure_ascii=False),flush=True)
+
+
+def clean_snapshot_edges(folder):
+    """cacheDisplay оставляет пиксели вне SwiftUI clipShape: ограничиваем экспорт той же геометрией."""
+    paths = list(folder.glob("capsule*.png")) + list(folder.glob("panel*.png")) + list((folder/"prompter").glob("*.png"))
+    for path in paths:
+        img = Image.open(path).convert("RGBA")
+        inset = round(8*ASSET_SCALE)
+        w,h = img.width-2*inset, img.height-2*inset
+        radius = h/2 if path.name.startswith("capsule") else (20 if path.parent.name == "prompter" else 24)*ASSET_SCALE
+        # Сохраняем родное сглаживание на контуре, убираем только внешние пиксели.
+        mask = Image.new("L",img.size)
+        ImageDraw.Draw(mask).rounded_rectangle((inset,inset,inset+w-1,inset+h-1),radius=radius,fill=255)
+        img.putalpha(ImageChops.multiply(img.getchannel("A"),mask))
+        img.save(path)
 
 
 def main():
@@ -845,6 +912,9 @@ def main():
     if not args.only_compose:
         write_script(folder, tl, assets_only=args.only_assets)
         subprocess.run([args.app, "--promo-sheet", str(folder)], check=True)
+    if not args.only_compose:
+        clean_snapshot_edges(folder)
+        assets = Assets(folder)
     if args.only_assets:
         return
     out = Path(args.out) if args.out else folder / "agent-pulse-demo.webp"

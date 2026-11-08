@@ -308,6 +308,12 @@ final class ConsoleModel {
         prompter.seek(toFraction: elapsed / prompter.total, now: now)
         if (prompter.mode == .paused) != paused { prompter.togglePause(now: now) }
         updatePrompterPlace()
+        // Переводим новую строку вверх после начала её чтения: активное слово остаётся видимым.
+        if prompterLine > 0 {
+            let since = prompter.position - Double(prompterLines[prompterLine].words.lowerBound)
+            let p = min(1, max(0, since / 0.65))
+            prompterScroll = Double(prompterLine - 1) + 1 - pow(1 - p, 3)
+        } else { prompterScroll = 0 }
         refresh(agentWaiting: false)
     }
 
