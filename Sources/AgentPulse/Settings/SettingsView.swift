@@ -126,9 +126,10 @@ struct SettingsRoot: View {
             }
             .safeAreaInset(edge: .top, spacing: 0) {
                 SidebarSearch(text: $selection.query)
+                    .frame(height: 28)
                     .padding(.horizontal, 10)
                     // Поле под кнопками окна; между кнопками, полем и разделами воздух как у системы.
-                    .padding(.top, 36)
+                    .padding(.top, 34)
                     .padding(.bottom, 8)
             }
             .ignoresSafeArea(.container, edges: .top)
