@@ -49,6 +49,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
             BubbleSheet.render(to: URL(filePath: CommandLine.arguments[index + 1]))
             exit(0)
         }
+        // Отладка: `--promo-sheet папка` — исходники промо-ролика по `папка/script.json` (см. scripts/promo).
+        if let index = CommandLine.arguments.firstIndex(of: "--promo-sheet"), index + 1 < CommandLine.arguments.count {
+            PromoSheet.render(app: self, to: URL(filePath: CommandLine.arguments[index + 1]))
+            exit(0)
+        }
         notifier.requestAuthorization()
         model.notifier = notifier
         model.hooksInstalled = HookInstaller.isInstalled()
