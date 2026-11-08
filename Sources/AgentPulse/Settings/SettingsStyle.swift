@@ -167,10 +167,11 @@ struct SettingsIcon: View {
             .font(.system(size: size * 0.62, weight: .regular))
             .foregroundStyle(.white)
             .frame(width: size, height: size)
-            .background(tint, in: shape)
             .background {
-                shape.fill(LinearGradient(colors: [.white.opacity(0.28), .clear], startPoint: .top, endPoint: .bottom))
-                    .blendMode(.plusLighter)
+                ZStack {
+                    shape.fill(tint)
+                    shape.fill(LinearGradient(colors: [.white.opacity(0.28), .clear], startPoint: .top, endPoint: .bottom))
+                }
             }
             .overlay(shape.strokeBorder(.white.opacity(0.22), lineWidth: 0.5))
             .accessibilityHidden(true)
