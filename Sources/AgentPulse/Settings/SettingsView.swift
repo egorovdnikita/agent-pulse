@@ -60,7 +60,7 @@ enum SettingsNavigation {
 
         var icon: String {
             switch self {
-            case .general: "gearshape"
+            case .general: "gear"
             case .character: "face.smiling"
             case .sources: "cpu"
             case .console: "switch.2"
