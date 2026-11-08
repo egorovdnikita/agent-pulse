@@ -4,7 +4,7 @@ import SwiftUI
 
 /// Отладка: `AgentPulse --promo-sheet папка` — исходники промо-ролика без окон на экране.
 /// Сценарий `папка/script.json` пишет монтажный скрипт; здесь настоящий `MascotAnimator` проходит его
-/// на виртуальных часах, а облачка, капсула и страницы Пульта рисуются настоящими видами. Камеру, курсор
+/// на виртуальных часах, а облачка, капсула и страницы Пульта рисуются настоящими видами. Камеру
 /// и клики добавляет монтаж.
 @MainActor
 enum PromoSheet {
@@ -12,6 +12,7 @@ enum PromoSheet {
         struct StateMark: Decodable { let t: Double; let state: String }
         struct ReactionMark: Decodable { let t: Double; let name: String }
         struct Bubble: Decodable { let id: String; let category: String; let title: String; let text: String }
+        let assetsOnly: Bool?
         let fps: Double
         let duration: Double
         let diameter: Double
@@ -31,7 +32,7 @@ enum PromoSheet {
             print("promo: нет script.json")
             return
         }
-        renderMascot(script, to: folder.appending(path: "mascot"))
+        if script.assetsOnly != true { renderMascot(script, to: folder.appending(path: "mascot")) }
         for bubble in script.bubbles {
             guard let category = BubbleCategory(rawValue: bubble.category) else { continue }
             let message = BubbleMessage(category: category, title: bubble.title, text: bubble.text)
@@ -39,11 +40,7 @@ enum PromoSheet {
                      to: folder.appending(path: "bubble-\(bubble.id).png"))
         }
         renderConsole(scale: script.scale, to: folder)
-        if let cursor = NSCursor.arrow.image.cgImage(forProposedRect: nil, context: nil, hints: nil) {
-            try? NSBitmapImageRep(cgImage: cursor).representation(using: .png, properties: [:])?
-                .write(to: folder.appending(path: "cursor.png"))
-            print("promo: cursor hotspot \(NSCursor.arrow.hotSpot) size \(NSCursor.arrow.image.size)")
-        }
+
     }
 
     private static func state(_ name: String) -> MascotState {
@@ -65,8 +62,12 @@ enum PromoSheet {
         try? FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
         let animator = MascotAnimator()
         animator.screenCenter = .zero
+        let skin = PalSkin(bot: PalSkin.defaultBot)
+        precondition(skin.isComplete(), "Для промо нужен установленный Agent Pals / Circle")
+        animator.skin = skin
         let box = MascotView.boxSize(script.diameter)
         let view = MascotLayerView(animator: animator, diameter: script.diameter)
+        view.preparePromoPal()
         view.frame = CGRect(x: 0, y: 0, width: box, height: box)
         view.layoutSubtreeIfNeeded()
         var states = script.states.sorted { $0.t < $1.t }
@@ -82,13 +83,17 @@ enum PromoSheet {
                 states.removeFirst()
             }
             while let next = reactions.first, next.t <= t {
-                if let reaction = MascotReaction(rawValue: next.name) { animator.enqueue(reaction) }
+                if let reaction = MascotReaction(rawValue: next.name) { animator.enqueue(reaction, at: clock) }
                 reactions.removeFirst()
             }
             animator.hovered = script.hover.contains { $0.count == 2 && t >= $0[0] && t < $0[1] }
             let offset = index < script.cursor.count ? script.cursor[index] : nil
             let cursor = offset.map { CGPoint(x: $0[0], y: -$0[1]) }
             view.apply(animator.pose(at: clock, cursor: cursor))
+            let clip = animator.choreo.clip
+            let elapsed = max(0, clock - animator.choreo.since)
+            view.seekPromoPal(progress: elapsed.truncatingRemainder(dividingBy: clip.loop) / clip.loop,
+                              transition: elapsed / PalChoreographer.crossfade)
             guard let context = CGContext(
                 data: nil, width: side, height: side, bitsPerComponent: 8, bytesPerRow: 0,
                 space: CGColorSpace(name: CGColorSpace.sRGB)!, bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue
@@ -102,40 +107,64 @@ enum PromoSheet {
     }
 
     private static func renderConsole(scale: Double, to folder: URL) {
-        let model = ConsoleModel()
+        let model = ConsoleModel(promo: true)
         model.translatorEnabled = true
-        let now = Date()
-        model.ingest(LimitSnapshot(service: .claude, windows: [
-            LimitWindow(kind: .fiveHour, usedPercent: 31, resetsAt: now.addingTimeInterval(3 * 3600 + 24 * 60)),
-            LimitWindow(kind: .week, usedPercent: 64, resetsAt: now.addingTimeInterval(4 * 86_400)),
-        ], at: now))
-        model.ingest(LimitSnapshot(service: .codex, windows: [
-            LimitWindow(kind: .fiveHour, usedPercent: 12, resetsAt: now.addingTimeInterval(2 * 3600)),
-            LimitWindow(kind: .week, usedPercent: 27, resetsAt: now.addingTimeInterval(5 * 86_400)),
-        ], at: now))
-        snapshot(CapsulePreview(model: model).padding(8), scale: scale, to: folder.appending(path: "capsule.png"))
+        model.tick(now: Date(), agentWaiting: false, inputActive: false)
         model.showPanelNow()
         let panel = CGSize(width: ConsoleLayout.expandedWidth, height: ConsoleLayout.expandedHeight)
-        model.tab = .limits
-        snapshot(PanelPreview(model: model).frame(width: panel.width, height: panel.height).padding(8), scale: scale,
-                 to: folder.appending(path: "panel-limits.png"))
-        model.prompterDraft = "Привет! Сегодня покажу, как Пульт помогает в работе: лимиты, суфлёр, файлы и перевод."
-        model.tab = .prompter
-        snapshot(PanelPreview(model: model).frame(width: panel.width, height: panel.height).padding(8), scale: scale,
-                 to: folder.appending(path: "panel-prompter.png"))
-        model.tab = .shelf
-        snapshot(PanelPreview(model: model).frame(width: panel.width, height: panel.height).padding(8), scale: scale,
-                 to: folder.appending(path: "panel-shelf-empty.png"))
-        model.addToShelf(["Договор.pdf", "Обложка.png", "Бюджет.xlsx", "Доклад.key", "Заметки.md"].map { URL(filePath: "/tmp/\($0)") })
-        snapshot(PanelPreview(model: model).frame(width: panel.width, height: panel.height).padding(8), scale: scale,
-                 to: folder.appending(path: "panel-shelf.png"))
-        if let text = model.pressTranslate(selection: "Маскот показывает, что агент ждёт тебя", clipboard: nil) {
-            model.finishTranslate(source: text, result: .success("The mascot shows that the agent is waiting for you"))
-            model.showPanelNow()
-            model.tab = .translate
-            snapshot(PanelPreview(model: model).frame(width: panel.width, height: panel.height).padding(8), scale: scale,
-                     to: folder.appending(path: "panel-translate.png"))
+        func page(_ name: String, _ tab: ConsoleModuleID) {
+            model.tab = tab
+            snapshot(PanelPreview(model: model).frame(width: panel.width, height: panel.height).padding(8),
+                     scale: scale, to: folder.appending(path: "panel-\(name).png"))
         }
+        page("limits-empty", .limits)
+        let now = Date()
+        for (service, used, week) in [(LimitService.claude, 31, 64), (.codex, 12, 27)] {
+            model.ingest(LimitSnapshot(service: service, windows: [
+                LimitWindow(kind: .fiveHour, usedPercent: Double(used), resetsAt: now.addingTimeInterval(3 * 3600)),
+                LimitWindow(kind: .week, usedPercent: Double(week), resetsAt: now.addingTimeInterval(4 * 86_400)),
+            ], at: now))
+            page(service == .claude ? "limits-claude" : "limits", .limits)
+        }
+        snapshot(CapsulePreview(model: model).padding(8), scale: scale, to: folder.appending(path: "capsule.png"))
+        page("shelf-empty", .shelf)
+        model.dropTargeted = true
+        page("shelf-drop", .shelf)
+        model.dropTargeted = false
+        let files = ["Доклад.pdf", "Заметки.md", "Бюджет.xlsx", "Презентация.key"].map { URL(filePath: "/tmp/pulse-promo-fiction/\($0)") }
+        model.addToShelf(Array(files.prefix(1)))
+        page("shelf-one", .shelf)
+        model.addToShelf(Array(files.dropFirst()))
+        page("shelf", .shelf)
+        model.selectAllShelf()
+        page("shelf-selected", .shelf)
+        model.removeSelectedFiles()
+        page("shelf-cleared", .shelf)
+        page("prompter-empty", .prompter)
+        let speech = "Привет! Сегодня покажу Пульт.\n\nЛимиты нейросетей всегда под рукой. Файлы можно сохранить на полке, а текст — быстро перевести.\n\nВсё работает прямо на этом Mac."
+        for count in 1...speech.count {
+            model.prompterDraft = String(speech.prefix(count))
+            page("prompter-type-\(count)", .prompter)
+        }
+        page("prompter", .prompter)
+        model.setPrompterSpeed(160)
+        page("prompter-speed", .prompter)
+        model.prompterDraft = ""
+        page("prompter-cleared", .prompter)
+        page("translate-empty", .translate)
+        let source = "Маскот показывает, что агент ждёт тебя."
+        for count in 1...source.count {
+            model.translateInput = String(source.prefix(count))
+            page("translate-type-\(count)", .translate)
+        }
+        _ = model.pressTranslate(selection: source, clipboard: nil)
+        page("translate-working", .translate)
+        model.finishTranslate(source: source, result: .success("The mascot shows that the agent is waiting for you."))
+        page("translate", .translate)
+        model.translateCopied = true
+        page("translate-copied", .translate)
+        model.clearTranslation()
+        page("translate-cleared", .translate)
     }
 
     /// Прозрачный фон: монтаж кладёт картинку на свой рабочий стол.

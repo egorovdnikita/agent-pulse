@@ -248,6 +248,13 @@ final class MascotLayerView: NSView {
 
     // MARK: - Поза → слои
 
+    /// Промо использует те же посадку и пластику, но Lottie рисует кадр на виртуальных часах.
+    func preparePromoPal() { pal.offlineRendering = true }
+
+    func seekPromoPal(progress: Double, transition: Double) {
+        pal.seekOffline(progress: progress, transition: transition)
+    }
+
     func apply(_ pose: MascotPose) {
         guard bounds.width > 0 else { return }
         CATransaction.begin()

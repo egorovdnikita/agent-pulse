@@ -101,9 +101,9 @@ final class MascotAnimator {
     }
 
     /// Реакции не прерывают друг друга, а встают в очередь.
-    func enqueue(_ reaction: MascotReaction) {
+    func enqueue(_ reaction: MascotReaction, at t: Double = Date.timeIntervalSinceReferenceDate) {
         guard !state.isWaiting else { return }
-        choreo.react(reaction, at: Date.timeIntervalSinceReferenceDate)
+        choreo.react(reaction, at: t)
         queue.append(reaction)
         if queue.count > 4 { queue.removeFirst() }
     }

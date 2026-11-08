@@ -6,7 +6,13 @@ import Observation
 @MainActor
 @Observable
 final class ConsoleModel {
-    private(set) var limits = LimitsModule(book: LimitsBook.load())
+    /// Офлайн-промо не читает сохранённые лимиты и личные тексты.
+    init(promo: Bool = false) {
+        limits = LimitsModule(book: promo ? LimitsBook() : LimitsBook.load())
+        prompterLibrary = promo ? PrompterLibrary() : PrompterLibrary.load()
+    }
+
+    private(set) var limits: LimitsModule
     private(set) var prompter = PrompterModule()
     private(set) var dictation = DictationModule()
     private(set) var translate = TranslateModule()
@@ -70,7 +76,7 @@ final class ConsoleModel {
     @ObservationIgnored private var prompterValidationTask: Task<Void, Never>?
     /// Вместо поля открыт список недавних текстов.
     var prompterRecentOpen = false
-    private(set) var prompterLibrary = PrompterLibrary.load()
+    private(set) var prompterLibrary: PrompterLibrary
     private(set) var prompterLines: [PrompterScript.Line] = []
     /// Текущая строка. Отдельно от `prompter`: панель перерисовывается по строкам, а не по таймеру.
     private(set) var prompterLine = 0

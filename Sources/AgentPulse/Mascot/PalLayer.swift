@@ -19,6 +19,18 @@ final class PalLayer: CALayer {
     private(set) var skin: PalSkin?
     private(set) var clip: PalClip?
     private var cache: [PalClip: LottieAnimation] = [:]
+    /// Только для офлайн-промо: кадры выставляет сценарий, без часов рендер-сервера.
+    var offlineRendering = false
+
+    func seekOffline(progress: Double, transition: Double) {
+        front?.currentProgress = progress
+        front?.forceDisplayUpdate()
+        front?.removeAllAnimations()
+        back?.removeAllAnimations()
+        front?.opacity = Float(min(1, transition))
+        back?.opacity = Float(max(0, 1 - transition))
+    }
+
     var frozen = false {
         didSet { if oldValue != frozen { syncPlayback() } }
     }
@@ -165,7 +177,7 @@ final class PalLayer: CALayer {
     }
 
     private func makeLayer() -> LottieAnimationLayer {
-        let layer = LottieAnimationLayer(animation: nil, configuration: LottieConfiguration(renderingEngine: .coreAnimation))
+        let layer = LottieAnimationLayer(animation: nil, configuration: LottieConfiguration(renderingEngine: offlineRendering ? .mainThread : .coreAnimation))
         layer.loopMode = .loop
         layer.animationLayerDidLoad = { layer, _ in
             MainActor.assumeIsolated { PalLayer.center(layer) }
@@ -179,7 +191,9 @@ final class PalLayer: CALayer {
     private func syncPlayback() {
         back?.pause()
         guard let front else { return }
-        if stopped {
+        if offlineRendering {
+            front.pause()
+        } else if stopped {
             front.pause()
         } else if frozen {
             front.pause()

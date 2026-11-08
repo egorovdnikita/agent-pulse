@@ -1,15 +1,15 @@
 #!/usr/bin/env python3
-"""Промо-ролик Agent Pulse для README: настоящие виды приложения, камера, курсор и клики.
+"""Промо-ролик Agent Pulse для README: настоящие виды приложения, камера и клики.
 
     python3 scripts/promo/promo.py ПАПКА [--app путь/к/AgentPulse] [--only-compose]
 
 1. Пишет ПАПКА/script.json — сценарий маскота (состояния, реакции, курсор).
 2. Запускает приложение с `--promo-sheet ПАПКА`: настоящий аниматор на виртуальных часах рисует кадры
    маскота, облачка, капсулу и страницы Пульта (без окон на экране).
-3. Монтирует ролик на нейтральном рабочем столе: камера по кривой V4 (Telegram Motion Style),
+3. Монтирует ролик на фоне GitHub Dark: камера по кривой V4 (Telegram Motion Style),
    матовое кольцо клика, раскрытие Пульта как в приложении. Итог — ПАПКА/agent-pulse-demo.webp.
 
-Нужен только Pillow. Никаких данных пользователя: рабочий стол нарисован, файлы и тексты вымышлены.
+Нужны Pillow и imageio-ffmpeg. Никаких данных пользователя: рабочий стол нарисован, файлы и тексты вымышлены.
 """
 import argparse
 import json
@@ -19,9 +19,9 @@ from pathlib import Path
 
 from PIL import Image, ImageChops, ImageDraw, ImageFilter
 
-FPS = 30
-W, H = 1280.0, 800.0            # экран в pt
-OUT_W, OUT_H = 1280, 800        # кадр ролика
+FPS = 60
+W, H = 1280.0, 704.0            # экран в pt
+OUT_W, OUT_H = 1600, 880        # кадр ролика
 K = OUT_W / W                   # px на pt при общем плане
 ASSET_SCALE = 4.0               # во сколько раз крупнее pt рисует приложение
 DIAMETER = 48.0
@@ -109,7 +109,7 @@ def view_corner(width, right=None, left=None, bottom_margin=0.0):
 
 CAM_WIDE = view_wide()
 CAM_MASCOT = view_corner(500, right=True)
-CAM_CONSOLE = view_corner(720, left=True)
+CAM_CONSOLE = view_corner(720, left=True, bottom_margin=14)
 
 
 class Timeline:
@@ -125,41 +125,56 @@ class Timeline:
         self.duration = 0.0
 
 
+SPEECH = "Привет! Сегодня покажу Пульт.\n\nЛимиты нейросетей всегда под рукой. Файлы можно сохранить на полке, а текст — быстро перевести.\n\nВсё работает прямо на этом Mac."
+SOURCE = "Маскот показывает, что агент ждёт тебя."
+
+
 def build_timeline(tabs):
     tl = Timeline()
-    s = tl.states
-    s.append((0.0, "idle"))
-    tl.cursor += [(0.0, 680, 380), (1.3, 730, 420)]
-    # Камера к маскоту.
-    tl.camera.append((1.4, CAM_MASCOT))
-    s.append((2.3, "think")); tl.bubbles.append((2.4, 3.95, "think"))
-    s.append((4.0, "edit")); tl.bubbles.append((4.1, 5.65, "edit"))
-    s.append((5.7, "permission")); tl.bubbles.append((5.8, 8.45, "permission"))
-    # Курсор к маскоту: глаза следят, клик — переход к агенту.
-    tl.cursor += [(6.4, 980, 640), (7.6, MASCOT[0] - 4, MASCOT[1] - 2), (8.6, MASCOT[0] - 4, MASCOT[1] - 2)]
-    tl.hover.append((7.3, 8.7))
-    tl.clicks.append(8.3)
-    s.append((8.6, "edit")); tl.bubbles.append((8.7, 9.75, "edit"))
-    tl.cursor += [(9.6, 1060, 690)]
-    tl.reactions.append((9.8, "done")); s.append((9.8, "idle")); tl.bubbles.append((9.85, 12.2, "done"))
-    # Общий план, затем Пульт.
-    tl.camera.append((12.0, CAM_WIDE))
-    tl.camera.append((13.3, CAM_CONSOLE))
-    cap = tabs["capsule_center"]
-    tl.cursor += [(12.2, 900, 620), (13.4, 380, 560), (14.3, cap[0], cap[1]), (14.75, cap[0], cap[1])]
-    tl.clicks.append(14.6); tl.panel.append((14.62, "open", "limits"))
-    t = 14.62 + 0.45 + 1.6
-    for name in ("shelf", "translate", "prompter"):
-        x, y = tabs[name]
-        tl.cursor += [(t - 0.9, x, y), (t + 0.2, x, y)]
-        tl.clicks.append(t); tl.panel.append((t + 0.02, "tab", name))
-        t += 1.9
-    # Клик мимо — Пульт сворачивается.
-    tl.cursor += [(t - 0.8, 900, 300), (t + 0.2, 900, 300)]
-    tl.clicks.append(t); tl.panel.append((t + 0.02, "close", None))
-    tl.camera.append((t + 0.5, CAM_WIDE))
-    tl.cursor += [(t + 1.6, 680, 380)]
-    tl.duration = t + 0.5 + 0.75 + 1.6
+    tl.states = [(0, "idle"), (1.8, "think"), (3.5, "edit"), (5.1, "permission"), (7.1, "edit"), (8.5, "idle")]
+    tl.bubbles = [(1.9, 3.4, "think"), (3.6, 5, "edit"), (5.2, 7, "permission"), (8.5, 10.4, "done")]
+    tl.reactions = [(8.5, "done")]
+    tl.camera += [(0.6, CAM_MASCOT), (10.3, CAM_WIDE), (11.3, CAM_CONSOLE)]
+    tl.cursor = [(0, 800, 400)]
+    def click(t, xy):
+        tl.clicks.append(t)
+        tl.cursor.extend([(t - .4, *xy), (t + .4, *xy)])
+    def page(t, name):
+        tl.panel.append((t, "tab", name))
+    def tab(t, name, state):
+        click(t, tabs[name]); page(t + .02, state)
+    def type_text(start, duration, text, prefix):
+        for i in range(1, len(text) + 1):
+            page(start + duration * i / len(text), f"{prefix}-type-{i}")
+    px, py = tabs["panel_origin"]
+    def local(x, y): return (px + x, py + y)
+    click(6.8, (MASCOT[0] - 4, MASCOT[1] - 2))
+    click(12.2, tabs["capsule_center"])
+    tl.panel.append((12.22, "open", "limits-empty"))
+    page(14.1, "limits-claude"); page(15.2, "limits")
+    tab(17, "shelf", "shelf-empty")
+    # Файл прилетает в зону приёма без стрелки курсора.
+    page(18.7, "shelf-drop")
+    tl.drag = (18.2, 19.5, local(760, -35), local(310, 130))
+    click(19.5, local(310, 130)); page(19.52, "shelf-one")
+    click(21.1, local(506, 230)); page(21.6, "shelf")
+    click(23.1, local(54, 95)); page(23.12, "shelf-selected")
+    click(24.8, local(580, 230)); page(24.82, "shelf-cleared")
+    tab(26.2, "prompter", "prompter-empty")
+    click(27.5, local(110, 90))
+    type_text(27.8, 5.2, SPEECH, "prompter")
+    page(33.1, "prompter")
+    click(34.4, local(600, 76)); page(34.42, "prompter-speed")
+    click(36, local(49, 230)); page(36.02, "prompter-cleared")
+    tab(37.3, "translate", "translate-empty")
+    click(38.6, local(100, 112))
+    type_text(38.9, 2.8, SOURCE, "translate")
+    page(42.05, "translate-working"); page(42.85, "translate")
+    click(45, local(565, 64)); page(45.02, "translate-copied")
+    click(47.1, local(264, 64)); page(47.12, "translate-cleared")
+    click(49, (830, 170)); tl.panel.append((49.02, "close", None))
+    tl.camera.append((49.6, CAM_WIDE))
+    tl.duration = 52
     return tl
 
 
@@ -178,13 +193,14 @@ def cursor_at(tl, t):
     return pts[-1][1:]
 
 
-def write_script(folder, tl):
+def write_script(folder, tl, assets_only=False):
     frames = int(round(tl.duration * FPS))
     cursor = []
     for i in range(frames):
         x, y = cursor_at(tl, i / FPS)
         cursor.append([x - MASCOT[0], y - MASCOT[1]])
     script = {
+        "assetsOnly": assets_only,
         "fps": FPS, "duration": tl.duration, "diameter": DIAMETER, "scale": ASSET_SCALE,
         "states": [{"t": t, "state": n} for t, n in tl.states],
         "reactions": [{"t": t, "name": n} for t, n in tl.reactions],
@@ -197,21 +213,21 @@ def write_script(folder, tl):
 # ---------- монтаж ----------
 
 def wallpaper(width, height):
-    """Нейтральный рабочий стол: мягкий градиент с двумя размытыми пятнами света."""
-    small = Image.new("RGB", (160, 100))
-    px = small.load()
-    for y in range(100):
-        for x in range(160):
-            u, v = x / 159, y / 99
-            r = 52 + 40 * u + 18 * v
-            g = 62 + 30 * u + 26 * (1 - v)
-            b = 104 + 46 * (1 - u) + 20 * v
-            for cx, cy, rad, (cr, cg, cb), amp in ((.22, .28, .38, (150, 170, 230), .55), (.82, .78, .42, (215, 160, 190), .45)):
-                d = math.hypot(u - cx, (v - cy) * .62) / rad
-                f = max(0.0, 1 - d) ** 2 * amp
-                r, g, b = r + (cr - r) * f, g + (cg - g) * f, b + (cb - b) * f
-            px[x, y] = (int(r), int(g), int(b))
-    return small.resize((width, height), Image.BICUBIC).filter(ImageFilter.GaussianBlur(6))
+    """GitHub Dark: --bgColor-default, измерено на странице профиля."""
+    return Image.new("RGB", (width, height), "#0d1117")
+
+
+class PanelAssets:
+    def __init__(self, folder):
+        self.folder = folder
+        self.cache = {}
+
+    def __getitem__(self, name):
+        if name not in self.cache:
+            if len(self.cache) >= 6:
+                self.cache.pop(next(iter(self.cache)))
+            self.cache[name] = Image.open(self.folder / f"panel-{name}.png").convert("RGBA")
+        return self.cache[name]
 
 
 class Assets:
@@ -219,10 +235,11 @@ class Assets:
         self.folder = folder
         self.bubbles = {b["id"]: Image.open(folder / f"bubble-{b['id']}.png").convert("RGBA") for b in BUBBLES}
         self.capsule = Image.open(folder / "capsule.png").convert("RGBA")
-        self.panels = {n: Image.open(folder / f"panel-{n}.png").convert("RGBA")
-                       for n in ("limits", "shelf", "translate", "prompter")}
-        self.cursor = Image.open(folder / "cursor.png").convert("RGBA")
+        self.panels = PanelAssets(folder)
+
         self.mascot_dir = folder / "mascot"
+        self.dock = Image.open(folder / "dock.png").convert("RGBA") if (folder / "dock.png").exists() else None
+        self.dock_screen_width = json.loads((folder / "dock.json").read_text())["screen_width"] if self.dock else None
         # Запас по краям: на перелёте камеры видно чуть больше экрана.
         self.margin = 80.0
         self.wall = wallpaper(int((W + 2 * self.margin) * 2), int((H + 2 * self.margin) * 2))
@@ -239,7 +256,11 @@ def capsule_geometry(assets):
     cy = MASCOT[1]
     capsule = (CAPSULE_LEFT, cy - ch / 2, cw, ch)
     ph = assets.panels["limits"].height / ASSET_SCALE - 16
-    panel = (CAPSULE_LEFT, capsule[1] - GAP - ph, PANEL_W, ph)
+    gap = GAP
+    if assets.dock:
+        dock_top = H - assets.dock.height * W / (2 * assets.dock_screen_width)
+        gap = max(gap, capsule[1] - dock_top + 16)
+    panel = (CAPSULE_LEFT, capsule[1] - gap - ph, PANEL_W, ph)
     return capsule, panel
 
 
@@ -293,6 +314,12 @@ def draw_background(frame, assets):
     s, m = 2.0, assets.margin
     box = ((frame.x0 + m) * s, (frame.y0 + m) * s, (frame.x0 + m + OUT_W / frame.k) * s, (frame.y0 + m + OUT_H / frame.k) * s)
     frame.img.paste(assets.wall.resize((OUT_W, OUT_H), Image.BICUBIC, box=box), (0, 0))
+
+
+def draw_dock(frame, assets):
+    if assets.dock:
+        # Захват Dock с Retina 2x, размер относительно реального экрана сохраняется.
+        frame.paste(assets.dock, W / 2, H, scale_pt=ASSET_SCALE * W / (2 * assets.dock_screen_width), anchor=(.5, 1))
 
 
 def bubble_state(tl, t):
@@ -398,7 +425,9 @@ def page_image(assets, tab, prev, change, t):
     if prev is None or dt >= .24:
         return current
     order = ["limits", "prompter", "shelf", "translate"]
-    direction = 1 if order.index(tab) > order.index(prev) else -1
+    direction = 1 if order.index(tab.split("-")[0]) > order.index(prev.split("-")[0]) else -1
+    if tab.split("-")[0] == prev.split("-")[0]:
+        return current
     old = crop_panel(assets.panels[prev])
     p = ease_out(dt / .24)
     out = Image.new("RGBA", current.size, (10, 10, 10, 255))
@@ -448,44 +477,60 @@ def draw_ring(frame, x, y, rel):
     frame.img.alpha_composite(glass, (box[0], box[1]))
 
 
-def draw_cursor(frame, assets, x, y, press):
-    """Стрелка macOS (картинка 2x); острие — в точке (x, y). При нажатии чуть сжимается к острию."""
-    c = assets.cursor
-    scale = (1 - .1 * press) * frame.k / 2
-    img = c.resize((max(1, round(c.width * scale)), max(1, round(c.height * scale))), Image.LANCZOS)
-    hx, hy = frame.px(x, y)
-    pos = (round(hx - 5 * scale), round(hy - 6 * scale))
-    if pos[0] < 0 or pos[1] < 0:
-        frame._paste_clipped(img, *pos)
-    else:
-        frame.img.alpha_composite(img, pos)
+def draw_drag(frame, assets, tl, t, geometry):
+    start, end, source, target = tl.drag
+    if not start <= t < end:
+        return
+    p = cubic_in_out((t - start) / (end - start))
+    x, y = (a + (b - a) * p for a, b in zip(source, target))
+    # Настоящая плитка PDF из Библиотеки, без выдуманного интерфейса.
+    tile = crop_panel(assets.panels["shelf-one"]).crop(tuple(round(v * ASSET_SCALE) for v in (8, 46, 94, 166)))
+    frame.paste(tile, x, y, anchor=(.5, .5), alpha=min(1, (t-start)/.15))
 
 
 def compose(folder, tl, geometry, out):
+    import imageio_ffmpeg
     assets = Assets(folder)
     frames = int(round(tl.duration * FPS))
-    images = []
-    # Кадры для проверки глазами: `keys.json` — список секунд.
     keys_file = folder / "keys.json"
     keys = {int(round(k * FPS)) for k in json.loads(keys_file.read_text())} if keys_file.exists() else set()
-    for i in range(frames):
-        t = i / FPS
-        frame = Frame(camera_at(tl, t))
-        draw_background(frame, assets)
-        draw_console(frame, assets, tl, t, geometry)
-        draw_mascot(frame, assets, tl, t, i)
-        x, y = cursor_at(tl, t)
-        press = 0.0
-        for c in tl.clicks:
-            rel = t - c
-            draw_ring(frame, x, y, rel)
-            if -.12 <= rel <= .12:
-                press = max(press, 1 - abs(rel) / .12)
-        draw_cursor(frame, assets, x, y, press)
-        images.append(frame.img.convert("RGB"))
-        if i in keys:
-            frame.img.convert("RGB").save(folder / f"key-{t:05.2f}.png")
-    images[0].save(out, save_all=True, append_images=images[1:], duration=round(1000 / FPS), loop=0, quality=80, method=4)
+    # Потоковая запись: не держим тысячи несжатых кадров в памяти.
+    encoder = subprocess.Popen([
+        imageio_ffmpeg.get_ffmpeg_exe(), "-y", "-v", "error", "-f", "rawvideo",
+        "-pix_fmt", "rgba", "-s", f"{OUT_W}x{OUT_H}", "-r", str(FPS), "-i", "-",
+        "-c:v", "libwebp_anim", "-lossless", "1", "-quality", "92", "-compression_level", "4",
+        "-loop", "0", str(out)
+    ], stdin=subprocess.PIPE)
+    # Антиалиасинг внешнего радиуса и обводки; углы прозрачны на любой странице.
+    sup = 3
+    border = Image.new("RGBA", (OUT_W * sup, OUT_H * sup))
+    ImageDraw.Draw(border).rounded_rectangle((sup/2, sup/2, OUT_W*sup-sup/2, OUT_H*sup-sup/2),
+        radius=20*K*sup, outline="#3d444d", width=round(K*sup))
+    border = border.resize((OUT_W, OUT_H), Image.LANCZOS)
+    mask = rounded_mask((OUT_W*sup, OUT_H*sup), 20*K*sup).resize((OUT_W, OUT_H), Image.LANCZOS)
+    try:
+        for i in range(frames):
+            t = i / FPS
+            frame = Frame(camera_at(tl, t))
+            draw_background(frame, assets)
+            draw_dock(frame, assets)
+            draw_console(frame, assets, tl, t, geometry)
+            draw_mascot(frame, assets, tl, t, i)
+            draw_drag(frame, assets, tl, t, geometry)
+            for c in tl.clicks:
+                x, y = cursor_at(tl, c)
+                draw_ring(frame, x, y, t - c)
+            frame.img.putalpha(mask)
+            frame.img.alpha_composite(border)
+            encoder.stdin.write(frame.img.tobytes())
+            if i in keys:
+                frame.img.save(folder / f"key-{t:05.2f}.png")
+            if i % (FPS * 5) == 0:
+                print(f"Монтаж: {t:.0f}/{tl.duration:.0f} с", flush=True)
+    finally:
+        encoder.stdin.close()
+    if encoder.wait() != 0:
+        raise RuntimeError("Не удалось записать WebP")
     return out
 
 
@@ -497,7 +542,7 @@ def tab_targets(assets, geometry):
     names = {"limits": 0, "prompter": 1, "shelf": 2, "translate": 3}
     if spec:
         return {n: (px_ + spec[n][0], py_ + spec[n][1]) for n in names}
-    return {n: (px_ + 60 + 92 * i, py_ + 23) for n, i in names.items()}
+    return {n: (px_ + x, py_ + 23) for n, x in {"limits":48.5,"prompter":126,"shelf":206,"translate":290}.items()}
 
 
 def main():
@@ -505,24 +550,38 @@ def main():
     parser.add_argument("folder")
     parser.add_argument("--app", default="/Applications/Agent Pulse.app/Contents/MacOS/AgentPulse")
     parser.add_argument("--only-compose", action="store_true")
+    parser.add_argument("--only-assets", action="store_true", help="Обновить страницы без кадров маскота и монтажа")
     parser.add_argument("--out")
+    parser.add_argument("--dock", help="Прозрачный PNG только окна Dock, обрезанный по альфа-каналу (Retina 2x)")
+    parser.add_argument("--dock-screen-width", type=float, help="Ширина экрана, на котором снят Dock, в pt")
     args = parser.parse_args()
     folder = Path(args.folder).resolve()
     folder.mkdir(parents=True, exist_ok=True)
+    if args.dock:
+        if not args.dock_screen_width or args.dock_screen_width <= 0:
+            parser.error("Для --dock нужна --dock-screen-width в pt")
+        import shutil
+        if Path(args.dock).resolve() != folder / "dock.png":
+            shutil.copyfile(args.dock, folder / "dock.png")
+        (folder / "dock.json").write_text(json.dumps({"screen_width": args.dock_screen_width}))
     # Геометрия вкладок и капсулы нужна до сценария, а картинки — после: первый проход рисует их с черновым сценарием.
     if not args.only_compose:
-        draft = build_timeline({"capsule_center": (60, MASCOT[1]), "limits": (0, 0), "prompter": (0, 0), "shelf": (0, 0), "translate": (0, 0)})
-        write_script(folder, draft)
+        draft = build_timeline({"capsule_center": (60, MASCOT[1]), "limits": (0, 0), "prompter": (0, 0), "shelf": (0, 0), "translate": (0, 0), "panel_origin": (16, 350)})
+        draft.duration = 1 / FPS
+        write_script(folder, draft, assets_only=True)
         subprocess.run([args.app, "--promo-sheet", str(folder)], check=True)
     assets = Assets(folder)
     geometry = capsule_geometry(assets)
     capsule, _ = geometry
     targets = tab_targets(assets, geometry)
+    targets["panel_origin"] = geometry[1][:2]
     targets["capsule_center"] = (capsule[0] + capsule[2] / 2, capsule[1] + capsule[3] / 2)
     tl = build_timeline(targets)
     if not args.only_compose:
-        write_script(folder, tl)
+        write_script(folder, tl, assets_only=args.only_assets)
         subprocess.run([args.app, "--promo-sheet", str(folder)], check=True)
+    if args.only_assets:
+        return
     out = Path(args.out) if args.out else folder / "agent-pulse-demo.webp"
     compose(folder, tl, geometry, out)
     print(out)
