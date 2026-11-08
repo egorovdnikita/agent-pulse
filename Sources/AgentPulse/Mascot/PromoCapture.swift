@@ -1,3 +1,4 @@
+import AgentPulseCore
 import AppKit
 import SwiftUI
 
@@ -55,5 +56,23 @@ private struct PromoTargetModifier: ViewModifier {
         content.background {
             if let capture { PromoMarker(id: id, capture: capture).allowsHitTesting(false) }
         }
+    }
+}
+
+/// Детерминированные эффекты промо; обычный интерфейс получает nil.
+struct PromoGaugeReveal: Sendable {
+    let service: LimitService
+    let progress: Double
+}
+private struct PromoGaugeRevealKey: EnvironmentKey { static let defaultValue: PromoGaugeReveal? = nil }
+private struct PromoReadPositionKey: EnvironmentKey { static let defaultValue: Double? = nil }
+extension EnvironmentValues {
+    var promoGaugeReveal: PromoGaugeReveal? {
+        get { self[PromoGaugeRevealKey.self] }
+        set { self[PromoGaugeRevealKey.self] = newValue }
+    }
+    var promoReadPosition: Double? {
+        get { self[PromoReadPositionKey.self] }
+        set { self[PromoReadPositionKey.self] = newValue }
     }
 }

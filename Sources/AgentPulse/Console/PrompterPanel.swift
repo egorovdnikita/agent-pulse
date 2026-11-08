@@ -98,6 +98,7 @@ final class PrompterPanel: NSPanel {
 
 /// Строка суфлёра. За голосом за текущим словом плывёт мягкая плашка.
 private struct PrompterLineView: View {
+    @Environment(\.promoReadPosition) private var promoPosition
     let line: PrompterScript.Line
     /// Какое слово строки сейчас говорится; nil — строка идёт по часам.
     let litWord: Int?
@@ -110,14 +111,25 @@ private struct PrompterLineView: View {
             .lineLimit(1)
             .fixedSize()
             .background(alignment: .leading) {
-                if let litWord, let spot = spot(litWord) {
+                if let litWord, let spot = litSpot(litWord) {
                     RoundedRectangle(cornerRadius: 6, style: .continuous)
                         .fill(ConsoleStyle.green.opacity(0.35))
                         .frame(width: spot.width + 8, height: PrompterLook.lineStep(points) - 2)
                         .offset(x: spot.start - 4)
+                        .promoTarget("spoken-word")
                         .animation(.easeOut(duration: 0.14), value: litWord)
                 }
             }
+    }
+
+    private func litSpot(_ index: Int) -> (start: Double, width: Double)? {
+        guard let current = spot(index) else { return nil }
+        guard let position = promoPosition, index > 0, let before = spot(index - 1) else { return current }
+        let fraction = position - position.rounded(.down)
+        let t = min(1, fraction / 0.38)
+        let p = 1 - pow(1 - t, 3)
+        return (before.start + (current.start - before.start) * p,
+                before.width + (current.width - before.width) * p)
     }
 
     /// Где слово стоит в строке. Меряется тем же шрифтом, каким нарисовано.
@@ -132,6 +144,7 @@ private struct PrompterLineView: View {
 
 /// Текущая строка всегда верхняя, ближе всего к камере: взгляд не уходит вниз. Прочитанного на панели нет.
 struct PrompterView: View {
+    @Environment(\.promoReadPosition) private var promoPosition
     let model: ConsoleModel
 
     var body: some View {
@@ -203,7 +216,7 @@ struct PrompterView: View {
 
 private extension PrompterView {
     func litWord(in line: PrompterScript.Line) -> Int? {
-        guard model.prompter.followsVoice else { return nil }
+        guard model.prompter.followsVoice || promoPosition != nil else { return nil }
         return min(line.words.count - 1, max(0, Int(model.prompter.position) - line.words.lowerBound))
     }
 }

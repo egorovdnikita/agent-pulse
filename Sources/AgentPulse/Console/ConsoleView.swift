@@ -16,12 +16,20 @@ private extension ConsoleModuleID {
 
 /// Сторона капсулы: значок, число, точка зоны. Шесть пунктов цвета: число и так говорит, что происходит.
 private struct LimitSide: View {
+    @Environment(\.promoGaugeReveal) private var reveal
     let ring: CapsuleRing
 
     var body: some View {
+        let p = ring.service == reveal?.service ? (reveal?.progress ?? 1) : 1
+        let figure = ring.fraction.map { "\(Int(($0 * 100 * p).rounded()))%" } ?? "—"
         HStack(spacing: ConsoleLook.sideGap) {
             ServiceMark(service: ring.service, size: ConsoleLook.mark)
-            Text(ring.figure)
+            ZStack(alignment: .trailing) {
+                Text(ring.figure).hidden().accessibilityHidden(true)
+                Text(figure)
+                    .opacity(min(1, p * 4))
+                    .offset(y: 3 * (1 - p))
+            }
                 .font(ConsoleStyle.font(14, .medium))
                 .monospacedDigit()
                 .foregroundStyle(.white)
@@ -29,6 +37,7 @@ private struct LimitSide: View {
                 .fixedSize()
             if ring.fraction != nil {
                 Circle().fill(ConsoleStyle.color(ring.zone)).frame(width: ConsoleLook.dot, height: ConsoleLook.dot)
+                    .opacity(min(1, p * 3))
             }
         }
         .opacity(ring.stale ? 0.45 : 1)

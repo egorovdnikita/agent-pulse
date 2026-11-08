@@ -31,6 +31,8 @@ OVERLAP = max(0.0, (BOX - DIAMETER) / 2 - 8)
 MASCOT = (W - 16 - BOX / 2 + 8, H - 58.0)     # центр тела
 CAPSULE_LEFT = 16.0
 GAP = 8.0
+MENU_HEIGHT = 0.0
+PROMPTER_TOP = 16.0
 PANEL_W, PANEL_H = 640.0, None                # высота — по картинке
 
 # ---------- кривые ----------
@@ -153,7 +155,7 @@ def build_timeline(assets, geometry):
         click(t, (rect[0]+rect[2]/2, rect[1]+rect[3]/2), target, rect)
     def top_hit(t, target):
         rect = assets.target("prompter/0000", target)
-        rect = [(W-560)/2 + rect[0], 16 + rect[1], *rect[2:]]
+        rect = [(W-560)/2 + rect[0], PROMPTER_TOP + rect[1], *rect[2:]]
         click(t, (rect[0]+rect[2]/2, rect[1]+rect[3]/2), target, rect)
     def capsule_hit(t):
         variant="empty" if t<14.1 else "claude" if t<15.3 else "filled"
@@ -172,7 +174,7 @@ def build_timeline(assets, geometry):
     hit(15.0, "limits-claude", "connect-codex"); page(15.3, "limits")
     tab(17, "limits", "shelf", "shelf-empty")
     page(18.7, "shelf-drop")
-    tl.drag = (18.2, 19.5, (px+730,py-40), (px+310,py+130))
+    tl.drag = (18.2, 19.52, (px+730,py-40), (px+310,py+130))
     page(19.52, "shelf-one")
     hit(20.8, "shelf-one", "shelf-Добавить"); page(21.25, "shelf")
     hit(22.3, "shelf", "file-Доклад.pdf"); page(22.32, "shelf-selected-one")
@@ -267,6 +269,7 @@ class Assets:
         self.capsule = Image.open(folder / "capsule.png").convert("RGBA")
         self.panels = PanelAssets(folder)
         self.target_cache = {}
+        self.menu = Image.open(folder / "menu-bar.png").convert("RGBA") if (folder / "menu-bar.png").exists() else None
 
         self.mascot_dir = folder / "mascot"
         self.dock = Image.open(folder / "dock.png").convert("RGBA") if (folder / "dock.png").exists() else None
@@ -301,7 +304,11 @@ class Assets:
 
 
 def configure_stage(assets):
-    global MASCOT
+    global MASCOT, CAM_CONSOLE, MENU_HEIGHT, PROMPTER_TOP
+    CAM_CONSOLE=(CAPSULE_LEFT + PANEL_W/2 - 720/2, CAM_CONSOLE[1],720)
+    if assets.menu:
+        MENU_HEIGHT=assets.menu.height*W/assets.menu.width
+        PROMPTER_TOP=MENU_HEIGHT+6
     if assets.dock:
         x=assets.dock.width//2
         rows=[y for y in range(assets.dock.height) if assets.dock.getpixel((x,y))[3]>220]
@@ -377,6 +384,8 @@ class Frame:
 
 def draw_background(frame, assets):
     frame.img.paste((13,17,23,255), (0,0,OUT_W,OUT_H))
+    if assets.menu:
+        frame.paste(assets.menu,0,0,scale_pt=ASSET_SCALE*W/assets.menu.width)
 
 
 def draw_dock(frame, assets):
@@ -446,6 +455,25 @@ def capsule_image(assets, tl, t):
     if start <= t < end:
         index=min(round((end-start)*FPS)-1, max(0,int((t-start)*FPS)))
         return Image.open(assets.folder / "prompter" / f"capsule-{index//FPS:02d}.png").convert("RGBA")
+    for service,start,previous in [("claude",14.1,"empty"),("codex",15.3,"claude")]:
+        dt=t-start
+        if 0<=dt<1:
+            current=Image.open(assets.folder/f"capsule-reveal-{service}-{min(60,round(dt*FPS))}.png").convert("RGBA")
+            if dt>=.6:return current
+            old=Image.open(assets.folder/f"capsule-{previous}.png").convert("RGBA")
+            a,b=crop_panel(old),crop_panel(current)
+            p=spring(dt,.42,.8)
+            width=max(1,round(a.width+(b.width-a.width)*p));height=b.height
+            body=Image.new("RGBA",(width,height),(10,10,10,255))
+            a.putalpha(a.getchannel("A").point(lambda v:round(v*(1-ease_out(dt/.12)))))
+            b.putalpha(b.getchannel("A").point(lambda v:round(v*ease_out(dt/.18))))
+            body.alpha_composite(a,(0,0));body.alpha_composite(b,(0,0))
+            body.putalpha(rounded_mask(body.size,height/2))
+            edge=Image.new("RGBA",body.size)
+            ImageDraw.Draw(edge).rounded_rectangle((1,1,width-2,height-2),radius=height/2,outline=(255,255,255,18),width=4)
+            body.alpha_composite(edge)
+            pad=round(8*ASSET_SCALE);out=Image.new("RGBA",(width+2*pad,height+2*pad))
+            out.alpha_composite(body,(pad,pad));return out
     name="empty" if t<14.1 else "claude" if t<15.3 else "filled"
     return Image.open(assets.folder / f"capsule-{name}.png").convert("RGBA")
 
@@ -498,10 +526,74 @@ def crop_panel(img):
     return img.crop((m, m, img.width - m, img.height - m))
 
 
+def file_rectangles(assets, state):
+    key="panel-"+state
+    if key not in assets.target_cache:
+        assets.target(state,"tab-shelf")
+    return {k:v for k,v in assets.target_cache[key].items() if k.startswith("file-")}
+
+
+def crop_rect(img, rect):
+    x,y,w,h=rect
+    return img.crop(tuple(round(v*ASSET_SCALE) for v in (x,y,x+w,y+h)))
+
+
+def shelf_transition(assets, tab, prev, dt):
+    current=crop_panel(assets.panels[tab]);old=crop_panel(assets.panels[prev])
+    before,after=file_rectangles(assets,prev),file_rectangles(assets,tab)
+    def base(img,rects):
+        out=img.copy();draw=ImageDraw.Draw(out)
+        for x,y,w,h in rects.values():
+            draw.rectangle(tuple(round(v*ASSET_SCALE) for v in (x,y,x+w,y+h)),fill=(10,10,10,255))
+        return out
+    a,b=base(old,before),base(current,after)
+    mix=ease_out(dt/.22)
+    out=Image.blend(a,b,mix)
+    incoming=sorted(set(after)-set(before),key=lambda k:after[k][0])
+    outgoing=sorted(set(before)-set(after),key=lambda k:before[k][0])
+    for name,rect in before.items():
+        if name in after: continue
+        rel=max(0,dt-outgoing.index(name)*.045)
+        p=ease_out(rel/.24);tile=crop_rect(old,rect)
+        size=1-.18*p; x,y,w,h=rect
+        sw,sh=round(tile.width*size),round(tile.height*size)
+        tile=tile.resize((max(1,sw),max(1,sh)),Image.LANCZOS)
+        tile.putalpha(tile.getchannel("A").point(lambda v:round(v*(1-p))))
+        out.alpha_composite(tile,(round((x+w/2)*ASSET_SCALE-sw/2),round((y-12*p)*ASSET_SCALE)))
+    for name,rect in after.items():
+        tile=crop_rect(current,rect);x,y,w,h=rect
+        if name in before:
+            ox,oy,ow,oh=before[name]
+            p=spring(dt,.4,.85)
+            x,y=ox+(x-ox)*p,oy+(y-oy)*p
+            tile=Image.blend(crop_rect(old,before[name]).resize(tile.size,Image.LANCZOS),tile,ease_out(dt/.16))
+            size,alpha=1,1
+        else:
+            rel=max(0,dt-(.16 if before else 0)-incoming.index(name)*.06)
+            p=spring(rel,.38,.82);alpha=ease_out(rel/.18);size=.88+.12*p
+            if name=="file-Доклад.pdf" and prev=="shelf-drop":
+                alpha,size=1,1
+                x=(310-w/2)+(x-(310-w/2))*p
+                y=(130-h/2)+(y-(130-h/2))*p
+            else: y+=16*(1-p)
+        sw,sh=max(1,round(tile.width*size)),max(1,round(tile.height*size))
+        tile=tile.resize((sw,sh),Image.LANCZOS)
+        tile.putalpha(tile.getchannel("A").point(lambda v:round(v*alpha)))
+        out.alpha_composite(tile,(round((x+w/2)*ASSET_SCALE-sw/2),round(y*ASSET_SCALE)))
+    return out
+
+
 def page_image(assets, tab, prev, change, t):
     """Смена страницы: новая выходит с 24 pt и проявляется за 0.24 s, старая гаснет за 0.08 s."""
-    current = crop_panel(assets.panels[tab])
     dt = t - change
+    if tab=="limits-claude" and 0<=t-14.1<1:
+        return crop_panel(assets.panels[f"limits-reveal-claude-{min(60,round((t-14.1)*FPS))}"])
+    if tab=="limits" and 0<=t-15.3<1:
+        return crop_panel(assets.panels[f"limits-reveal-codex-{min(60,round((t-15.3)*FPS))}"])
+    if prev and (tab.startswith("shelf-") or tab=="shelf"):
+        if prev and prev.startswith("shelf") and 0<=dt<.65:
+            return shelf_transition(assets,tab,prev,dt)
+    current = crop_panel(assets.panels[tab])
     if prev is None or dt >= .24:
         return current
     order = ["limits", "prompter", "shelf", "translate"]
@@ -567,19 +659,28 @@ def draw_drag(frame, assets, tl, t, geometry):
     p = cubic_in_out((t - start) / (end - start))
     x, y = (a + (b - a) * p for a, b in zip(source, target))
     # Настоящая плитка PDF из Библиотеки, без выдуманного интерфейса.
-    tile = crop_panel(assets.panels["shelf-one"]).crop(tuple(round(v * ASSET_SCALE) for v in (8, 46, 94, 166)))
+    tile=crop_rect(crop_panel(assets.panels["shelf-one"]),assets.target("shelf-one","file-Доклад.pdf"))
     frame.paste(tile, x, y, anchor=(.5, .5), alpha=min(1, (t-start)/.15))
 
 
 def draw_library(frame, assets, tl, t, geometry):
     openness,content,tab,prev,change=panel_state(tl,t)
     empty={"shelf-empty","shelf-drop","shelf-cleared"}
-    if tab not in empty or content<=0 or openness<.98: return
-    rect=assets.target(tab,"library-character")
-    x,y,w,h=rect; px,py=geometry[1][:2]
-    index=int(t*FPS) % (2*FPS)
+    alpha,shift=content,0
+    state=tab
+    dt=t-change
+    if tab not in empty:
+        if prev not in empty or dt>=.22: return
+        state=prev;alpha*=1-ease_out(dt/.22)
+    elif prev and not prev.startswith("shelf") and dt<.24:
+        alpha*=ease_out(dt/.24);shift=24*(1-ease_out(dt/.24))
+    elif prev and prev.startswith("shelf") and prev not in empty:
+        alpha*=ease_out((dt-.1)/.22)
+    if content<=0 or openness<.98 or alpha<=0: return
+    x,y,w,h=assets.target(state,"library-character");px,py=geometry[1][:2]
+    index=int(t*FPS)%(2*FPS)
     sprite=Image.open(assets.folder/"library"/f"{index:04d}.png").convert("RGBA")
-    frame.paste(sprite,px+x+w/2,py+y+h/2,anchor=(.5,.5),alpha=content)
+    frame.paste(sprite,px+x+w/2+shift,py+y+h/2,anchor=(.5,.5),alpha=alpha)
 
 
 def draw_prompter(frame, assets, tl, t):
@@ -601,7 +702,7 @@ def draw_prompter(frame, assets, tl, t):
         edge=Image.new("RGBA",shape.size)
         ImageDraw.Draw(edge).rounded_rectangle((1,1,w-2,h-2),radius=20*ASSET_SCALE,outline=(255,255,255,18),width=4)
         shape.alpha_composite(edge)
-    frame.paste(shape,W/2,16,anchor=(.5,0))
+    frame.paste(shape,W/2,PROMPTER_TOP,anchor=(.5,0))
 
 
 def compose(folder, tl, geometry, out, keys_only=False):
@@ -676,10 +777,25 @@ def verify_assets(assets, tl, geometry):
             x,y,w,h=c["rect"]
             assert abs(c["x"]-(x+w/2))<.001 and abs(c["y"]-(y+h/2))<.001
     cap=geometry[0]
+    panel=geometry[1]
+    left=panel[0]-CAM_CONSOLE[0]
+    right=CAM_CONSOLE[0]+CAM_CONSOLE[2]-panel[0]-panel[2]
+    assert abs(left-right)<.001,"Пульт не по центру камеры"
+    assert PROMPTER_TOP>=MENU_HEIGHT+6-.001
+    word_boxes=set()
+    for i in range(count):
+        targets=json.loads((assets.folder/"prompter"/f"{i:04d}.targets.json").read_text())
+        if "spoken-word" in targets:word_boxes.add(tuple(round(v,1) for v in targets["spoken-word"]))
+    assert len(word_boxes)>10,"Нет движущейся подсветки слов"
+    for service in ("claude","codex"):
+        assert len({hashlib.sha256((assets.folder/f"panel-limits-reveal-{service}-{i}.png").read_bytes()).digest() for i in range(61)})>40
     assert abs(cap[1]+cap[3]/2-MASCOT[1])<.001
-    report={"clicks":len(tl.clicks),"library_unique_frames":library_unique,
+    capsule_counts={service:len({hashlib.sha256((assets.folder/f"capsule-reveal-{service}-{i}.png").read_bytes()).digest() for i in range(61)}) for service in ("claude","codex")}
+    assert min(capsule_counts.values())>10,"Не анимируются проценты капсулы"
+    report={"clicks":len(tl.clicks),"capsule_unique_frames":capsule_counts,"library_unique_frames":library_unique,
             "prompter_unique_frames":prompter_unique,"pause_is_static":True,
-            "capsule_center_y":cap[1]+cap[3]/2,"mascot_center_y":MASCOT[1]}
+            "capsule_center_y":cap[1]+cap[3]/2,"mascot_center_y":MASCOT[1],
+            "console_side_padding":[left,right],"menu_height":MENU_HEIGHT,"prompter_top":PROMPTER_TOP,"word_highlight_positions":len(word_boxes)}
     (assets.folder/"verification.json").write_text(json.dumps(report,ensure_ascii=False,indent=2))
     print("Проверка исходников:",json.dumps(report,ensure_ascii=False),flush=True)
 
@@ -692,12 +808,18 @@ def main():
     parser.add_argument("--only-assets", action="store_true", help="Обновить страницы без кадров маскота и монтажа")
     parser.add_argument("--out")
     parser.add_argument("--keys-only", action="store_true", help="Только контрольные кадры, без кодирования")
+    parser.add_argument("--menu-bar", help="Скриншот только системной строки меню")
+    parser.add_argument("--menu-bar-height", type=int, help="Высота строки меню в пикселях исходника")
     parser.add_argument("--dock", help="Прозрачный PNG только окна Dock, обрезанный по альфа-каналу (Retina 2x)")
     parser.add_argument("--dock-cut", help="Убрать секцию исходного Dock: левая:правая координаты в px")
     parser.add_argument("--dock-screen-width", type=float, help="Ширина экрана, на котором снят Dock, в pt")
     args = parser.parse_args()
     folder = Path(args.folder).resolve()
     folder.mkdir(parents=True, exist_ok=True)
+    if args.menu_bar:
+        bar=Image.open(args.menu_bar).convert("RGBA")
+        if args.menu_bar_height: bar=bar.crop((0,0,bar.width,args.menu_bar_height))
+        bar.save(folder/"menu-bar.png")
     if args.dock:
         if not args.dock_screen_width or args.dock_screen_width <= 0:
             parser.error("Для --dock нужна --dock-screen-width в pt")
@@ -708,7 +830,7 @@ def main():
         if args.dock_cut: dock_spec["remove_ranges"]=[list(map(int,args.dock_cut.split(":")))]
         (folder / "dock.json").write_text(json.dumps(dock_spec))
     # Геометрия вкладок и капсулы нужна до сценария, а картинки — после: первый проход рисует их с черновым сценарием.
-    if not args.only_compose:
+    if not args.only_compose and not (args.only_assets and (folder/"capsule.png").exists()):
         draft = Timeline()
         draft.states=[(0,"idle")]; draft.cursor=[(0,0,0)]
         draft.duration = 1 / FPS

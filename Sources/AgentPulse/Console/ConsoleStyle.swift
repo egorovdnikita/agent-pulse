@@ -121,12 +121,14 @@ struct ServiceMark: View {
 
 /// Открытая дуга на 270°, снизу слева по часовой. Исчерпано — вся дорожка красная.
 struct LimitGauge: View {
+    @Environment(\.promoGaugeReveal) private var reveal
     let reading: LimitReading?
     let kind: LimitWindowKind
     let now: Date
 
     var body: some View {
-        let used = reading.map { min(1, Double($0.usedPercent) / 100) }
+        let progress = reading?.service == reveal?.service ? (reveal?.progress ?? 1) : 1
+        let used = reading.map { min(1, Double($0.usedPercent) / 100) * progress }
         ZStack {
             arc(to: 1).stroke(ConsoleStyle.gaugeTrack, style: stroke)
             if let reading, let used, used > 0 {
@@ -135,10 +137,14 @@ struct LimitGauge: View {
             }
             VStack(spacing: 8) {
                 VStack(spacing: 0) {
-                    Text(reading.map { "\($0.usedPercent)%" } ?? "—")
+                    Text(reading.map { "\(Int((Double($0.usedPercent) * progress).rounded()))%" } ?? "—")
                         .font(ConsoleStyle.font(20, .semibold))
                         .foregroundStyle(reading == nil ? ConsoleStyle.caption : ConsoleStyle.text)
                         .frame(height: 24)
+                        .opacity(min(1, progress * 4))
+                        .offset(y: 6 * (1 - progress))
+                        .scaleEffect(0.94 + 0.06 * progress)
+                        .blur(radius: 2 * (1 - progress))
                     Text(kind.title)
                         .font(ConsoleStyle.font(12, .medium))
                         .foregroundStyle(ConsoleStyle.caption)

@@ -119,14 +119,14 @@ enum PromoSheet {
         model.tick(now: Date(), agentWaiting: false, inputActive: false)
         model.showPanelNow()
         let panel = CGSize(width: ConsoleLayout.expandedWidth, height: ConsoleLayout.expandedHeight)
-        func page(_ name: String, _ tab: ConsoleModuleID) {
+        func page(_ name: String, _ tab: ConsoleModuleID, reveal: PromoGaugeReveal? = nil) {
             model.tab = tab
-            snapshot(PanelPreview(model: model).frame(width: panel.width, height: panel.height)
+            snapshot(PanelPreview(model: model).environment(\.promoGaugeReveal, reveal).frame(width: panel.width, height: panel.height)
                 .overlay(RoundedRectangle(cornerRadius: ConsoleStyle.surfaceRadius).strokeBorder(ConsoleStyle.edge, lineWidth: 1)).padding(8),
                      scale: scale, to: folder.appending(path: "panel-\(name).png"))
         }
-        func capsule(_ name: String) {
-            snapshot(CapsulePreview(model: model).overlay(Capsule().strokeBorder(ConsoleStyle.edge, lineWidth: 1)).padding(8),
+        func capsule(_ name: String, reveal: PromoGaugeReveal? = nil) {
+            snapshot(CapsulePreview(model: model).environment(\.promoGaugeReveal, reveal).overlay(Capsule().strokeBorder(ConsoleStyle.edge, lineWidth: 1)).padding(8),
                      scale: scale, to: folder.appending(path: "capsule-\(name).png"))
         }
         page("limits-empty", .limits)
@@ -139,6 +139,12 @@ enum PromoSheet {
             ], at: now))
             page(service == .claude ? "limits-claude" : "limits", .limits)
             capsule(service == .claude ? "claude" : "filled")
+            for index in 0...60 {
+                let p = 1 - pow(1 - Double(index) / 60, 3)
+                page("limits-reveal-\(service.rawValue)-\(index)", .limits,
+                     reveal: PromoGaugeReveal(service: service, progress: p))
+                capsule("reveal-\(service.rawValue)-\(index)", reveal: PromoGaugeReveal(service: service, progress: p))
+            }
         }
         snapshot(CapsulePreview(model: model).overlay(Capsule().strokeBorder(ConsoleStyle.edge, lineWidth: 1)).padding(8), scale: scale, to: folder.appending(path: "capsule.png"))
         page("shelf-empty", .shelf)
@@ -216,6 +222,7 @@ enum PromoSheet {
         for (i, frame) in frames.prefix(script.assetsOnly == true ? 1 : frames.count).enumerated() {
             model.seekPromoPrompter(elapsed: frame.elapsed, paused: frame.paused)
             snapshot(PrompterPreview(model: model)
+                .environment(\.promoReadPosition, model.prompter.position)
                 .background(.black, in: RoundedRectangle(cornerRadius: 20))
                 .overlay(RoundedRectangle(cornerRadius: 20).strokeBorder(ConsoleStyle.edge, lineWidth: 1)).padding(8),
                 scale: script.scale, to: directory.appending(path: String(format: "%04d.png", i)))
