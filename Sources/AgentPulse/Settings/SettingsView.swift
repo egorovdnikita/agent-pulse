@@ -531,13 +531,13 @@ private struct SourcesSettings: View {
                 row("ChatGPT", Self.codexHooked ? "Подключено" + Self.ago(model, .codex) : "Подключается вместе с Claude Code") {
                     EmptyView()
                 }
-                Toggle(isOn: Binding(get: { model.config.sources.cowork }, set: { app.setCoworkEnabled($0) })) {
-                    Text("Claude Cowork")
-                    Text(coworkStatus(model)).font(SettingsStyle.caption).foregroundStyle(SettingsStyle.muted)
+                row("Claude Cowork", coworkStatus(model)) {
+                    Toggle("Claude Cowork", isOn: Binding(get: { model.config.sources.cowork }, set: { app.setCoworkEnabled($0) }))
+                        .labelsHidden()
                 }
-                Toggle(isOn: Binding(get: { model.config.sources.orca }, set: { app.setOrcaEnabled($0) })) {
-                    Text("Агенты в Orca")
-                    Text(orcaStatus(model)).font(SettingsStyle.caption).foregroundStyle(SettingsStyle.muted)
+                row("Агенты в Orca", orcaStatus(model)) {
+                    Toggle("Агенты в Orca", isOn: Binding(get: { model.config.sources.orca }, set: { app.setOrcaEnabled($0) }))
+                        .labelsHidden()
                 }
                 row("Claude в браузере", model.browserBridgeInstalled ? "Подключено" + Self.ago(model, .claudeChat) : "Не подключено") {
                     if model.browserBridgeInstalled {
