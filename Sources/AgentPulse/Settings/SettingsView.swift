@@ -505,11 +505,14 @@ private struct SourcesSettings: View {
     let app: AppDelegate
 
     private func row<Trailing: View>(_ title: String, _ status: String, @ViewBuilder trailing: () -> Trailing) -> some View {
-        LabeledContent {
-            HStack(spacing: 8) { trailing() }
-        } label: {
-            Text(title)
-            Text(status)
+        // Кнопки по центру строки: строка формы ставит их по первой строке подписи.
+        HStack(spacing: 8) {
+            VStack(alignment: .leading, spacing: 2) {
+                Text(title)
+                Text(status).font(.subheadline).foregroundStyle(.secondary)
+            }
+            Spacer(minLength: 8)
+            trailing()
         }
     }
 
