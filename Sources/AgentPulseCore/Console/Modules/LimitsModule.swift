@@ -6,7 +6,7 @@ public struct LimitsModule: ConsoleModule {
     public let title = "Лимиты"
     public let accent: UInt32 = 0x34C759
     public var book = LimitsBook()
-    public init() {}
+    public init(book: LimitsBook = LimitsBook()) { self.book = book }
 
     public func priority(now: Date) -> ConsolePriority? {
         if LimitService.allCases.contains(where: { book.isCritical($0, now: now) }) { return .limitCritical }

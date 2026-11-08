@@ -18,7 +18,7 @@ enum CalendarScope: String, CaseIterable {
 @MainActor
 @Observable
 final class ConsoleModel {
-    private(set) var limits = LimitsModule()
+    private(set) var limits = LimitsModule(book: LimitsBook.load())
     private(set) var prompter = PrompterModule()
     private(set) var dictation = DictationModule()
     private(set) var translate = TranslateModule()

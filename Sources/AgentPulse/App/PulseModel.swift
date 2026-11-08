@@ -259,6 +259,7 @@ final class PulseModel {
                     await self.handleSignal(signal)
                 case .limits(let snapshot):
                     self.console.ingest(snapshot)
+                    self.console.limits.book.save()
                 case .tick(let now):
                     // Маскот спрятан (полный экран, простой) — курсор и облачко не нужны, мозг тикает раз в секунду.
                     // Во сне — как обычно: тряска курсора и поглаживание ловятся только на частых замерах.

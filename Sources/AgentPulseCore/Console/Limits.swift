@@ -262,3 +262,29 @@ public enum LimitText {
         return hoursLeft == 0 ? "через \(days) д" : "через \(days) д \(hoursLeft) ч"
     }
 }
+
+/// Только проценты, время сброса и дата получения. После перезапуска данные не становятся свежими.
+extension LimitsBook {
+    public static var cacheURL: URL { PulsePaths.supportDirectory.appending(path: "limits.json") }
+
+    public static func load(from url: URL = cacheURL, now: Date = Date()) -> LimitsBook {
+        var book = LimitsBook()
+        guard let data = try? Data(contentsOf: url),
+              let snapshots = try? JSONDecoder().decode([LimitSnapshot].self, from: data) else { return book }
+        for snapshot in snapshots.sorted(by: { $0.at < $1.at }) {
+            guard snapshot.at <= now, now.timeIntervalSince(snapshot.at) <= 30 * 24 * 60 * 60,
+                  snapshot.windows.allSatisfy({ $0.usedPercent.isFinite && (0...100).contains($0.usedPercent) }) else { continue }
+            // Зоны восстанавливаются без отправки повторных тревог мозгу.
+            _ = book.ingest(snapshot, now: now)
+        }
+        _ = book.tick(now: now)
+        return book
+    }
+
+    public func save(to url: URL = cacheURL) {
+        guard let data = try? JSONEncoder().encode(Array(snapshots.values)) else { return }
+        try? FileManager.default.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
+        try? data.write(to: url, options: .atomic)
+        try? FileManager.default.setAttributes([.posixPermissions: 0o600], ofItemAtPath: url.path(percentEncoded: false))
+    }
+}
