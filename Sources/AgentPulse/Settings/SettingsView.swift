@@ -152,7 +152,6 @@ struct SettingsRoot: View {
                     .background(Color(nsColor: .windowBackgroundColor))
                 }
                 .ignoresSafeArea(.container, edges: .top)
-                .background(WindowTitle(title: selection.tab.title))
         }
         .frame(minWidth: 720, minHeight: 480)
         .environment(\.settingsAnchor, selection.anchor)
@@ -206,17 +205,6 @@ private struct SidebarSearch: NSViewRepresentable {
             guard let field = notification.object as? NSSearchField else { return }
             MainActor.assumeIsolated { text.wrappedValue = field.stringValue }
         }
-    }
-}
-
-/// Название раздела в заголовке окна: из формы оно само туда не доходит.
-private struct WindowTitle: NSViewRepresentable {
-    let title: String
-
-    func makeNSView(context: Context) -> NSView { NSView() }
-
-    func updateNSView(_ view: NSView, context: Context) {
-        DispatchQueue.main.async { view.window?.title = title }
     }
 }
 
