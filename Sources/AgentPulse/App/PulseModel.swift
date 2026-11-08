@@ -225,6 +225,7 @@ final class PulseModel {
             at: now.timeIntervalSinceReferenceDate
         )
         animator.skin = bot.map(PalSkin.init(bot:))
+        console.librarySkin = animator.skin
     }
 
     func start() {

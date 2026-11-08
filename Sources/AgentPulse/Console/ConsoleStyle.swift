@@ -401,6 +401,25 @@ enum ConsoleSheet {
         }
     }
 
+    static func checkPrompterValidation(to folder: URL) async {
+        let model = ConsoleModel()
+        model.showPanelNow()
+        model.tab = .prompter
+        model.prompterDraft = "   \n"
+        model.startPrompterDraft()
+        precondition(model.prompterInputInvalid && !model.prompter.isActive)
+        let panel = CGSize(width: ConsoleLayout.expandedWidth + 16, height: ConsoleLayout.expandedHeight + 16)
+        write(PanelPreview(model: model), size: panel, to: folder.appending(path: "prompter-validation.png"))
+        try? await Task.sleep(for: .milliseconds(600))
+        model.startPrompterDraft()
+        try? await Task.sleep(for: .milliseconds(600))
+        precondition(model.prompterInputInvalid && !model.prompter.isActive)
+        try? await Task.sleep(for: .milliseconds(500))
+        precondition(!model.prompterInputInvalid && !model.prompter.isActive)
+        write(PanelPreview(model: model), size: panel, to: folder.appending(path: "prompter-validation-cleared.png"))
+        print("Prompter validation: passed (empty draft, repeated click, one-second reset)")
+    }
+
     private static func write(_ view: some View, size: CGSize, to url: URL) {
         let host = NSHostingView(rootView: view.frame(width: size.width, height: size.height).background(Color(white: 0.32)))
         host.frame = CGRect(origin: .zero, size: size)

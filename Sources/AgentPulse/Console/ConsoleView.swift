@@ -146,7 +146,16 @@ private struct LimitCard: View {
                             .font(ConsoleStyle.font(12, .medium))
                             .foregroundStyle(ConsoleStyle.green)
                     } else {
-                        chip(readings.map(\.reading))
+                        HStack(spacing: 8) {
+                            chip(readings.map(\.reading))
+                            Button { model.onRefreshLimits?(service) } label: {
+                                ConsoleAsset(name: "refresh", width: 16, height: 16, tint: ConsoleStyle.text)
+                                    .frame(height: 24)
+                            }
+                            .buttonStyle(ConsolePressStyle())
+                            .accessibilityLabel("Обновить лимиты \(service.title)")
+                            .help(service == .claude ? "Перечитать последний локальный снимок. Новый снимок приходит при работе Claude Code." : "Запросить свежие лимиты Codex")
+                        }
                     }
                 }
                 .frame(height: ConsoleStyle.cardHeader)

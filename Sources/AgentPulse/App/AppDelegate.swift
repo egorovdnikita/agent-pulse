@@ -290,6 +290,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         updateConsoleVisibility()
         applyConsoleHotKey()
         model.onCodexActivity = { [weak self] in self?.refreshCodex(force: false) }
+        model.console.onRefreshLimits = { [weak self] service in
+            guard let self else { return }
+            if service == .codex { self.refreshCodex(force: true) }
+            else if let snapshot = LimitsBook.load().snapshots[.claude] {
+                self.model.console.ingest(snapshot)
+            }
+        }
         // Раз в 5 мин: процесс живёт только на время запроса.
         codexTimer = Timer.scheduledTimer(withTimeInterval: 5 * 60, repeats: true) { [weak self] _ in
             MainActor.assumeIsolated { self?.refreshCodex(force: true) }
@@ -360,7 +367,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
             console.finishTranslate(source: text, result: .success(Array(repeating: "A very long translated sentence that keeps going", count: 12).joined(separator: " ")))
         }
         ConsoleSheet.renderStress(console, to: folder)
-        exit(0)
+        Task {
+            await ConsoleSheet.checkPrompterValidation(to: folder)
+            exit(0)
+        }
     }
 
     private func startDictation() {

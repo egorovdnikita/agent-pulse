@@ -219,7 +219,7 @@ struct ShelfTab: View {
         Group {
             if model.shelf.items.isEmpty {
                 VStack(spacing: 12) {
-                    LibraryEmptyCharacter()
+                    LibraryCharacter(skin: model.librarySkin, paused: !model.expanded)
                     VStack(spacing: 4) {
                         Text("Перетащите сюда файлы, чтобы держать их под рукой")
                             .font(ConsoleStyle.font(14, .medium)).foregroundStyle(ConsoleStyle.text)
@@ -445,6 +445,12 @@ struct PrompterTab: View {
         }
         .padding(12)
         .background(ConsoleStyle.card, in: RoundedRectangle(cornerRadius: ConsoleStyle.cardRadius, style: .continuous))
+        .overlay {
+            if model.prompterInputInvalid {
+                RoundedRectangle(cornerRadius: ConsoleStyle.cardRadius, style: .continuous)
+                    .strokeBorder(ConsoleStyle.red, lineWidth: 1)
+            }
+        }
     }
 
     private var recent: some View {
@@ -563,9 +569,7 @@ struct PrompterTab: View {
                         .disabled(model.prompterLibrary.texts.isEmpty)
                         .opacity(model.prompterLibrary.texts.isEmpty ? 0.4 : 1)
                 }
-                PrompterSmallButton(title: "Старт", strong: true, wide: true) { model.startPrompter() }
-                    .disabled(!hasText)
-                    .opacity(hasText ? 1 : 0.4)
+                PrompterSmallButton(title: "Старт", strong: true, wide: true) { model.startPrompterDraft() }
             }
         }
     }

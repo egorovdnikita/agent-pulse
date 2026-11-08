@@ -61,9 +61,13 @@ final class ConsoleModel {
     /// Перевод только что скопирован.
     var translateCopied = false
     var shelfEnabled = true
+    var librarySkin: PalSkin?
+    @ObservationIgnored var onRefreshLimits: ((LimitService) -> Void)?
 
     /// Текст в поле суфлёра.
     var prompterDraft = ""
+    private(set) var prompterInputInvalid = false
+    @ObservationIgnored private var prompterValidationTask: Task<Void, Never>?
     /// Вместо поля открыт список недавних текстов.
     var prompterRecentOpen = false
     private(set) var prompterLibrary = PrompterLibrary.load()
@@ -300,6 +304,23 @@ final class ConsoleModel {
         }
         onPrompterChange?(true)
         if prompter.followsVoice { onPrompterVoice?(true) }
+    }
+
+    /// Кнопка работает только с видимым черновиком; горячая клавиша сохраняет запуск недавнего.
+    func startPrompterDraft() {
+        guard !prompterDraft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+            prompterValidationTask?.cancel()
+            prompterInputInvalid = true
+            prompterValidationTask = Task { [weak self] in
+                try? await Task.sleep(for: .seconds(1))
+                guard !Task.isCancelled else { return }
+                self?.prompterInputInvalid = false
+            }
+            return
+        }
+        prompterValidationTask?.cancel()
+        prompterInputInvalid = false
+        startPrompter()
     }
 
     func stopPrompter() {
