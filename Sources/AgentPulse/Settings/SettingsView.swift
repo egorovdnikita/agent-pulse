@@ -153,6 +153,8 @@ struct SettingsRoot: View {
                 }
                 .ignoresSafeArea(.container, edges: .top)
         }
+        // Своё название рисует полоса над формой; системное панель подставила бы «Без названия» поверх.
+        .modifier(HidesToolbarTitle())
         .frame(minWidth: 720, minHeight: 480)
         .environment(\.settingsAnchor, selection.anchor)
     }
@@ -203,6 +205,17 @@ private struct SidebarSearch: View {
         .padding(.horizontal, 9)
         .frame(height: 28)
         .background(.quaternary, in: Capsule())
+    }
+}
+
+/// Убирает системное название из панели (macOS 15 и новее).
+private struct HidesToolbarTitle: ViewModifier {
+    func body(content: Content) -> some View {
+        if #available(macOS 15, *) {
+            content.toolbar(removing: .title)
+        } else {
+            content
+        }
     }
 }
 
