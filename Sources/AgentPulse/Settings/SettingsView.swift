@@ -102,8 +102,6 @@ final class SettingsSelection {
     var module: String?
     /// Поиск над колонкой разделов.
     var query = ""
-    /// Шапка раздела ушла под панель при прокрутке: название показывается в панели.
-    var headerHidden = false
 }
 
 /// Окно «Настройки» — как системные: боковая колонка и сгруппированная форма.
@@ -118,7 +116,6 @@ struct SettingsRoot: View {
                 set: { tab in
                     guard let tab else { return }
                     selection.anchor = nil
-                    selection.headerHidden = false
                     selection.tab = tab
                 }
             )) {
@@ -130,8 +127,8 @@ struct SettingsRoot: View {
             .safeAreaInset(edge: .top, spacing: 0) {
                 SidebarSearch(text: $selection.query)
                     .padding(.horizontal, 10)
-                    // Отступ под панель снят: поле сразу под кнопками окна, центр в 66 pt от верха, как у Системных настроек.
-                    .padding(.top, 52)
+                    // Отступ под панель снят: поле сразу под кнопками окна.
+                    .padding(.top, 40)
                     .padding(.bottom, 6)
             }
             .ignoresSafeArea(.container, edges: .top)
@@ -141,12 +138,11 @@ struct SettingsRoot: View {
         } detail: {
             SettingsWindow.content(selection.tab, app: app, selection: selection)
                 .id(selection.tab)
-                .navigationTitle(selection.headerHidden ? selection.tab.title : "")
-                .background(WindowTitle(title: selection.headerHidden ? selection.tab.title : ""))
+                .navigationTitle(selection.tab.title)
+                .background(WindowTitle(title: selection.tab.title))
         }
         .frame(minWidth: 720, minHeight: 480)
         .environment(\.settingsAnchor, selection.anchor)
-        .environment(\.settingsSelection, selection)
     }
 
     /// «Лаборатория» — только с включёнными экспериментами.

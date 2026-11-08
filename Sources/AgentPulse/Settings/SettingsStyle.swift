@@ -18,18 +18,7 @@ private struct SettingsAnchorKey: EnvironmentKey {
     static let defaultValue: String? = nil
 }
 
-private struct SettingsSelectionKey: EnvironmentKey {
-    // Постоянный nil: делить нечего.
-    nonisolated(unsafe) static let defaultValue: SettingsSelection? = nil
-}
-
 extension EnvironmentValues {
-    /// Выбранный раздел: по нему страница рисует шапку.
-    var settingsSelection: SettingsSelection? {
-        get { self[SettingsSelectionKey.self] }
-        set { self[SettingsSelectionKey.self] = newValue }
-    }
-
     /// Блок настроек, к которому надо перейти.
     var settingsAnchor: String? {
         get { self[SettingsAnchorKey.self] }
@@ -41,14 +30,10 @@ extension EnvironmentValues {
 struct SettingsPage<Content: View>: View {
     @ViewBuilder let content: Content
     @Environment(\.settingsAnchor) private var anchor
-    @Environment(\.settingsSelection) private var selection
 
     var body: some View {
         ScrollViewReader { proxy in
-            Form {
-                if let selection { SettingsHeader(selection: selection) }
-                content
-            }
+            Form { content }
                 .formStyle(.grouped)
                 .onAppear { reveal(proxy) }
                 .onChange(of: anchor) { reveal(proxy) }
@@ -58,34 +43,6 @@ struct SettingsPage<Content: View>: View {
     private func reveal(_ proxy: ScrollViewProxy) {
         guard let anchor else { return }
         DispatchQueue.main.async { proxy.scrollTo(anchor, anchor: .top) }
-    }
-}
-
-/// Шапка раздела: крупная плашка, название и описание по центру.
-struct SettingsHeader: View {
-    let selection: SettingsSelection
-
-    var body: some View {
-        let tab = selection.tab
-        Section {
-            VStack(spacing: 4) {
-                SettingsIcon(name: tab.icon, tint: tab.tint, size: 56)
-                    .padding(.bottom, 8)
-                Text(tab.title)
-                    .font(.system(size: 26, weight: .bold))
-                    .accessibilityAddTraits(.isHeader)
-                    // Название ушло под панель — его показывает панель.
-                    .onGeometryChange(for: Bool.self) { $0.frame(in: .global).maxY < 56 } action: { hidden in
-                        if selection.headerHidden != hidden { selection.headerHidden = hidden }
-                    }
-                Text(tab.subtitle)
-                    .foregroundStyle(.secondary)
-                    .multilineTextAlignment(.center)
-                    .fixedSize(horizontal: false, vertical: true)
-            }
-            .frame(maxWidth: .infinity)
-            .padding(.vertical, 18)
-        }
     }
 }
 

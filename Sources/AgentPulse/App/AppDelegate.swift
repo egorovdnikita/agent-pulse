@@ -874,7 +874,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
             // Для этого окну нужна панель инструментов — её заполняет SwiftUI.
             window.styleMask = [.titled, .closable, .miniaturizable, .resizable, .fullSizeContentView]
             window.toolbar = NSToolbar(identifier: "settings")
-            window.toolbarStyle = .unified
+            // Компактная панель: название и кнопки окна по центру её высоты, сверху и снизу поровну.
+            window.toolbarStyle = .unifiedCompact
             window.titlebarSeparatorStyle = .automatic
             window.setContentSize(SettingsWindow.size)
             window.isReleasedWhenClosed = false
