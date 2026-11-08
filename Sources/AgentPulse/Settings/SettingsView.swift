@@ -20,12 +20,12 @@ enum SettingsNavigation {
 
         var subtitle: String {
             switch self {
-            case .general: "Где живёт маскот и как запускается."
-            case .character: "Как часто он говорит и когда молчит."
-            case .sources: "Откуда маскот знает, что делают агенты."
+            case .general: "Где живёт маскот, как выглядит и запускается ли вместе с Mac."
+            case .character: "Как часто маскот говорит и шутит, и когда он молчит."
+            case .sources: "Откуда маскот знает, что делают агенты, и сколько у них осталось лимитов."
             case .console: "Что есть в Пульте. Настройки модуля видны, пока он включён."
-            case .news: "О чём маскот рассказывает, когда ты не занят."
-            case .lab: "Состояния и реакции вручную."
+            case .news: "О чём маскот рассказывает, когда ты рядом и не занят."
+            case .lab: "Настроение, чувства и ручной запуск состояний и реакций."
             }
         }
 
@@ -102,6 +102,8 @@ final class SettingsSelection {
     var module: String?
     /// Поиск над колонкой разделов.
     var query = ""
+    /// Шапка раздела ушла под панель при прокрутке: название показывается в панели.
+    var headerHidden = false
 }
 
 /// Окно «Настройки» — как системные: боковая колонка и сгруппированная форма.
@@ -116,6 +118,7 @@ struct SettingsRoot: View {
                 set: { tab in
                     guard let tab else { return }
                     selection.anchor = nil
+                    selection.headerHidden = false
                     selection.tab = tab
                 }
             )) {
@@ -135,11 +138,12 @@ struct SettingsRoot: View {
         } detail: {
             SettingsWindow.content(selection.tab, app: app, selection: selection)
                 .id(selection.tab)
-                .navigationTitle(selection.tab.title)
-                .background(WindowTitle(title: selection.tab.title))
+                .navigationTitle(selection.headerHidden ? selection.tab.title : "")
+                .background(WindowTitle(title: selection.headerHidden ? selection.tab.title : ""))
         }
         .frame(minWidth: 720, minHeight: 480)
         .environment(\.settingsAnchor, selection.anchor)
+        .environment(\.settingsSelection, selection)
     }
 
     /// «Лаборатория» — только с включёнными экспериментами.
