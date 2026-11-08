@@ -192,19 +192,25 @@ struct PrompterView: View {
             .buttonStyle(ConsolePressStyle())
             .padding(.top, PrompterLook.topInset)
             .padding(.leading, PrompterLook.controlsInset)
-            if let status = model.prompterStatus {
-                Text(status)
-                    .font(ConsoleStyle.font(11, .medium).monospacedDigit())
-                    .foregroundStyle(ConsoleStyle.caption)
-                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomTrailing)
-                    .padding(.trailing, 14)
-                    .padding(.bottom, 6)
-            }
         }
-        .opacity(model.prompter.mode == .paused ? 0.6 : 1)
+        .opacity(model.prompter.mode == .paused ? 0.78 : 1)
         .frame(width: PrompterLayout.width, height: PrompterLayout.textHeight, alignment: .topLeading)
         // Текст не обрывается по краю, а уходит в чёрное. Маска — после размера: иначе она режет текст по его рамке.
         .mask(LinearGradient(stops: [.init(color: .black, location: 0.62), .init(color: .clear, location: 1)], startPoint: .top, endPoint: .bottom))
+        // Статус не относится к уходящим строкам: маска и приглушение паузы его не затрагивают.
+        .overlay(alignment: .bottomTrailing) {
+            if let status = model.prompterStatus {
+                Text(status)
+                    .font(ConsoleStyle.font(12, .medium).monospacedDigit())
+                    .foregroundStyle(.white.opacity(0.85))
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 4)
+                    .background(.white.opacity(0.08), in: Capsule())
+                    .padding(.trailing, 14)
+                    .padding(.bottom, 10)
+                    .promoTarget("top-status")
+            }
+        }
         .clipped()
         .padding(.top, model.prompterNotch)
         .contentShape(shape)

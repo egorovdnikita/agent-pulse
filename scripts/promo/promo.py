@@ -189,7 +189,7 @@ def build_timeline(assets, geometry):
     tl.panel.append((31.02, "close", None))
     tl.camera += [(31.1, CAM_WIDE), (33, ((W-720)/2, 0, 720))]
     top_hit(36, "top-pause"); top_hit(37, "top-pause"); top_hit(39, "top-stop")
-    tl.camera += [(39.5, CAM_WIDE), (40.5, CAM_CONSOLE)]
+    tl.camera += [(39.5, CAM_CONSOLE)]
     capsule_hit(41.3); tl.panel.append((41.32, "open", "prompter-speed"))
     tab(42.2, "prompter-speed", "translate", "translate-empty")
     hit(42.9, "translate-empty", "translate-editor")
@@ -452,10 +452,24 @@ def rounded_mask(size, radius):
     return mask
 
 
+def capsule_surface(content):
+    """Единственный контур: родной фон/обводка не участвуют в монтаже."""
+    width,height=content.size
+    body=Image.new("RGBA",content.size,(10,10,10,255))
+    body.alpha_composite(capsule_content(content))
+    mask=rounded_mask(body.size,height/2)
+    body.putalpha(mask)
+    edge=Image.new("RGBA",body.size)
+    ImageDraw.Draw(edge).rounded_rectangle((0,0,width-1,height-1),radius=(height-1)/2,
+                                          outline=(255,255,255,18),width=round(ASSET_SCALE))
+    body.alpha_composite(edge)
+    return body
+
+
 def capsule_content(img):
     out = img.copy()
     mask = Image.new("L",out.size)
-    inset = round(1.5*ASSET_SCALE)
+    inset = round(2.5*ASSET_SCALE)
     ImageDraw.Draw(mask).rounded_rectangle((inset,inset,out.width-inset-1,out.height-inset-1), radius=out.height/2-inset,fill=255)
     out.putalpha(ImageChops.multiply(out.getchannel("A"),mask))
     return out
@@ -475,8 +489,7 @@ def capsule_image(assets, tl, t):
         for src, alpha in [(capsule_content(old), 1-ease_out(dt/.16)), (capsule_content(new), ease_out((dt-.18)/.18))]:
             src.putalpha(src.getchannel("A").point(lambda v: round(v*alpha)))
             body.alpha_composite(src, (0,0))
-        body.putalpha(rounded_mask(body.size,height/2))
-        ImageDraw.Draw(body).rounded_rectangle((1,1,width-2,height-2), radius=height/2, outline=(255,255,255,18), width=4)
+        body=capsule_surface(body)
         pad=round(8*ASSET_SCALE)
         out=Image.new("RGBA",(width+2*pad,height+2*pad));out.alpha_composite(body,(pad,pad))
         return out
@@ -497,10 +510,7 @@ def capsule_image(assets, tl, t):
             a.putalpha(a.getchannel("A").point(lambda v:round(v*(1-ease_out(dt/.12)))))
             b.putalpha(b.getchannel("A").point(lambda v:round(v*ease_out(dt/.18))))
             body.alpha_composite(a,(0,0));body.alpha_composite(b,(0,0))
-            body.putalpha(rounded_mask(body.size,height/2))
-            edge=Image.new("RGBA",body.size)
-            ImageDraw.Draw(edge).rounded_rectangle((1,1,width-2,height-2),radius=height/2,outline=(255,255,255,18),width=4)
-            body.alpha_composite(edge)
+            body=capsule_surface(body)
             pad=round(8*ASSET_SCALE);out=Image.new("RGBA",(width+2*pad,height+2*pad))
             out.alpha_composite(body,(pad,pad));return out
     name="empty" if t<14.1 else "claude" if t<15.3 else "filled"
@@ -725,12 +735,12 @@ def draw_library(frame, assets, tl, t, geometry):
 
 def draw_prompter(frame, assets, tl, t):
     start,end=tl.prompter
-    if not start <= t < end+.3: return
+    if not start <= t < end+.24: return
     index=min(round((end-start)*FPS)-1,max(0,int((t-start)*FPS)))
     sprite=Image.open(assets.folder/"prompter"/f"{index:04d}.png").convert("RGBA")
     # Поле 8 pt снято с настоящего вида; форма раскрывается сверху по центру.
     sprite=crop_panel(sprite)
-    p=spring(t-start,.42,.8) if t<end else 1-ease_out((t-end)/.3)
+    p=spring(t-start,.42,.8) if t<end else 1-ease_out((t-end)/.24)
     width=180+(560-180)*p; height=32+(148-32)*p
     w,h=max(1,round(width*ASSET_SCALE)),max(1,round(height*ASSET_SCALE))
     shape=Image.new("RGBA",(w,h),(0,0,0,255))
@@ -742,6 +752,8 @@ def draw_prompter(frame, assets, tl, t):
         edge=Image.new("RGBA",shape.size)
         ImageDraw.Draw(edge).rounded_rectangle((1,1,w-2,h-2),radius=20*ASSET_SCALE,outline=(255,255,255,18),width=4)
         shape.alpha_composite(edge)
+    if t >= end:
+        shape.putalpha(shape.getchannel("A").point(lambda a: round(a*(1-ease_out((t-end)/.18)))))
     frame.paste(shape,W/2,PROMPTER_TOP,anchor=(.5,0))
 
 
@@ -793,6 +805,21 @@ def compose(folder, tl, geometry, out, keys_only=False):
     return out
 
 
+def outline_error(img):
+    """Внешний пояс 2 pt обязан содержать ровно один эталонный контур."""
+    body=crop_panel(img)
+    expected=capsule_surface(Image.new("RGBA",body.size,(10,10,10,255)))
+    def visible(image):
+        bg=Image.new("RGBA",image.size,"#0d1117");bg.alpha_composite(image)
+        return bg.convert("RGB")
+    band=Image.new("L",body.size,255)
+    inset=round(2*ASSET_SCALE)
+    ImageDraw.Draw(band).rounded_rectangle((inset,inset,body.width-inset-1,body.height-inset-1),
+                                          radius=body.height/2-inset,fill=0)
+    difference=ImageChops.difference(visible(body),visible(expected))
+    return ImageChops.multiply(difference,Image.merge("RGB",(band,band,band))).getbbox()
+
+
 def verify_assets(assets, tl, geometry):
     import hashlib
     def unique(directory, count):
@@ -827,6 +854,23 @@ def verify_assets(assets, tl, geometry):
         targets=json.loads((assets.folder/"prompter"/f"{i:04d}.targets.json").read_text())
         if "spoken-word" in targets:word_boxes.add(tuple(round(v,1) for v in targets["spoken-word"]))
     assert len(word_boxes)>10,"Нет движущейся подсветки слов"
+    outline_checks=0
+    for path in list(assets.folder.glob("capsule*.png"))+list((assets.folder/"prompter").glob("capsule*.png")):
+        assert outline_error(Image.open(path).convert("RGBA")) is None, f"Двойной контур: {path}"
+        outline_checks+=1
+    for reveal_start,length in ((14.1,1),(15.3,1),(tl.duration-.45,.45)):
+        for i in range(round(length*FPS)+1):
+            assert outline_error(capsule_image(assets,tl,reveal_start+i/FPS)) is None, f"Двойной контур в переходе: {reveal_start+i/FPS}"
+            outline_checks+=1
+    status_checks=0
+    for i in range(round((tl.pause[0]-start)*FPS), round((tl.pause[1]-start)*FPS)):
+        targets=json.loads((assets.folder/"prompter"/f"{i:04d}.targets.json").read_text())
+        assert "top-status" in targets, "Нет статуса паузы"
+        x,y,w,h=targets["top-status"]
+        image=Image.open(assets.folder/"prompter"/f"{i:04d}.png").convert("RGB")
+        region=crop_rect(image,(x+8,y+4,w-16,h-8))
+        assert max(max(pixel) for pixel in region.getdata())>=200, "Статус Пауза затемнён маской"
+        status_checks+=1
     for i in range(count):
         targets=json.loads((assets.folder/"prompter"/f"{i:04d}.targets.json").read_text())
         if "spoken-word" in targets:
@@ -844,7 +888,7 @@ def verify_assets(assets, tl, geometry):
     assert abs(cap[1]+cap[3]/2-MASCOT[1])<.001
     capsule_counts={service:len({hashlib.sha256((assets.folder/f"capsule-reveal-{service}-{i}.png").read_bytes()).digest() for i in range(61)}) for service in ("claude","codex")}
     assert min(capsule_counts.values())>10,"Не анимируются проценты капсулы"
-    report={"clicks":len(tl.clicks),"capsule_unique_frames":capsule_counts,"library_unique_frames":library_unique,
+    report={"capsule_outline_checks":outline_checks,"pause_status_checks":status_checks,"clicks":len(tl.clicks),"capsule_unique_frames":capsule_counts,"library_unique_frames":library_unique,
             "prompter_unique_frames":prompter_unique,"pause_is_static":True,
             "capsule_center_y":cap[1]+cap[3]/2,"mascot_center_y":MASCOT[1],
             "console_side_padding":[left,right],"menu_height":MENU_HEIGHT,"prompter_top":PROMPTER_TOP,"word_highlight_positions":len(word_boxes)}
@@ -864,6 +908,11 @@ def clean_snapshot_edges(folder):
         mask = Image.new("L",img.size)
         ImageDraw.Draw(mask).rounded_rectangle((inset,inset,inset+w-1,inset+h-1),radius=radius,fill=255)
         img.putalpha(ImageChops.multiply(img.getchannel("A"),mask))
+        if path.name.startswith("capsule"):
+            # Заменяем весь внешний пояс, включая линии ВНУТРИ прежней маски.
+            body=capsule_surface(crop_panel(img))
+            img=Image.new("RGBA",img.size)
+            img.alpha_composite(body,(inset,inset))
         img.save(path)
 
 
@@ -873,6 +922,7 @@ def main():
     parser.add_argument("--app", default="/Applications/Agent Pulse.app/Contents/MacOS/AgentPulse")
     parser.add_argument("--only-compose", action="store_true")
     parser.add_argument("--only-assets", action="store_true", help="Обновить страницы без кадров маскота и монтажа")
+    parser.add_argument("--only-prompter", action="store_true", help="Обновить Докладчик, сохранив остальные исходники, и смонтировать")
     parser.add_argument("--out")
     parser.add_argument("--keys-only", action="store_true", help="Только контрольные кадры, без кодирования")
     parser.add_argument("--menu-bar", help="Скриншот только системной строки меню")
@@ -897,7 +947,7 @@ def main():
         if args.dock_cut: dock_spec["remove_ranges"]=[list(map(int,args.dock_cut.split(":")))]
         (folder / "dock.json").write_text(json.dumps(dock_spec))
     # Геометрия вкладок и капсулы нужна до сценария, а картинки — после: первый проход рисует их с черновым сценарием.
-    if not args.only_compose and not (args.only_assets and (folder/"capsule.png").exists()):
+    if not args.only_compose and not args.only_prompter and not (args.only_assets and (folder/"capsule.png").exists()):
         draft = Timeline()
         draft.states=[(0,"idle")]; draft.cursor=[(0,0,0)]
         draft.duration = 1 / FPS
@@ -911,7 +961,9 @@ def main():
     (folder/"clicks.json").write_text(json.dumps(tl.clicks,ensure_ascii=False,indent=2))
     if not args.only_compose:
         write_script(folder, tl, assets_only=args.only_assets)
-        subprocess.run([args.app, "--promo-sheet", str(folder)], check=True)
+        command = [args.app, "--promo-sheet", str(folder)]
+        if args.only_prompter: command.append("--promo-prompter-only")
+        subprocess.run(command, check=True)
     if not args.only_compose:
         clean_snapshot_edges(folder)
         assets = Assets(folder)

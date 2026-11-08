@@ -34,6 +34,10 @@ enum PromoSheet {
             print("promo: нет script.json")
             return
         }
+        if CommandLine.arguments.contains("--promo-prompter-only") {
+            renderPrompter(script, to: folder)
+            return
+        }
         if script.assetsOnly != true {
             renderMascot(script, to: folder.appending(path: "mascot"))
             renderLibrary(script, to: folder.appending(path: "library"))
@@ -126,7 +130,7 @@ enum PromoSheet {
                      scale: scale, to: folder.appending(path: "panel-\(name).png"))
         }
         func capsule(_ name: String, reveal: PromoGaugeReveal? = nil) {
-            snapshot(CapsulePreview(model: model).environment(\.promoGaugeReveal, reveal).overlay(Capsule().strokeBorder(ConsoleStyle.edge, lineWidth: 1)).clipShape(Capsule()).padding(8),
+            snapshot(CapsulePreview(model: model).environment(\.promoGaugeReveal, reveal).clipShape(Capsule()).padding(8),
                      scale: scale, to: folder.appending(path: "capsule-\(name).png"))
         }
         page("limits-empty", .limits)
@@ -146,7 +150,7 @@ enum PromoSheet {
                 capsule("reveal-\(service.rawValue)-\(index)", reveal: PromoGaugeReveal(service: service, progress: p))
             }
         }
-        snapshot(CapsulePreview(model: model).overlay(Capsule().strokeBorder(ConsoleStyle.edge, lineWidth: 1)).clipShape(Capsule()).padding(8), scale: scale, to: folder.appending(path: "capsule.png"))
+        snapshot(CapsulePreview(model: model).clipShape(Capsule()).padding(8), scale: scale, to: folder.appending(path: "capsule.png"))
         page("shelf-empty", .shelf)
         model.dropTargeted = true
         page("shelf-drop", .shelf)
@@ -227,7 +231,7 @@ enum PromoSheet {
                 .overlay(RoundedRectangle(cornerRadius: 20).strokeBorder(ConsoleStyle.edge, lineWidth: 1)).clipShape(RoundedRectangle(cornerRadius: 20)).padding(8),
                 scale: script.scale, to: directory.appending(path: String(format: "%04d.png", i)))
             if i % Int(script.fps) == 0 {
-                snapshot(CapsulePreview(model: model).overlay(Capsule().strokeBorder(ConsoleStyle.edge, lineWidth: 1)).clipShape(Capsule()).padding(8),
+                snapshot(CapsulePreview(model: model).clipShape(Capsule()).padding(8),
                          scale: script.scale, to: directory.appending(path: String(format: "capsule-%02d.png", i / Int(script.fps))))
             }
         }
