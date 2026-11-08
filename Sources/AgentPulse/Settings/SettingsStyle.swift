@@ -161,11 +161,18 @@ struct SettingsIcon: View {
     var size = 20.0
 
     var body: some View {
+        let shape = RoundedRectangle(cornerRadius: size * 0.24, style: .continuous)
+        // Как у Системных настроек: контурный белый символ, плашка светлее сверху, тонкая светлая окантовка.
         Image(systemName: name)
-            .font(.system(size: size * 0.62, weight: .semibold))
+            .font(.system(size: size * 0.62, weight: .regular))
             .foregroundStyle(.white)
             .frame(width: size, height: size)
-            .background(tint.gradient, in: RoundedRectangle(cornerRadius: size * 0.24, style: .continuous))
+            .background(tint, in: shape)
+            .background {
+                shape.fill(LinearGradient(colors: [.white.opacity(0.28), .clear], startPoint: .top, endPoint: .bottom))
+                    .blendMode(.plusLighter)
+            }
+            .overlay(shape.strokeBorder(.white.opacity(0.22), lineWidth: 0.5))
             .accessibilityHidden(true)
     }
 }

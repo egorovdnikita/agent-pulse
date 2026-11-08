@@ -60,12 +60,12 @@ enum SettingsNavigation {
 
         var icon: String {
             switch self {
-            case .general: "gearshape.fill"
-            case .character: "face.smiling.inverse"
-            case .sources: "cpu.fill"
-            case .console: "square.grid.2x2.fill"
-            case .news: "newspaper.fill"
-            case .lab: "flask.fill"
+            case .general: "gearshape"
+            case .character: "face.smiling"
+            case .sources: "cpu"
+            case .console: "switch.2"
+            case .news: "newspaper"
+            case .lab: "flask"
             }
         }
     }
@@ -438,7 +438,7 @@ private struct ConsoleSettings: View {
                     .disabled(!settings.enabled)
             }
             Group {
-                card("Лимиты", "Сколько осталось у Claude и Codex", icon: "chart.pie.fill", tint: Color(nsColor: .systemGreen), isOn: settings.limits, toggle: { app.setLimitsEnabled($0) }) {
+                card("Лимиты", "Сколько осталось у Claude и Codex", icon: "chart.pie", tint: Color(nsColor: .systemGreen), isOn: settings.limits, toggle: { app.setLimitsEnabled($0) }) {
                     ModuleOption {
                         Button("Подключить в разделе «Агенты»") { app.showSettings(.sources, anchor: "Лимиты") }
                     }
@@ -471,7 +471,7 @@ private struct ConsoleSettings: View {
                             .font(SettingsStyle.caption).foregroundStyle(SettingsStyle.muted)
                     }
                 }
-                card("Файлы", "Полка для файлов под рукой", icon: "folder.fill", tint: Color(nsColor: .systemBlue), isOn: settings.shelf, toggle: { app.setShelfEnabled($0) }) {
+                card("Файлы", "Полка для файлов под рукой", icon: "folder", tint: Color(nsColor: .systemBlue), isOn: settings.shelf, toggle: { app.setShelfEnabled($0) }) {
                     ModuleOption {
                         Toggle(isOn: Binding(get: { settings.shelfScreenshots }, set: { app.setShelfScreenshots($0) })) {
                             Text("Новые снимки экрана")
@@ -485,11 +485,11 @@ private struct ConsoleSettings: View {
                 ) {
                     EmptyView()
                 }
-                card("Диктовка", "Зажми клавишу, говори, отпусти", icon: "mic.fill", tint: Color(nsColor: .systemIndigo), isOn: settings.dictation, toggle: { app.setDictationEnabled($0) }) {
+                card("Диктовка", "Зажми клавишу, говори, отпусти", icon: "mic", tint: Color(nsColor: .systemIndigo), isOn: settings.dictation, toggle: { app.setDictationEnabled($0) }) {
                     DictationOptions(model: model, app: app, controller: app.dictation)
                 }
                 if ConsoleTranslator.isAvailable {
-                    card("Перевод", "Русский и английский на этом Mac", icon: "character.bubble.fill", tint: Color(nsColor: .systemTeal), isOn: settings.translator, toggle: { app.setTranslatorEnabled($0) }) {
+                    card("Перевод", "Русский и английский на этом Mac", icon: "character.bubble", tint: Color(nsColor: .systemTeal), isOn: settings.translator, toggle: { app.setTranslatorEnabled($0) }) {
                         TranslatorOptions(model: model, app: app)
                     }
                 }
