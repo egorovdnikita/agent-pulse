@@ -120,7 +120,11 @@ struct SettingsRoot: View {
                 }
             )) {
                 ForEach(tabs, id: \.self) { tab in
-                    Label { Text(tab.title) } icon: { SectionIcon(tab: tab) }
+                    // Значок и название — 5 pt, как в колонке Системных настроек.
+                    HStack(spacing: 5) {
+                        SectionIcon(tab: tab)
+                        Text(tab.title)
+                    }
                         .tag(tab)
                 }
             }
@@ -129,7 +133,7 @@ struct SettingsRoot: View {
                     .padding(.horizontal, 10)
                     // Поле под кнопками окна; между кнопками, полем и разделами воздух как у системы.
                     .padding(.top, 34)
-                    .padding(.bottom, 8)
+                    .padding(.bottom, 0)
             }
             .ignoresSafeArea(.container, edges: .top)
             .frame(width: 220)
