@@ -132,9 +132,9 @@ struct SettingsRoot: View {
                 SidebarSearch(text: $selection.query)
                     .padding(.horizontal, 10)
                     // Поле под кнопками окна; между кнопками, полем и разделами воздух как у системы.
-                    .padding(.top, 34)
-                    // От поиска до первого раздела 14 pt: у Системных настроек 13–14 (замер их окна).
-                    .padding(.bottom, 4)
+                    // Центр поля в 75 pt от верха окна, как у Системных настроек (замер их окна); до разделов 18 pt.
+                    .padding(.top, 53)
+                    .padding(.bottom, 8)
             }
             .ignoresSafeArea(.container, edges: .top)
             .frame(width: 220)
@@ -202,7 +202,8 @@ private struct SectionIcon: View {
     /// Ближайший по смыслу раздел Системных настроек.
     static func path(_ tab: SettingsNavigation.Tab) -> String {
         switch tab {
-        case .general: "/System/Applications/System Settings.app"
+        // Значок приложения слишком детальный: у «Основных» простая шестерёнка на серой плашке, как в колонке системы.
+        case .general: ""
         case .character: extensions + "FocusSettingsExtension.appex"
         case .sources: extensions + "SiriPreferenceExtension.appex"
         case .console: extensions + "ControlCenterSettings.appex"
@@ -216,7 +217,7 @@ private struct SectionIcon: View {
     @MainActor static func image(_ tab: SettingsNavigation.Tab) -> NSImage? {
         if let cached = cache[tab] { return cached }
         let path = path(tab)
-        guard FileManager.default.fileExists(atPath: path) else { return nil }
+        guard !path.isEmpty, FileManager.default.fileExists(atPath: path) else { return nil }
         let image = trimmed(NSWorkspace.shared.icon(forFile: path))
         cache[tab] = image
         return image
