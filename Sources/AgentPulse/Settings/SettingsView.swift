@@ -47,7 +47,7 @@ enum SettingsNavigation {
             case .general: ["маскот", "облик", "бот", "угол", "дисплей", "экран", "размер", "запуск", "вход", "эксперимент", "версия", "лицензии"]
             case .character: ["болтливость", "озорство", "тишина", "тихие часы", "простой", "день рождения", "память", "забыть"]
             case .sources: ["claude", "code", "chatgpt", "codex", "cowork", "orca", "браузер", "chrome", "figma", "лимиты", "подключить"]
-            case .console: ["пульт", "клавиша", "звуки", "лимиты", "суфлёр", "календарь", "файлы", "музыка", "диктовка", "перевод", "голос"]
+            case .console: ["пульт", "клавиша", "звуки", "лимиты", "суфлёр", "файлы", "диктовка", "перевод", "голос"]
             case .news: ["новости", "темы", "дизайн", "наука", "игры", "космос", "экономика", "искусство"]
             case .lab: ["лаборатория", "настроение", "гравитация", "жест", "состояния", "реакции", "сигнал"]
             }
@@ -532,12 +532,6 @@ private struct ConsoleSettings: View {
                     ModuleOption { ShortcutRow(title: "Скорость", keys: "⌃⌥↑ ⌃⌥↓") }
                     ModuleOption { ShortcutRow(title: "Строка назад и вперёд", keys: "⌃⌥← ⌃⌥→") }
                 }
-                card("Календарь", "Встречи и кнопка «Войти»", icon: "calendar", tint: Color(nsColor: .systemRed), isOn: settings.calendar, toggle: { app.setCalendarEnabled($0) }) {
-                    ModuleOption {
-                        Text("Спросит доступ к Календарям, только чтение. Идущий звонок включает тишину маскота")
-                            .font(SettingsStyle.caption).foregroundStyle(SettingsStyle.muted)
-                    }
-                }
                 card("Файлы", "Полка для файлов под рукой", icon: "folder", tint: Color(nsColor: .systemBlue), isOn: settings.shelf, toggle: { app.setShelfEnabled($0) }) {
                     ModuleOption {
                         Toggle(isOn: Binding(get: { settings.shelfScreenshots }, set: { app.setShelfScreenshots($0) })) {
@@ -545,12 +539,6 @@ private struct ConsoleSettings: View {
                             Text("Хранятся только ссылки, выход очищает список").font(SettingsStyle.caption).foregroundStyle(SettingsStyle.muted)
                         }
                     }
-                }
-                card(
-                    "Музыка", model.console.media.availability == .unavailable ? "Недоступно на этой системе" : "Что играет и управление",
-                    icon: "music.note", tint: Color(nsColor: .systemPink), isOn: settings.music, toggle: { app.setMusicEnabled($0) }
-                ) {
-                    EmptyView()
                 }
                 card("Диктовка", "Зажми клавишу, говори, отпусти", icon: "mic", tint: Color(nsColor: .systemIndigo), isOn: settings.dictation, toggle: { app.setDictationEnabled($0) }) {
                     DictationOptions(model: model, app: app, controller: app.dictation)

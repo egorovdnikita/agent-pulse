@@ -202,11 +202,6 @@ public enum ReactionCatalog {
     // MARK: - События Пульта
 
     static let consoleEvents: [ReactionSpec] = [
-        // «Раз на встречу» вместо «раз в день»: Пульт шлёт сигнал один раз на событие.
-        ReactionSpec("meeting.soon", on: [.meetingSoon], tier: .rhythm, cooldown: 60, dailyLimit: 50,
-                     behavior: .lookAround, lines: ["Скоро встреча", "Встреча уже близко"]),
-        // Очки, как у Капы, нельзя: у маскота нет аксессуаров.
-        ReactionSpec("meeting.free", on: [.dayFree], tier: .rhythm, behavior: .dreamSmile),
         ReactionSpec("shelf.eat", on: [.fileEaten], tier: .interaction, cooldown: 1, behavior: .relax,
                      lines: ["Ням, положу", "Ням, на полку"], bubble: 1.5),
     ]

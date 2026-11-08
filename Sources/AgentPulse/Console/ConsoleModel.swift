@@ -2,18 +2,6 @@ import AgentPulseCore
 import AppKit
 import Observation
 
-enum CalendarScope: String, CaseIterable {
-    case day, week, month
-
-    var title: String {
-        switch self {
-        case .day: "День"
-        case .week: "Неделя"
-        case .month: "Месяц"
-        }
-    }
-}
-
 /// Модель Пульта: модули, директор и что сейчас на экране. Мозг маскота получает от неё только `ToolSignal`.
 @MainActor
 @Observable
@@ -22,22 +10,16 @@ final class ConsoleModel {
     private(set) var prompter = PrompterModule()
     private(set) var dictation = DictationModule()
     private(set) var translate = TranslateModule()
-    private(set) var calendar = CalendarModule()
     private(set) var shelf = ShelfModule()
-    private(set) var media = MediaModule()
     private(set) var director = ConsoleDirector()
     private(set) var now = Date()
     private(set) var expanded = false
     /// Открытая вкладка.
     var tab = ConsoleModuleID.shelf
-    var calendarScope = CalendarScope.day
-    var calendarDay = Date()
-    /// Сколько месяцев вперёд открыто: события загружаются на два.
     /// Над Пультом несут файл.
     var dropTargeted = false
-    /// Миниатюра последнего файла на полке и обложка трека.
+    /// Миниатюра последнего файла на полке.
     private(set) var shelfThumbnail: NSImage?
-    private(set) var artwork: NSImage?
     /// Сколько места оставляет Dock.
     /// Пульт на левом краю экрана: растёт вправо. Зеркально — влево.
     var onLeft = true
@@ -73,19 +55,12 @@ final class ConsoleModel {
     var shelfRubber: CGRect?
     /// Где стоят плитки: по ним рамка понимает, что задела.
     @ObservationIgnored var shelfFrames: [URL: CGRect] = [:]
-    @ObservationIgnored private var mutedVolume = 0.5
-    /// Что играло последним. Живёт только в памяти.
-    private(set) var rememberedTrack: NowPlaying?
     /// Текст на странице перевода. Живёт в памяти, закрытие Пульта его не трогает.
     var translateInput = ""
     @ObservationIgnored private var translateTask: Task<Void, Never>?
     /// Перевод только что скопирован.
     var translateCopied = false
-    var calendarEnabled = false
     var shelfEnabled = true
-    var musicEnabled = true
-    /// Громкость системного выхода, 0…1; nil — у устройства её нельзя менять.
-    var volume: Double?
 
     /// Текст в поле суфлёра.
     var prompterDraft = ""
@@ -112,12 +87,6 @@ final class ConsoleModel {
     @ObservationIgnored var onLeaderChange: (() -> Void)?
     /// Изменилось то, от чего зависит размер панели.
     @ObservationIgnored var onLayoutChange: (() -> Void)?
-    /// Открыть ссылку на звонок.
-    @ObservationIgnored var onJoin: ((URL) -> Void)?
-    @ObservationIgnored var onMediaCommand: ((MediaCommand) -> Void)?
-    @ObservationIgnored var onSeek: ((TimeInterval) -> Void)?
-    @ObservationIgnored var onVolume: ((Double) -> Void)?
-    @ObservationIgnored var onConnectMusic: (() -> Void)?
     /// Суфлёр начался или кончился.
     @ObservationIgnored var onPrompterChange: ((Bool) -> Void)?
     /// Идти за голосом или перестать.
@@ -152,9 +121,7 @@ final class ConsoleModel {
         if limitsEnabled { list.append(limits) }
         if prompterEnabled { list.append(prompter) }
         if dictationEnabled { list.append(dictation) }
-        if calendarEnabled { list.append(calendar) }
         if shelfEnabled { list.append(shelf) }
-        if musicEnabled { list.append(media) }
         if translatorEnabled { list.append(translate) }
         return list
     }
@@ -179,17 +146,16 @@ final class ConsoleModel {
         leaderModule?.capsule(now: now)
     }
 
-    /// До трёх значков других модулей, которым есть что показать. С кнопкой им нет места: строка важнее.
+    /// До трёх значков других модулей, которым есть что показать. Во время диктовки скрыты.
     var indicators: [ConsoleModuleID] {
-        guard capsule?.action == nil, capsule?.wave != true else { return [] }
+        guard capsule?.wave != true else { return [] }
         return modules.filter { $0.id != director.leader?.module && $0.priority(now: now) != nil }.prefix(3).map(\.id)
     }
 
-    /// Картинка лидера вместо иконки: миниатюра файла, обложка.
+    /// Картинка лидера вместо иконки: миниатюра файла.
     var leaderImage: NSImage? {
         switch director.leader?.module {
         case .shelf: shelfThumbnail
-        case .media: artwork
         default: nil
         }
     }
@@ -207,13 +173,6 @@ final class ConsoleModel {
     func markResting(_ service: LimitService) {
         now = Date()
         apply(limits.book.markResting(service))
-        refresh(agentWaiting: false)
-    }
-
-    func updateCalendar(_ events: [MeetingEvent]) {
-        now = Date()
-        calendar.update(events: events)
-        tickModules()
         refresh(agentWaiting: false)
     }
 
@@ -299,38 +258,7 @@ final class ConsoleModel {
         }
     }
 
-    func updateMedia(_ update: MediaRemoteStream.Update) {
-        now = Date()
-        switch update {
-        case .playing(let playing):
-            let keepArtwork = playing.artwork == nil && media.playing?.title == playing.title
-            if !keepArtwork { artwork = playing.artwork.flatMap(NSImage.init(data:)) }
-            media.playing = playing
-        case .nothing:
-            // Последний трек остаётся на странице: пустота после паузы выглядит как поломка.
-            if var last = media.playing {
-                last.isPlaying = false
-                rememberedTrack = last
-            }
-            media.playing = nil
-        }
-        media.availability = .available
-        refresh(agentWaiting: false)
-    }
-
     /// Клик по динамику: тишина и обратно, к той же громкости.
-    func toggleMute() {
-        guard let current = volume else { return }
-        let target = current > 0 ? 0 : max(mutedVolume, 0.1)
-        if current > 0 { mutedVolume = current }
-        onVolume?(target)
-        volume = target
-    }
-
-    func setMediaAvailability(_ availability: MediaAvailability) {
-        media.availability = availability
-    }
-
     // MARK: - Суфлёр
 
     var prompterTabOpen: Bool { expanded && tab == .prompter }
@@ -616,7 +544,6 @@ final class ConsoleModel {
 
     private func tickModules() {
         apply(limits.tick(now: now))
-        if calendarEnabled { apply(calendar.tick(now: now)) }
         let quiet = modules.contains { $0.wantsQuiet(now: now) }
         if quiet != quietOn {
             quietOn = quiet
@@ -649,7 +576,7 @@ final class ConsoleModel {
         if on {
             // Открываем то, что занимает капсулу.
             let ids = tabs.map(\.id)
-            // По умолчанию «Файлы»; на другой раздел — только если он сейчас важнее: запись, встреча.
+            // По умолчанию «Файлы»; на другой раздел — только если он сейчас важнее: запись.
             if let leader = director.leader, leader.priority < .limitsNormal, ids.contains(leader.module) {
                 tab = leader.module
             } else if ids.contains(.shelf) {
@@ -657,7 +584,6 @@ final class ConsoleModel {
             } else if !ids.contains(tab), let first = ids.first {
                 tab = first
             }
-            calendarDay = now
         }
         expanded = on
         closeTask?.cancel()
@@ -771,8 +697,7 @@ final class ConsoleModel {
         }
         let limit = capsuleLimit
         let dots = Double(indicators.count)
-        let extras = (capsule?.action != nil ? ConsoleLook.joinWidth + ConsoleLook.labelGap : 0)
-            + (dots > 0 ? ConsoleLook.labelGap + dots * ConsoleLook.indicator + (dots - 1) * 6 : 0)
+        let extras = (dots > 0 ? ConsoleLook.labelGap + dots * ConsoleLook.indicator + (dots - 1) * 6 : 0)
         guard let text = capsuleText else {
             let content = ringsWidth(visibleRings) + (dots > 0 ? ConsoleLook.labelGap + dots * ConsoleLook.indicator + (dots - 1) * 6 : 0)
             return min(limit, max(ConsoleLayout.minWidth, ceil(content) + ConsoleLook.padding * 2))
@@ -815,7 +740,6 @@ enum ConsoleLook {
     static let tabs = 30.0
     static let labelGap = 8.0
     static let padding = 12.0
-    static let joinWidth = 40.0
     static let dot = 6.0
     static let indicator = 14.0
     static let alertColor: UInt32 = 0xFF453A

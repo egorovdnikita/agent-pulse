@@ -164,9 +164,7 @@ final class PulseModel {
         console.dictationEnabled = config.console.dictation
         console.dictationRules = config.console.dictationRules
         console.translatorEnabled = config.console.translator && ConsoleTranslator.isAvailable
-        console.calendarEnabled = config.console.calendar
         console.shelfEnabled = config.console.shelf
-        console.musicEnabled = config.console.music
         console.onSound = { [weak self] sound in self?.playSound(sound) }
         console.onSignal = { [weak self] signal, now in
             if let brain = signal.signal(at: now) { inbox.yield(.signal(brain)) }
@@ -195,8 +193,6 @@ final class PulseModel {
         switch signal {
         case .limitCritical(let service):
             notifier?.post(id: "limit-\(service.rawValue)", title: "Лимиты", body: "\(service.title): лимит почти исчерпан", sound: false, host: nil)
-        case .meetingLastCall:
-            notifier?.post(id: "meeting", title: "Календарь", body: "Встреча через минуту", sound: false, host: nil)
         default:
             break
         }

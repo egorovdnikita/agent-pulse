@@ -68,7 +68,7 @@ public enum SignalKind: String, Sendable, Codable, CaseIterable {
     // Пульт, value — сервис (`LimitService.signalValue`): лимит на исходе, почти кончился, агент встал, снова есть силы
     case limitLow, limitCritical, limitResting, limitRestored
     // Пульт: скоро встреча; день свободен; маскот съел файл. Без названий.
-    case meetingSoon, dayFree, fileEaten
+    case fileEaten
 }
 
 extension SignalKind {
@@ -96,7 +96,7 @@ extension SignalKind {
         case .agentWaitingLong, .agentErrorStreak, .agentStep, .agentDone, .agentError: .agents
         case .lidAngle, .lidClosing: .lidAngle
         case .newsFresh: .news
-        case .limitLow, .limitCritical, .limitResting, .limitRestored, .meetingSoon, .dayFree, .fileEaten: .console
+        case .limitLow, .limitCritical, .limitResting, .limitRestored, .fileEaten: .console
         }
     }
 }

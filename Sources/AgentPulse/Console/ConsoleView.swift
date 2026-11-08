@@ -8,10 +8,8 @@ private extension ConsoleModuleID {
         switch self {
         case .limits: "tuning-2"
         case .prompter, .dictation: "document-text"
-        case .calendar: "calendar"
         case .translate: "chat-round-dots"
         case .shelf: "folder-with-files"
-        case .media: "music-note"
         }
     }
 }
@@ -100,13 +98,6 @@ private struct CapsuleBody: View {
                     }
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .transition(.opacity)
-                }
-                if case .join(let url) = capsule.action {
-                    Button("Войти") { model.onJoin?(url) }
-                        .buttonStyle(.plain)
-                        .font(Font(ConsoleLook.labelFont))
-                        .foregroundStyle(ConsoleStyle.orange)
-                        .frame(width: ConsoleLook.joinWidth)
                 }
                 if !model.indicators.isEmpty {
                     // Значки, а не цветные точки: точка рядом с числом уже значит зону лимита.
@@ -264,9 +255,7 @@ private struct ExpandedBody: View {
         VStack(alignment: .leading, spacing: 0) {
             switch model.tab {
             case .prompter: PrompterTab(model: model)
-            case .calendar: CalendarTab(model: model)
             case .shelf: ShelfTab(model: model)
-            case .media: MediaTab(model: model)
             case .translate: TranslateTab(model: model)
             default: LimitsTab(model: model)
             }

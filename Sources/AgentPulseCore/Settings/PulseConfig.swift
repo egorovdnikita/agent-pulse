@@ -26,10 +26,7 @@ public struct PulseConfig: Codable, Sendable, Equatable {
         /// Короткие звуки Пульта.
         public var sounds = true
         /// Окно лимита в капсуле: пусто — самое тесное.
-        /// Календарь просит разрешение при включении, поэтому выключен, пока ты сам не включишь.
-        public var calendar = false
         public var shelf = true
-        public var music = true
         /// Новые снимки экрана попадают на полку.
         public var shelfScreenshots = false
         public var prompter = true

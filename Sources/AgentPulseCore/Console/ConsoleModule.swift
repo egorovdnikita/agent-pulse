@@ -1,13 +1,13 @@
 import Foundation
 
 public enum ConsoleModuleID: String, Sendable, Codable, CaseIterable {
-    case limits, prompter, dictation, calendar, translate, shelf, media
+    case limits, prompter, dictation, translate, shelf
 }
 
 /// Кто занимает свёрнутый Пульт, сверху вниз. Порядок не настраивается.
-/// По умолчанию там лимиты: их вытесняют только запись, встреча и тревога. Музыка и полка видны точками.
+/// По умолчанию там лимиты: их вытесняют только запись и тревога. Файлы видны отдельным значком.
 public enum ConsolePriority: Int, Sendable, Comparable, CaseIterable {
-    case activeMode = 0, meetingSoon, limitCritical, limitsNormal, music, shelf
+    case activeMode = 0, limitCritical, limitsNormal, shelf
 
     public static func < (lhs: ConsolePriority, rhs: ConsolePriority) -> Bool { lhs.rawValue < rhs.rawValue }
 }
@@ -36,21 +36,15 @@ extension CapsuleRing {
     }
 }
 
-/// Кнопка в капсуле.
-public enum CapsuleAction: Sendable, Equatable {
-    case join(URL)
-}
-
 /// Что модуль кладёт в свёрнутую капсулу.
 public struct CapsuleContent: Sendable, Equatable {
     public var rings: [CapsuleRing]
-    /// Строка, видная и без наведения: встреча, трек, файлы.
+    /// Строка, видная и без наведения: суфлёр и файлы.
     public var text: String?
     /// Хвост строки, который не обрезается: обратный отсчёт важнее названия.
     public var tail: String?
     /// Иконка Solar.
     public var icon: String?
-    public var action: CapsuleAction?
     /// Подпись при наведении, одна строка.
     public var label: String
     /// Чьё кольцо стоит рядом с подписью: на два кольца и текст 220 pt не хватает.
@@ -60,7 +54,7 @@ public struct CapsuleContent: Sendable, Equatable {
 
     public init(
         rings: [CapsuleRing], label: String, labelService: LimitService? = nil, text: String? = nil, tail: String? = nil,
-        icon: String? = nil, action: CapsuleAction? = nil, wave: Bool = false
+        icon: String? = nil, wave: Bool = false
     ) {
         self.wave = wave
         self.tail = tail
@@ -69,7 +63,6 @@ public struct CapsuleContent: Sendable, Equatable {
         self.labelService = labelService
         self.text = text
         self.icon = icon
-        self.action = action
     }
 }
 

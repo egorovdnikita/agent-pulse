@@ -21,10 +21,6 @@ cp -R Extensions/Chrome "$APP/Contents/Resources/ChromeExtension"
 cp -R FigmaCompanion "$APP/Contents/Resources/FigmaCompanion"
 # Авторы и лицензии чужих материалов: Solar Icons (CC BY 4.0), Lottie (Apache 2.0).
 cp -R Resources/Licenses "$APP/Contents/Resources/Licenses"
-# Посредник для «Музыки»: фреймворк не линкуется, его загружает системный perl.
-mkdir -p "$APP/Contents/Resources/MediaAdapter"
-cp Vendor/mediaremote-adapter/bin/mediaremote-adapter.pl "$APP/Contents/Resources/MediaAdapter/"
-scripts/build-media-adapter.sh "$APP/Contents/Resources/MediaAdapter"
 # Lottie — готовый фреймворк (lottie-spm): исходники lottie-ios без Xcode не собираются.
 mkdir -p "$APP/Contents/Frameworks"
 cp -R "$BIN/Lottie.framework" "$APP/Contents/Frameworks/"
@@ -49,8 +45,7 @@ codesign --force --sign "$IDENTITY" "$APP/Contents/Frameworks/Lottie.framework"
 codesign --force --sign "$IDENTITY" "$APP/Contents/Frameworks/libonnxruntime.dylib"
 codesign --force --sign "$IDENTITY" "$APP/Contents/Frameworks/libsherpa-onnx-c-api.dylib"
 codesign --force --sign "$IDENTITY" --options runtime --entitlements Resources/PulseASR.entitlements "$APP/Contents/MacOS/pulse-asr"
-codesign --force --sign "$IDENTITY" "$APP/Contents/Resources/MediaAdapter/MediaRemoteAdapter.framework"
-# Hardened runtime с entitlements: иначе macOS молча откажет в Календарях, микрофоне и Automation.
+# Hardened runtime с entitlements: для микрофона и распознавания речи.
 codesign --force --sign "$IDENTITY" --options runtime --entitlements Resources/AgentPulse.entitlements "$APP"
 
 echo "$APP"

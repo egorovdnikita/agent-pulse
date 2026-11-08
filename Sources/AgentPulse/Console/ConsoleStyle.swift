@@ -30,8 +30,6 @@ enum ConsoleStyle {
     /// Отступ страницы от края панели и радиусы: внутренний и внешний концентричны.
     static let inset = 18.0
     static let cardRadius = 20.0
-    /// Календарь: карточки мельче, как у референса.
-    static let calendarRadius = 16.0
     static let surfaceRadius = cardRadius + inset
     static let cardPadding = 14.0
     static let cardGap = 12.0
@@ -374,13 +372,6 @@ enum ConsoleSheet {
             model.tab = tab.id
             write(PanelPreview(model: model), size: panel, to: folder.appending(path: "\(tab.id.rawValue).png"))
         }
-        for scope in [CalendarScope.week, .month] {
-            model.tab = .calendar
-            model.calendarScope = scope
-            write(PanelPreview(model: model), size: panel, to: folder.appending(path: "calendar-\(scope.rawValue).png"))
-        }
-        model.calendarScope = .day
-
         // Выделенные файлы.
         model.tab = .shelf
         model.selectAllShelf()
@@ -388,7 +379,7 @@ enum ConsoleSheet {
         model.clearShelfSelection()
 
 
-        // Перевод: шесть страниц — самая тесная строка навигации.
+        // Перевод: четыре страницы Пульта.
         if let text = model.pressTranslate(selection: "Привет, это проверка перевода", clipboard: nil) {
             model.finishTranslate(source: text, result: .success("Hello, this is a translation check"))
             model.showPanelNow()
@@ -411,8 +402,7 @@ enum ConsoleSheet {
         // Пустые страницы.
         model.showPanelNow()
         model.clearShelf()
-        model.updateCalendar([])
-        for tab in [ConsoleModuleID.shelf, .calendar] {
+        for tab in [ConsoleModuleID.shelf] {
             model.tab = tab
             write(PanelPreview(model: model), size: panel, to: folder.appending(path: "\(tab.rawValue)-empty.png"))
         }
@@ -430,9 +420,6 @@ enum ConsoleSheet {
             model.tab = tab.id
             write(PanelPreview(model: model), size: panel, to: folder.appending(path: "stress-\(tab.id.rawValue).png"))
         }
-        model.calendarScope = .week
-        model.tab = .calendar
-        write(PanelPreview(model: model), size: panel, to: folder.appending(path: "stress-week.png"))
     }
 
     private static func write(_ view: some View, size: CGSize, to url: URL) {
