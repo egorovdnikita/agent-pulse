@@ -126,7 +126,6 @@ struct SettingsRoot: View {
             }
             .safeAreaInset(edge: .top, spacing: 0) {
                 SidebarSearch(text: $selection.query)
-                    .frame(height: 28)
                     .padding(.horizontal, 10)
                     // Поле под кнопками окна; между кнопками, полем и разделами воздух как у системы.
                     .padding(.top, 34)
@@ -179,34 +178,31 @@ private extension AppDelegate {
     }
 }
 
-/// Системное поле поиска: его место задаём сами, поиск SwiftUI в колонке стоит ниже, чем у Системных настроек.
-private struct SidebarSearch: NSViewRepresentable {
+/// Поиск как в Системных настройках: капсула 28 pt с системной заливкой, лупа и крестик — SF Symbols.
+/// Системное поле поиска выше 24 pt не растягивается.
+private struct SidebarSearch: View {
     @Binding var text: String
 
-    func makeCoordinator() -> Coordinator { Coordinator(text: $text) }
-
-    func makeNSView(context: Context) -> NSSearchField {
-        let field = NSSearchField()
-        field.placeholderString = "Поиск"
-        // Размер поля Системных настроек: 28 pt, крупный значок и текст.
-        if #available(macOS 26, *) { field.controlSize = .extraLarge } else { field.controlSize = .large }
-        field.delegate = context.coordinator
-        return field
-    }
-
-    func updateNSView(_ field: NSSearchField, context: Context) {
-        if field.stringValue != text { field.stringValue = text }
-    }
-
-    final class Coordinator: NSObject, NSSearchFieldDelegate {
-        let text: Binding<String>
-
-        init(text: Binding<String>) { self.text = text }
-
-        func controlTextDidChange(_ notification: Notification) {
-            guard let field = notification.object as? NSSearchField else { return }
-            MainActor.assumeIsolated { text.wrappedValue = field.stringValue }
+    var body: some View {
+        HStack(spacing: 6) {
+            Image(systemName: "magnifyingglass")
+                .font(.system(size: 13, weight: .medium))
+                .foregroundStyle(.secondary)
+            TextField("Поиск", text: $text)
+                .textFieldStyle(.plain)
+                .font(.system(size: 13))
+                .onExitCommand { text = "" }
+            if !text.isEmpty {
+                Button { text = "" } label: {
+                    Image(systemName: "xmark.circle.fill").foregroundStyle(.secondary)
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("Очистить поиск")
+            }
         }
+        .padding(.horizontal, 9)
+        .frame(height: 28)
+        .background(.quaternary, in: Capsule())
     }
 }
 
