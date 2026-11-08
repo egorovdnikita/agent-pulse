@@ -127,9 +127,9 @@ struct SettingsRoot: View {
             .safeAreaInset(edge: .top, spacing: 0) {
                 SidebarSearch(text: $selection.query)
                     .padding(.horizontal, 10)
-                    // Поле сразу под кнопками окна.
-                    .padding(.top, 34)
-                    .padding(.bottom, 6)
+                    // Поле под кнопками окна; между кнопками, полем и разделами воздух как у системы.
+                    .padding(.top, 36)
+                    .padding(.bottom, 8)
             }
             .ignoresSafeArea(.container, edges: .top)
             .frame(width: 220)
@@ -187,7 +187,8 @@ private struct SidebarSearch: NSViewRepresentable {
     func makeNSView(context: Context) -> NSSearchField {
         let field = NSSearchField()
         field.placeholderString = "Поиск"
-        field.controlSize = .large
+        // Размер поля Системных настроек: 28 pt, крупный значок и текст.
+        if #available(macOS 26, *) { field.controlSize = .extraLarge } else { field.controlSize = .large }
         field.delegate = context.coordinator
         return field
     }
