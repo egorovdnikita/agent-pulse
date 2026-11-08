@@ -164,7 +164,8 @@ struct SettingsIcon: View {
         let shape = RoundedRectangle(cornerRadius: size * 0.24, style: .continuous)
         // Как у Системных настроек: контурный белый символ, плашка светлее сверху, тонкая светлая окантовка.
         Image(systemName: name)
-            .font(.system(size: size * 0.62, weight: .regular))
+            // Знак 15 pt на плашке 20 pt — как у Системных настроек (замер их колонки).
+            .font(.system(size: size * 0.72, weight: .regular))
             .foregroundStyle(.white)
             .frame(width: size, height: size)
             .background {
