@@ -120,7 +120,7 @@ struct SettingsRoot: View {
                 }
             )) {
                 ForEach(tabs, id: \.self) { tab in
-                    Label { Text(tab.title) } icon: { SettingsIcon(name: tab.icon, tint: tab.tint) }
+                    Label { Text(tab.title) } icon: { SectionIcon(tab: tab) }
                         .tag(tab)
                 }
             }
@@ -177,6 +177,44 @@ private extension AppDelegate {
                 self.startSenses()
             }
         )
+    }
+}
+
+/// Значок раздела — настоящий значок из Системных настроек. Нет такого на этой macOS — своя плашка.
+private struct SectionIcon: View {
+    let tab: SettingsNavigation.Tab
+
+    var body: some View {
+        if let image = Self.image(tab) {
+            Image(nsImage: image).resizable().interpolation(.high).frame(width: 20, height: 20)
+        } else {
+            SettingsIcon(name: tab.icon, tint: tab.tint)
+        }
+    }
+
+    private static let extensions = "/System/Library/ExtensionKit/Extensions/"
+
+    /// Ближайший по смыслу раздел Системных настроек.
+    static func path(_ tab: SettingsNavigation.Tab) -> String {
+        switch tab {
+        case .general: "/System/Applications/System Settings.app"
+        case .character: extensions + "FocusSettingsExtension.appex"
+        case .sources: extensions + "SiriPreferenceExtension.appex"
+        case .console: extensions + "ControlCenterSettings.appex"
+        case .news: extensions + "NotificationsSettings.appex"
+        case .lab: extensions + "AboutExtension.appex"
+        }
+    }
+
+    @MainActor private static var cache: [SettingsNavigation.Tab: NSImage] = [:]
+
+    @MainActor static func image(_ tab: SettingsNavigation.Tab) -> NSImage? {
+        if let cached = cache[tab] { return cached }
+        let path = path(tab)
+        guard FileManager.default.fileExists(atPath: path) else { return nil }
+        let image = NSWorkspace.shared.icon(forFile: path)
+        cache[tab] = image
+        return image
     }
 }
 
