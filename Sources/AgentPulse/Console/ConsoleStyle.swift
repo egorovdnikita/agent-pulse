@@ -162,7 +162,7 @@ struct LimitGauge: View {
 
     private var bottom: String {
         guard let reading else { return "—" }
-        return reading.resetsAt.map { LimitText.gaugeReset($0, now: now) } ?? " "
+        return LimitText.gaugeReset(reading, now: now)
     }
 
     private func arc(to fraction: Double) -> some Shape {

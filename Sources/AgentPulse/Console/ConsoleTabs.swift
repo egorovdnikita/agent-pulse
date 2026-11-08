@@ -220,7 +220,7 @@ struct ShelfTab: View {
             if model.shelf.items.isEmpty {
                 VStack(spacing: 24) {
                     LibraryCharacter(skin: model.librarySkin, paused: !model.expanded)
-                    VStack(spacing: 4) {
+                    VStack(spacing: 8) {
                         Text("Перетащите сюда файлы, чтобы держать их под рукой")
                             .font(ConsoleStyle.font(14, .medium)).foregroundStyle(ConsoleStyle.text)
                         Text("До 20 файлов. Полка очищается при выходе из приложения")
@@ -617,7 +617,11 @@ struct TranslateTab: View {
 
     @ViewBuilder private var output: some View {
         switch model.translate.state {
-        case .idle: ConsoleEmpty(icon: "chat-round-dots", title: "Здесь будет перевод")
+        case .idle:
+            Text("Перевод")
+                .font(ConsoleStyle.font(14, .medium))
+                .foregroundStyle(ConsoleStyle.caption)
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         case .askToCopy: ConsoleEmpty(icon: "chat-round-dots", title: "Выделение не прочиталось", hint: TranslateModule.askToCopyHint)
         case .working: ConsoleEmpty(icon: "chat-round-dots", title: "Перевожу…")
         case .failed(let problem):

@@ -242,6 +242,14 @@ public enum LimitText {
         return text.hasPrefix("через ") ? String(text.dropFirst(6)) : text
     }
 
+    /// Пятичасовое окно показывает оставшееся ожидание; недельное — дату/время сброса.
+    public static func gaugeReset(_ reading: LimitReading, now: Date, calendar: Calendar = .current) -> String {
+        guard let resetsAt = reading.resetsAt else { return " " }
+        guard reading.kind == .fiveHour else { return gaugeReset(resetsAt, now: now, calendar: calendar) }
+        let text = countdown(resetsAt, now: now)
+        return text.hasPrefix("через ") ? String(text.dropFirst(6)) : text
+    }
+
     /// «19:00» сегодня, «пт 19:00» на другой день.
     public static func clock(_ date: Date, now: Date, calendar: Calendar = .current) -> String {
         let parts = calendar.dateComponents([.hour, .minute], from: date)
