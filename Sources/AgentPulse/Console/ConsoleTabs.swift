@@ -777,7 +777,7 @@ struct MediaTab: View {
     }
 
     private func player(_ playing: NowPlaying) -> some View {
-        HStack(spacing: 16) {
+        HStack(spacing: 20) {
             Group {
                 if let artwork = model.artwork {
                     Image(nsImage: artwork).resizable().scaledToFill()
@@ -938,7 +938,7 @@ struct PrompterTab: View {
     @Bindable var model: ConsoleModel
 
     var body: some View {
-        HStack(spacing: 8) {
+        HStack(spacing: ConsoleStyle.cardGap) {
             if model.prompter.isActive {
                 running
             } else if model.prompterRecentOpen {
@@ -1116,7 +1116,7 @@ struct TranslateTab: View {
     }
 
     var body: some View {
-        HStack(spacing: 8) {
+        HStack(spacing: ConsoleStyle.cardGap) {
             source
             ConsoleCard { output }
         }
@@ -1156,6 +1156,7 @@ struct TranslateTab: View {
                         .allowsHitTesting(false)
                 }
             }
+            .padding(.bottom, ConsoleStyle.cardPadding)
         }
         .background(ConsoleStyle.card, in: RoundedRectangle(cornerRadius: ConsoleStyle.cardRadius, style: .continuous))
     }
@@ -1180,11 +1181,13 @@ struct TranslateTab: View {
             VStack(alignment: .leading, spacing: 8) {
                 ScrollView {
                     Text(result)
-                        .font(ConsoleStyle.font(15, .medium))
+                        .font(ConsoleStyle.font(13))
                         .foregroundStyle(.white)
                         .textSelection(.enabled)
                         .frame(maxWidth: .infinity, alignment: .leading)
                 }
+                // Текст на одной высоте с полем слева: 8 + 20 + 12 против поля карточки 14.
+                .padding(.top, 26)
                 HStack(spacing: 8) {
                     PrompterSmallButton(title: model.translateCopied ? "Скопировано" : "Скопировать", strong: !model.translateCopied) {
                         model.copyTranslation(result)

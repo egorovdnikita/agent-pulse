@@ -34,8 +34,10 @@ enum ConsoleStyle {
     static let calendarRadius = 16.0
     static let surfaceRadius = cardRadius + inset
     static let cardPadding = 14.0
+    static let cardGap = 12.0
+    static let cardHeader = 22.0
 
-    static let gaugeSize = 96.0
+    static let gaugeSize = 88.0
     static let gaugeLine = 7.0
 
     /// Открытие с лёгкой отдачей, закрытие без перелёта.
@@ -157,7 +159,7 @@ struct LimitGauge: View {
             }
             VStack(spacing: 0) {
                 Text(reading.map { "\($0.usedPercent)%" } ?? "—")
-                    .font(ConsoleStyle.font(20, .semibold))
+                    .font(ConsoleStyle.font(22, .semibold))
                     .monospacedDigit()
                     .foregroundStyle(exhausted ? ConsoleStyle.red : reading == nil ? ConsoleStyle.caption : .white)
                 Text(kind.title)
@@ -233,9 +235,9 @@ struct ConsoleEmpty: View {
         VStack(spacing: 6) {
             Image(nsImage: SolarIcons.image(icon) ?? NSImage())
                 .resizable()
-                .frame(width: 28, height: 28)
+                .frame(width: 22, height: 22)
                 .foregroundStyle(ConsoleStyle.caption)
-            Text(title).font(ConsoleStyle.font(13, .medium)).foregroundStyle(.white)
+            Text(title).font(ConsoleStyle.font(15, .medium)).foregroundStyle(.white)
             if let hint {
                 Text(hint)
                     .font(ConsoleStyle.font(11))
