@@ -133,7 +133,8 @@ struct SettingsRoot: View {
                     .padding(.horizontal, 10)
                     // Поле под кнопками окна; между кнопками, полем и разделами воздух как у системы.
                     .padding(.top, 34)
-                    .padding(.bottom, 0)
+                    // От поиска до первого раздела 14 pt: у Системных настроек 13–14 (замер их окна).
+                    .padding(.bottom, 4)
             }
             .ignoresSafeArea(.container, edges: .top)
             .frame(width: 220)
