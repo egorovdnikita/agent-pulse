@@ -133,6 +133,7 @@ struct ModuleCard<Options: View>: View {
     let title: String
     let summary: String
     let icon: String
+    var tint: Color = Color(nsColor: .systemGray)
     let isOn: Bool
     let toggle: (Bool) -> Void
     @ViewBuilder let options: Options
@@ -144,7 +145,7 @@ struct ModuleCard<Options: View>: View {
                     Text(title)
                     Text(summary)
                 } icon: {
-                    SettingsIcon(name: icon)
+                    SettingsIcon(name: icon, tint: tint)
                 }
             }
             if isOn { options }
@@ -153,15 +154,20 @@ struct ModuleCard<Options: View>: View {
     }
 }
 
-/// Значок из box-ui в системной подписи: шаблон, красит система.
+/// Значок как в Системных настройках: белый знак на цветной скруглённой плашке. Знаки — из box-ui.
 struct SettingsIcon: View {
     let name: String
+    var tint: Color = Color(nsColor: .systemGray)
 
     var body: some View {
         Image(nsImage: SolarIcons.image(name) ?? NSImage())
             .resizable()
             .scaledToFit()
-            .frame(width: 16, height: 16)
+            .foregroundStyle(.white)
+            .frame(width: 14, height: 14)
+            .frame(width: 20, height: 20)
+            .background(tint.gradient, in: RoundedRectangle(cornerRadius: 5, style: .continuous))
+            .accessibilityHidden(true)
     }
 }
 

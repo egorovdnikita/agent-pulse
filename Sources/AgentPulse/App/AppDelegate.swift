@@ -870,7 +870,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
             controller.sizingOptions = [.minSize]
             controller.sceneBridgingOptions = [.title, .toolbars]
             let window = NSWindow(contentViewController: controller)
-            window.title = "Настройки"
+            // Заголовок — название раздела, его ставит сама форма, как в Системных настройках.
             window.styleMask = [.titled, .closable, .miniaturizable, .resizable, .fullSizeContentView]
             window.toolbarStyle = .unified
             window.setContentSize(SettingsWindow.size)

@@ -29,6 +29,18 @@ enum SettingsNavigation {
             }
         }
 
+        /// Цвет плашки, как у разделов Системных настроек.
+        var tint: Color {
+            switch self {
+            case .general: Color(nsColor: .systemGray)
+            case .character: Color(nsColor: .systemOrange)
+            case .sources: Color(nsColor: .systemPurple)
+            case .console: Color(nsColor: .systemBlue)
+            case .news: Color(nsColor: .systemPink)
+            case .lab: Color(nsColor: .systemGreen)
+            }
+        }
+
         var icon: String {
             switch self {
             case .general: "settings"
@@ -89,7 +101,7 @@ struct SettingsRoot: View {
                 }
             )) {
                 ForEach(tabs, id: \.self) { tab in
-                    Label { Text(tab.title) } icon: { SettingsIcon(name: tab.icon) }
+                    Label { Text(tab.title) } icon: { SettingsIcon(name: tab.icon, tint: tab.tint) }
                         .tag(tab)
                 }
             }
@@ -319,11 +331,11 @@ private struct ConsoleSettings: View {
     let selection: SettingsSelection
 
     private func card<Options: View>(
-        _ title: String, _ summary: String, icon: String, isOn: Bool, toggle: @escaping (Bool) -> Void,
+        _ title: String, _ summary: String, icon: String, tint: Color, isOn: Bool, toggle: @escaping (Bool) -> Void,
         @ViewBuilder options: () -> Options
     ) -> some View {
         ModuleCard(
-            title: title, summary: summary, icon: icon, isOn: isOn, toggle: toggle, options: options
+            title: title, summary: summary, icon: icon, tint: tint, isOn: isOn, toggle: toggle, options: options
         )
     }
 
@@ -342,12 +354,12 @@ private struct ConsoleSettings: View {
                     .disabled(!settings.enabled)
             }
             Group {
-                card("Лимиты", "Сколько осталось у Claude и Codex", icon: "pie-chart-2", isOn: settings.limits, toggle: { app.setLimitsEnabled($0) }) {
+                card("Лимиты", "Сколько осталось у Claude и Codex", icon: "pie-chart-2", tint: Color(nsColor: .systemGreen), isOn: settings.limits, toggle: { app.setLimitsEnabled($0) }) {
                     ModuleOption {
                         Button("Подключить в разделе «Агенты»") { app.showSettings(.sources, anchor: "Лимиты") }
                     }
                 }
-                card("Суфлёр", "Текст под камерой", icon: "document-text", isOn: settings.prompter, toggle: { app.setPrompterEnabled($0) }) {
+                card("Суфлёр", "Текст под камерой", icon: "document-text", tint: Color(nsColor: .systemOrange), isOn: settings.prompter, toggle: { app.setPrompterEnabled($0) }) {
                     ModuleOption {
                         SettingsPicker("Размер текста", selection: Binding(get: { settings.prompterTextSize }, set: { app.setPrompterTextSize($0) })) {
                             ForEach(PrompterTextSize.allCases, id: \.self) { Text($0.title).tag($0) }
@@ -369,13 +381,13 @@ private struct ConsoleSettings: View {
                     ModuleOption { ShortcutRow(title: "Скорость", keys: "⌃⌥↑ ⌃⌥↓") }
                     ModuleOption { ShortcutRow(title: "Строка назад и вперёд", keys: "⌃⌥← ⌃⌥→") }
                 }
-                card("Календарь", "Встречи и кнопка «Войти»", icon: "calendar", isOn: settings.calendar, toggle: { app.setCalendarEnabled($0) }) {
+                card("Календарь", "Встречи и кнопка «Войти»", icon: "calendar", tint: Color(nsColor: .systemRed), isOn: settings.calendar, toggle: { app.setCalendarEnabled($0) }) {
                     ModuleOption {
                         Text("Спросит доступ к Календарям, только чтение. Идущий звонок включает тишину маскота")
                             .font(SettingsStyle.caption).foregroundStyle(SettingsStyle.muted)
                     }
                 }
-                card("Файлы", "Полка для файлов под рукой", icon: "folder-with-files", isOn: settings.shelf, toggle: { app.setShelfEnabled($0) }) {
+                card("Файлы", "Полка для файлов под рукой", icon: "folder-with-files", tint: Color(nsColor: .systemBlue), isOn: settings.shelf, toggle: { app.setShelfEnabled($0) }) {
                     ModuleOption {
                         Toggle(isOn: Binding(get: { settings.shelfScreenshots }, set: { app.setShelfScreenshots($0) })) {
                             Text("Новые снимки экрана")
@@ -385,15 +397,15 @@ private struct ConsoleSettings: View {
                 }
                 card(
                     "Музыка", model.console.media.availability == .unavailable ? "Недоступно на этой системе" : "Что играет и управление",
-                    icon: "music-note", isOn: settings.music, toggle: { app.setMusicEnabled($0) }
+                    icon: "music-note", tint: Color(nsColor: .systemPink), isOn: settings.music, toggle: { app.setMusicEnabled($0) }
                 ) {
                     EmptyView()
                 }
-                card("Диктовка", "Зажми клавишу, говори, отпусти", icon: "microphone-2", isOn: settings.dictation, toggle: { app.setDictationEnabled($0) }) {
+                card("Диктовка", "Зажми клавишу, говори, отпусти", icon: "microphone-2", tint: Color(nsColor: .systemIndigo), isOn: settings.dictation, toggle: { app.setDictationEnabled($0) }) {
                     DictationOptions(model: model, app: app, controller: app.dictation)
                 }
                 if ConsoleTranslator.isAvailable {
-                    card("Перевод", "Русский и английский на этом Mac", icon: "chat-round-dots", isOn: settings.translator, toggle: { app.setTranslatorEnabled($0) }) {
+                    card("Перевод", "Русский и английский на этом Mac", icon: "chat-round-dots", tint: Color(nsColor: .systemTeal), isOn: settings.translator, toggle: { app.setTranslatorEnabled($0) }) {
                         TranslatorOptions(model: model, app: app)
                     }
                 }
