@@ -212,9 +212,32 @@ private struct SectionIcon: View {
         if let cached = cache[tab] { return cached }
         let path = path(tab)
         guard FileManager.default.fileExists(atPath: path) else { return nil }
-        let image = NSWorkspace.shared.icon(forFile: path)
+        let image = trimmed(NSWorkspace.shared.icon(forFile: path))
         cache[tab] = image
         return image
+    }
+
+    /// Значки приходят с прозрачными полями, у каждого своими: без них плашка ровно 20 pt, как у системы.
+    private static func trimmed(_ icon: NSImage) -> NSImage {
+        let side = 128
+        var rect = CGRect(x: 0, y: 0, width: side, height: side)
+        guard let cg = icon.cgImage(forProposedRect: &rect, context: nil, hints: nil),
+              let context = CGContext(
+                  data: nil, width: side, height: side, bitsPerComponent: 8, bytesPerRow: side * 4,
+                  space: CGColorSpaceCreateDeviceRGB(), bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue
+              ) else { return icon }
+        context.draw(cg, in: CGRect(x: 0, y: 0, width: side, height: side))
+        guard let data = context.data?.assumingMemoryBound(to: UInt8.self), let full = context.makeImage() else { return icon }
+        var (minX, minY, maxX, maxY) = (side, side, -1, -1)
+        for y in 0..<side {
+            for x in 0..<side where data[(y * side + x) * 4 + 3] > 24 {
+                minX = min(minX, x); maxX = max(maxX, x); minY = min(minY, y); maxY = max(maxY, y)
+            }
+        }
+        guard maxX > minX, maxY > minY,
+              let cropped = full.cropping(to: CGRect(x: minX, y: minY, width: maxX - minX + 1, height: maxY - minY + 1))
+        else { return icon }
+        return NSImage(cgImage: cropped, size: NSSize(width: 20, height: 20))
     }
 }
 
