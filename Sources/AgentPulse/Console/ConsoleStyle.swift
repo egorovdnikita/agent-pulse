@@ -136,10 +136,9 @@ struct LimitGauge: View {
             VStack(spacing: 8) {
                 VStack(spacing: 0) {
                     Text(reading.map { "\($0.usedPercent)%" } ?? "—")
-                        .font(Font(NSFont(name: "Coolvetica-HeavyComp", size: 40)
-                            ?? NSFont.systemFont(ofSize: 40, weight: .heavy)))
+                        .font(ConsoleStyle.font(20, .semibold))
                         .foregroundStyle(reading == nil ? ConsoleStyle.caption : ConsoleStyle.text)
-                        .frame(height: 48)
+                        .frame(height: 24)
                     Text(kind.title)
                         .font(ConsoleStyle.font(12, .medium))
                         .foregroundStyle(ConsoleStyle.caption)
