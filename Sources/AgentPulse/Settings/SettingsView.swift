@@ -130,10 +130,10 @@ struct SettingsRoot: View {
             .safeAreaInset(edge: .top, spacing: 0) {
                 SidebarSearch(text: $selection.query)
                     .padding(.horizontal, 10)
-                    .padding(.top, 14)
+                    .padding(.top, 4)
                     .padding(.bottom, 6)
             }
-            .navigationSplitViewColumnWidth(min: 240, ideal: 260, max: 320)
+            .navigationSplitViewColumnWidth(260)
             .toolbar(removing: .sidebarToggle)
         } detail: {
             SettingsWindow.content(selection.tab, app: app, selection: selection)

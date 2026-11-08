@@ -885,6 +885,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         NSApp.setActivationPolicy(.regular)
         NSApp.activate()
         settingsWindow?.makeKeyAndOrderFront(nil)
+        // Как у Системных настроек: при открытии курсор не в поиске.
+        settingsWindow?.makeFirstResponder(nil)
     }
 
     /// Клик по иконке в Dock или повторный запуск из Launchpad — открыть настройки.
