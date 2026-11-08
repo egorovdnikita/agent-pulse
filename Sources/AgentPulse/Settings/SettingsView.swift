@@ -124,9 +124,14 @@ struct SettingsRoot: View {
                         .tag(tab)
                 }
             }
-            .navigationSplitViewColumnWidth(min: 200, ideal: 215, max: 280)
+            .safeAreaInset(edge: .top, spacing: 0) {
+                SidebarSearch(text: $selection.query)
+                    .padding(.horizontal, 10)
+                    .padding(.top, 14)
+                    .padding(.bottom, 6)
+            }
+            .navigationSplitViewColumnWidth(min: 240, ideal: 260, max: 320)
             .toolbar(removing: .sidebarToggle)
-            .searchable(text: $selection.query, placement: .sidebar, prompt: "Поиск")
         } detail: {
             SettingsWindow.content(selection.tab, app: app, selection: selection)
                 .id(selection.tab)
@@ -155,6 +160,36 @@ private extension AppDelegate {
                 self.startSenses()
             }
         )
+    }
+}
+
+/// Системное поле поиска: его место задаём сами, поиск SwiftUI в колонке стоит ниже, чем у Системных настроек.
+private struct SidebarSearch: NSViewRepresentable {
+    @Binding var text: String
+
+    func makeCoordinator() -> Coordinator { Coordinator(text: $text) }
+
+    func makeNSView(context: Context) -> NSSearchField {
+        let field = NSSearchField()
+        field.placeholderString = "Поиск"
+        field.controlSize = .large
+        field.delegate = context.coordinator
+        return field
+    }
+
+    func updateNSView(_ field: NSSearchField, context: Context) {
+        if field.stringValue != text { field.stringValue = text }
+    }
+
+    final class Coordinator: NSObject, NSSearchFieldDelegate {
+        let text: Binding<String>
+
+        init(text: Binding<String>) { self.text = text }
+
+        func controlTextDidChange(_ notification: Notification) {
+            guard let field = notification.object as? NSSearchField else { return }
+            MainActor.assumeIsolated { text.wrappedValue = field.stringValue }
+        }
     }
 }
 
