@@ -22,7 +22,7 @@ private struct LimitSide: View {
         HStack(spacing: ConsoleLook.sideGap) {
             ServiceMark(service: ring.service, size: ConsoleLook.mark)
             Text(ring.figure)
-                .font(ConsoleStyle.font(15, .medium))
+                .font(ConsoleStyle.font(14, .medium))
                 .monospacedDigit()
                 .foregroundStyle(.white)
                 .lineLimit(1)
@@ -116,7 +116,7 @@ private struct CapsuleBody: View {
         }
         .padding(.horizontal, model.showsDot ? 0 : ConsoleLook.padding)
         .frame(width: model.capsuleWidth, height: model.capsuleHeight)
-        .background(Color.black)
+        .background(ConsoleStyle.surface)
         .clipShape(Capsule())
         // Края нет, как у меню: форму отделяет тень. Обводка — только сигнал.
         .overlay { if let accent { Capsule().strokeBorder(accent, lineWidth: 1.5) } }
@@ -135,30 +135,26 @@ private struct LimitCard: View {
     var body: some View {
         let readings = LimitWindowKind.allCases.map { (kind: $0, reading: model.limits.book.reading(service, $0, now: model.now)) }
         ConsoleCard {
-            VStack(alignment: .leading, spacing: 0) {
-                HStack(spacing: 6) {
+            VStack(alignment: .leading, spacing: 22) {
+                HStack(spacing: 4) {
                     ServiceMark(service: service, size: 17)
-                    Text(service.title).font(ConsoleStyle.font(17, .semibold)).foregroundStyle(.white).lineLimit(1)
+                    Text(service.title).font(ConsoleStyle.font(16, .semibold)).foregroundStyle(ConsoleStyle.text).lineLimit(1)
                     Spacer(minLength: 0)
                     if readings.allSatisfy({ $0.reading == nil }) {
                         Button("Подключить") { model.onOpenSettings?("Лимиты") }
                             .buttonStyle(ConsolePressStyle())
-                            .font(.system(size: 11, weight: .semibold))
-                            .foregroundStyle(.white)
+                            .font(ConsoleStyle.font(12, .medium))
+                            .foregroundStyle(ConsoleStyle.green)
                     } else {
-                        // Процент — расход: у похожих приложений такое же число значит остаток.
-                        Text("использовано").font(ConsoleStyle.font(11)).foregroundStyle(ConsoleStyle.caption).lineLimit(1)
                         chip(readings.map(\.reading))
                     }
                 }
                 .frame(height: ConsoleStyle.cardHeader)
-                Spacer(minLength: 10)
                 HStack(spacing: 12) {
                     ForEach(readings, id: \.kind) { item in
                         LimitGauge(reading: item.reading, kind: item.kind, now: model.now).frame(maxWidth: .infinity)
                     }
                 }
-                Spacer(minLength: 0)
             }
         }
     }
@@ -167,7 +163,7 @@ private struct LimitCard: View {
         let known = readings.compactMap { $0 }
         let title = known.isEmpty ? "Нет данных" : known.contains(where: \.stale) ? "Устарело" : "Свежие"
         return Text(title)
-            .font(.system(size: 11, weight: .semibold))
+            .font(ConsoleStyle.font(12, .semibold))
             .foregroundStyle(title == "Свежие" ? ConsoleStyle.green : ConsoleStyle.caption)
             .lineLimit(1)
     }
@@ -177,7 +173,7 @@ private struct LimitsTab: View {
     let model: ConsoleModel
 
     var body: some View {
-        HStack(spacing: ConsoleStyle.cardGap) {
+        HStack(spacing: 8) {
             ForEach(LimitService.allCases, id: \.self) { LimitCard(model: model, service: $0) }
         }
     }
@@ -188,13 +184,13 @@ private struct PageTabs: View {
     let model: ConsoleModel
 
     var body: some View {
-        HStack(spacing: 14) {
+        HStack(spacing: 12) {
             ForEach(model.tabs, id: \.id) { tab in
                 Button { model.openPage(tab.id) } label: {
                     // Вес один: иначе при смене страницы соседние слова сдвигаются.
                     Text(tab.title)
-                        .font(ConsoleStyle.font(13, .medium))
-                        .foregroundStyle(model.tab == tab.id ? .white : ConsoleStyle.caption)
+                        .font(ConsoleStyle.font(12, .medium))
+                        .foregroundStyle(model.tab == tab.id ? ConsoleStyle.text : ConsoleStyle.subtle)
                         .lineLimit(1)
                         .fixedSize()
                         .frame(height: ConsoleLook.tabs)
@@ -208,17 +204,12 @@ private struct PageTabs: View {
                 model.setExpanded(false)
                 model.onOpenSettings?(nil)
             } label: {
-                Image(nsImage: SolarIcons.image("settings") ?? NSImage())
-                    .resizable()
-                    .frame(width: 18, height: 18)
-                    .foregroundStyle(.white)
-                    .opacity(ConsoleStyle.iconOpacity)
+                ConsoleAsset(name: "settings", width: 20, height: 20, tint: ConsoleStyle.caption)
                     .frame(width: ConsoleLook.tabs, height: ConsoleLook.tabs, alignment: .trailing)
                     .contentShape(Rectangle())
             }
             .buttonStyle(ConsolePressStyle())
             // У значка своё поле 2 pt: иначе он не встаёт по правому краю карточек.
-            .offset(x: 2)
             .accessibilityLabel("Настройки")
         }
     }
@@ -231,8 +222,8 @@ private struct ExpandedBody: View {
         let reduce = NSWorkspace.shared.accessibilityDisplayShouldReduceMotion
         VStack(alignment: .leading, spacing: 0) {
             PageTabs(model: model)
-                .padding(.horizontal, ConsoleStyle.inset)
-                .padding(.top, 12)
+                .padding(.horizontal, ConsoleStyle.inset + 8)
+                .padding(.top, 8)
             ZStack(alignment: .topLeading) {
                 // Страница едет целиком: анимация не проваливается внутрь, иначе текст и подложка двигаются порознь.
                 page
@@ -289,7 +280,7 @@ private struct PanelSurface<Content: View>: View {
         let radius = open ? ConsoleStyle.surfaceRadius : model.capsuleHeight / 2
         let shape = RoundedRectangle(cornerRadius: radius, style: .continuous)
         ZStack(alignment: alignment) {
-            shape.fill(Color.black).frame(width: width, height: height)
+            shape.fill(ConsoleStyle.surface).frame(width: width, height: height)
             content.mask(alignment: alignment) { shape.frame(width: width, height: height) }
         }
         .frame(width: ConsoleLayout.expandedWidth, height: ConsoleLayout.expandedHeight, alignment: alignment)

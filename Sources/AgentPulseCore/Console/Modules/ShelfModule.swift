@@ -13,9 +13,11 @@ public struct ShelfItem: Sendable, Equatable, Identifiable {
 /// Полка: ссылки на файлы, только в памяти. Выход из приложения очищает полку, сами файлы никто не трогает.
 public struct ShelfModule: ConsoleModule {
     public let id = ConsoleModuleID.shelf
-    public let title = "Файлы"
+    public let title = "Библиотека"
     public let accent: UInt32 = 0x5E5CE6
     public private(set) var items: [ShelfItem] = []
+
+    public static let capacity = 20
 
     public init() {}
 
@@ -30,7 +32,8 @@ public struct ShelfModule: ConsoleModule {
     }
 
     public mutating func add(_ urls: [URL]) -> [ToolSignal] {
-        let fresh = urls.filter { url in !items.contains { $0.url == url } }
+        var seen = Set(items.map(\.url))
+        let fresh = Array(urls.filter { seen.insert($0).inserted }.prefix(max(0, Self.capacity - items.count)))
         guard !fresh.isEmpty else { return [] }
         items.append(contentsOf: fresh.map(ShelfItem.init))
         return [.shelfChanged]

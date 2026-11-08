@@ -39,7 +39,7 @@ public struct TranslateModule: ConsoleModule {
     public static let askToCopyLength: TimeInterval = 60
 
     public let id = ConsoleModuleID.translate
-    public let title = "Перевод"
+    public let title = "Переводчик"
     public let accent: UInt32 = 0x5E5CE6
 
     public private(set) var state = State.idle

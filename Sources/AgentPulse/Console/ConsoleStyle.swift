@@ -3,40 +3,46 @@ import AppKit
 import CoreText
 import SwiftUI
 
-/// Язык Пульта: чёрная поверхность, карточки, дуговые шкалы и точки-страницы. Значения сняты с CapaTheNotch (MIT).
+/// Токены обновлённого макета Пульта.
 enum ConsoleStyle {
-    static let green = Color(hex: 0x30D158)
-    static let yellow = Color(hex: 0xFFD60A)
-    static let red = Color(hex: 0xFF453A)
-    static let orange = Color(hex: 0xFF9F0A)
-    static let blue = Color(hex: 0x0A84FF)
+    static let green = Color(hex: 0x22C55E)
+    static let yellow = Color(hex: 0xF59E0B)
+    static let red = Color(hex: 0xEF4444)
+    static let orange = Color(hex: 0xF59E0B)
+    static let blue = Color(hex: 0x0EA5E9)
     /// Акцент, когда над Пультом несут файл.
     static let dropAccent = Color.white.opacity(0.7)
 
-    static let caption = Color.white.opacity(0x8C / 255)
+    static let text = Color(hex: 0xFAFAFA)
+    static let surface = Color(hex: 0x0A0A0A)
+    static let subtle = Color(hex: 0x737373)
+    static let accent = Color(hex: 0x7279F5)
+    static let selection = Color(hex: 0x373375)
+    static let caption = Color(hex: 0xA3A3A3)
     /// Приглушённый значок: та же яркость, что у подписи.
     static let iconOpacity = 0x8C / 255.0
-    /// Дорожки ползунков и выключенные переключатели: не меньше 3:1 к карточке.
-    static let track = Color.white.opacity(0.32)
+    /// Дорожки ползунков из макета.
+    static let track = Color(hex: 0x262626)
     /// Дорожка шкалы спокойнее: это фон, главное в шкале — дуга и число.
-    static let gaugeTrack = Color.white.opacity(0x26 / 255)
-    static let card = Color.white.opacity(0x14 / 255)
-    static let button = Color.white.opacity(0x33 / 255)
+    static let gaugeTrack = Color(hex: 0x262626)
+    static let card = Color(hex: 0x171717)
+    static let button = Color(hex: 0x737373).opacity(0.24)
     /// Плитка файла.
-    static let tile = Color.white.opacity(0x1F / 255)
+    static let tile = card
     /// Край на тёмных обоях: у референса чёрное сливается со шторкой, Пульту сливаться не с чем.
     static let edge = Color.white.opacity(0.07)
 
     /// Отступ страницы от края панели и радиусы: внутренний и внешний концентричны.
-    static let inset = 18.0
+    static let inset = 8.0
     static let cardRadius = 20.0
-    static let surfaceRadius = cardRadius + inset
-    static let cardPadding = 14.0
+    static let surfaceRadius = 24.0
+    static let cardPadding = 12.0
     static let cardGap = 12.0
     static let cardHeader = 22.0
 
-    static let gaugeSize = 88.0
-    static let gaugeLine = 7.0
+    static let gaugeSize = 120.0
+    static let gaugeLine = 6.0
+    static let gaugeInset = 4.776
 
     /// Открытие с лёгкой отдачей, закрытие без перелёта.
     static func motion(opening: Bool, reduced: Bool) -> Animation {
@@ -62,22 +68,21 @@ enum ConsoleStyle {
     }
 
     static func font(_ size: Double, _ weight: Font.Weight = .regular) -> Font {
-        Font.custom("Geist", fixedSize: size).weight(weight)
+        let name = weight == .semibold ? "SemiBold" : weight == .bold ? "Bold" : weight == .medium ? "Medium" : "Regular"
+        return Font.custom("PulseSans-" + name, fixedSize: size)
     }
 
-    /// То же для мест, где текст меряет AppKit. Нет Geist — системный шрифт.
     static func nsFont(_ size: Double, _ weight: NSFont.Weight = .regular) -> NSFont {
-        let descriptor = NSFontDescriptor(fontAttributes: [
-            .family: "Geist",
-            .traits: [NSFontDescriptor.TraitKey.weight: weight.rawValue],
-        ])
-        return NSFont(descriptor: descriptor, size: size) ?? .systemFont(ofSize: size, weight: weight)
+        let name = weight == .semibold ? "SemiBold" : weight == .bold ? "Bold" : weight == .medium ? "Medium" : "Regular"
+        return NSFont(name: "PulseSans-" + name, size: size) ?? .systemFont(ofSize: size, weight: weight)
     }
 
-    /// Шрифт лежит в приложении и виден только ему.
     static func registerFont() {
-        guard let url = Bundle.main.url(forResource: "Geist", withExtension: "ttf") else { return }
-        CTFontManagerRegisterFontsForURL(url as CFURL, .process, nil)
+        for name in ["Inter-Regular", "Inter-Medium", "Inter-SemiBold", "Inter-Bold", "Coolvetica"] {
+            if let url = Bundle.main.url(forResource: name, withExtension: name == "Coolvetica" ? "otf" : "ttf") {
+                CTFontManagerRegisterFontsForURL(url as CFURL, .process, nil)
+            }
+        }
     }
 
     /// Цвет шкалы по зоне: как у светофора, сервис виден по значку.
@@ -105,39 +110,12 @@ struct ServiceMark: View {
         Group {
             switch service {
             case .claude:
-                ClaudeMark().foregroundStyle(ConsoleStyle.orange)
+                ConsoleAsset(name: "claude", width: size, height: size * 18 / 17)
             case .codex:
                 Image(nsImage: Self.openAI).renderingMode(.template).resizable().scaledToFit().foregroundStyle(.white)
             }
         }
         .frame(width: size, height: size)
-    }
-}
-
-/// Значок Claude: лучи из центра.
-private struct ClaudeMark: Shape {
-    func path(in rect: CGRect) -> Path {
-        let center = CGPoint(x: rect.midX, y: rect.midY)
-        let outer = min(rect.width, rect.height) / 2
-        let inner = outer * 0.12
-        let base = outer * 0.115
-        let tip = base * 0.34
-        let rays = 11
-        var path = Path()
-        for index in 0..<rays {
-            let angle = Double(index) / Double(rays) * 2 * .pi
-            let along = CGVector(dx: cos(angle), dy: sin(angle))
-            let across = CGVector(dx: -along.dy, dy: along.dx)
-            let point = { (distance: Double, offset: Double) in
-                CGPoint(x: center.x + along.dx * distance + across.dx * offset, y: center.y + along.dy * distance + across.dy * offset)
-            }
-            path.move(to: point(inner, -base))
-            path.addLine(to: point(outer, -tip))
-            path.addLine(to: point(outer, tip))
-            path.addLine(to: point(inner, base))
-            path.closeSubpath()
-        }
-        return path
     }
 }
 
@@ -149,30 +127,31 @@ struct LimitGauge: View {
 
     var body: some View {
         let used = reading.map { min(1, Double($0.usedPercent) / 100) }
-        let exhausted = reading?.zone == .exhausted
         ZStack {
-            arc(to: 1).stroke(exhausted ? ConsoleStyle.red.opacity(0.22) : ConsoleStyle.gaugeTrack, style: stroke)
-            if let reading, let used, !exhausted {
-                arc(to: used).stroke(ConsoleStyle.color(reading.zone), style: stroke).opacity(reading.stale ? 0.45 : 1)
+            arc(to: 1).stroke(ConsoleStyle.gaugeTrack, style: stroke)
+            if let reading, let used, used > 0 {
+                arc(to: used).stroke(ConsoleStyle.color(reading.zone), style: stroke)
+                    .opacity(reading.stale ? 0.45 : 1)
             }
-            VStack(spacing: 0) {
-                Text(reading.map { "\($0.usedPercent)%" } ?? "—")
-                    .font(ConsoleStyle.font(22, .semibold))
-                    .monospacedDigit()
-                    .foregroundStyle(exhausted ? ConsoleStyle.red : reading == nil ? ConsoleStyle.caption : .white)
-                Text(kind.title)
-                    .font(ConsoleStyle.font(11))
-                    .foregroundStyle(.white.opacity(0.6))
-                    .lineLimit(1)
-            }
-            VStack {
-                Spacer()
+            VStack(spacing: 8) {
+                VStack(spacing: 0) {
+                    Text(reading.map { "\($0.usedPercent)%" } ?? "—")
+                        .font(Font(NSFont(name: "Coolvetica-HeavyComp", size: 40)
+                            ?? NSFont.systemFont(ofSize: 40, weight: .heavy)))
+                        .foregroundStyle(reading == nil ? ConsoleStyle.caption : ConsoleStyle.text)
+                        .frame(height: 48)
+                    Text(kind.title)
+                        .font(ConsoleStyle.font(12, .medium))
+                        .foregroundStyle(ConsoleStyle.caption)
+                        .frame(height: 16)
+                }
                 Text(bottom)
-                    .font(ConsoleStyle.font(11))
-                    .monospacedDigit()
-                    .foregroundStyle(exhausted ? ConsoleStyle.red : ConsoleStyle.caption)
+                    .font(ConsoleStyle.font(12, .medium))
+                    .foregroundStyle(ConsoleStyle.caption)
                     .lineLimit(1)
+                    .frame(height: 16)
             }
+            .padding(.top, 12)
         }
         .frame(width: ConsoleStyle.gaugeSize, height: ConsoleStyle.gaugeSize)
         .accessibilityElement(children: .ignore)
@@ -188,7 +167,7 @@ struct LimitGauge: View {
 
     private func arc(to fraction: Double) -> some Shape {
         Circle()
-            .inset(by: ConsoleStyle.gaugeLine / 2)
+            .inset(by: ConsoleStyle.gaugeInset)
             .trim(from: 0, to: 0.75 * min(max(fraction, 0), 1))
             .rotation(.degrees(135))
     }
@@ -327,7 +306,7 @@ struct ThinSlider: View {
         GeometryReader { space in
             ZStack(alignment: .leading) {
                 Capsule().fill(ConsoleStyle.track)
-                Capsule().fill(.white).frame(width: max(4, space.size.width * share))
+                Capsule().fill(ConsoleStyle.accent).frame(width: max(4, space.size.width * share))
             }
             .frame(height: 4)
             .frame(maxHeight: .infinity)
@@ -425,7 +404,11 @@ enum ConsoleSheet {
     private static func write(_ view: some View, size: CGSize, to url: URL) {
         let host = NSHostingView(rootView: view.frame(width: size.width, height: size.height).background(Color(white: 0.32)))
         host.frame = CGRect(origin: .zero, size: size)
+        let window = NSWindow(contentRect: CGRect(origin: .zero, size: size), styleMask: .borderless, backing: .buffered, defer: false)
+        window.contentView = host
+        defer { window.contentView = nil }
         host.layoutSubtreeIfNeeded()
+        host.displayIfNeeded()
         guard let bitmap = NSBitmapImageRep(
             bitmapDataPlanes: nil, pixelsWide: Int(size.width * 2), pixelsHigh: Int(size.height * 2), bitsPerSample: 8, samplesPerPixel: 4,
             hasAlpha: true, isPlanar: false, colorSpaceName: .deviceRGB, bytesPerRow: 0, bitsPerPixel: 0

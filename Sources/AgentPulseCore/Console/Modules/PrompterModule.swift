@@ -125,7 +125,7 @@ public struct PrompterModule: ConsoleModule {
     public static let voiceSilence: TimeInterval = 1.5
 
     public let id = ConsoleModuleID.prompter
-    public let title = "Суфлёр"
+    public let title = "Докладчик"
     public let accent: UInt32 = 0x30B0C7
     public private(set) var script = PrompterScript(text: "")
     public private(set) var mode = Mode.idle

@@ -3,7 +3,7 @@ import Foundation
 /// Лимиты: кольца по сервисам, подпись самого тесного окна, вкладка с обоими окнами.
 public struct LimitsModule: ConsoleModule {
     public let id = ConsoleModuleID.limits
-    public let title = "Лимиты"
+    public let title = "Нейросети"
     public let accent: UInt32 = 0x34C759
     public var book = LimitsBook()
     public init(book: LimitsBook = LimitsBook()) { self.book = book }

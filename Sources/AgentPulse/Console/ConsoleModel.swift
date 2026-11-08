@@ -731,7 +731,7 @@ enum ConsoleLook {
     static let ring = 18.0
     static let ringGap = 14.0
     static let mark = 15.0
-    static let sideGap = 7.0
+    static let sideGap = 8.0
     static let mascot = 22.0
     /// Сколько панель стоит после закрытия: столько идёт пружина формы.
     static let closeMilliseconds = 520
@@ -744,5 +744,5 @@ enum ConsoleLook {
     static let indicator = 14.0
     static let alertColor: UInt32 = 0xFF453A
     @MainActor static let labelFont = ConsoleStyle.nsFont(13, .medium)
-    @MainActor static let figureFont = ConsoleStyle.nsFont(15, .medium)
+    @MainActor static let figureFont = ConsoleStyle.nsFont(14, .medium)
 }

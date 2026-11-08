@@ -16,7 +16,11 @@ cp "$BIN/AgentPulse" "$BIN/pulse-hook" "$BIN/pulse-statusline" "$BIN/pulse-asr" 
 cp Resources/Info.plist "$APP/Contents/Info.plist"
 mkdir -p "$APP/Contents/Resources"
 cp Resources/AppIcon.icns "$APP/Contents/Resources/AppIcon.icns"
-cp Resources/Fonts/Geist.ttf Resources/OpenAIBlossom.svg "$APP/Contents/Resources/"
+cp Resources/Fonts/Geist.ttf Resources/Fonts/Inter-*.ttf Resources/OpenAIBlossom.svg "$APP/Contents/Resources/"
+cp -R Resources/Console "$APP/Contents/Resources/Console"
+# Локально установленный display-шрифт: в публичный репозиторий не входит.
+DISPLAY_FONT="${AGENT_PULSE_DISPLAY_FONT:-$HOME/Library/Fonts/Coolvetica_Hv_Comp.otf}"
+if [[ -f "$DISPLAY_FONT" ]]; then cp "$DISPLAY_FONT" "$APP/Contents/Resources/Coolvetica.otf"; fi
 cp -R Extensions/Chrome "$APP/Contents/Resources/ChromeExtension"
 cp -R FigmaCompanion "$APP/Contents/Resources/FigmaCompanion"
 # Авторы и лицензии чужих материалов: Solar Icons (CC BY 4.0), Lottie (Apache 2.0).

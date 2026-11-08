@@ -281,6 +281,18 @@ private func snapshot(_ used: Double, at: Date = t0, service: LimitService = .cl
 }
 
 @Suite struct ShelfModuleTests {
+    @Test func capacityAndBatchDuplicates() {
+        var shelf = ShelfModule()
+        let urls = (0..<25).map { URL(fileURLWithPath: "/tmp/file-\($0).pdf") }
+        _ = shelf.add([urls[0], urls[0]] + urls)
+        #expect(shelf.items.count == 20)
+        #expect(Set(shelf.items.map(\.url)).count == 20)
+        #expect(shelf.add([urls[24]]).isEmpty)
+        shelf.remove(urls[0])
+        #expect(!shelf.add([urls[24]]).isEmpty)
+        #expect(shelf.items.count == 20)
+    }
+
     let a = URL(fileURLWithPath: "/tmp/a.txt"), b = URL(fileURLWithPath: "/tmp/b.png")
 
     @Test func keepsFilesWithoutDuplicates() {
