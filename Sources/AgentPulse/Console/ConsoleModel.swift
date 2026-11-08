@@ -7,7 +7,10 @@ import Observation
 @Observable
 final class ConsoleModel {
     /// Офлайн-промо не читает сохранённые лимиты и личные тексты.
+    @ObservationIgnored private let promoMode: Bool
+
     init(promo: Bool = false) {
+        promoMode = promo
         limits = LimitsModule(book: promo ? LimitsBook() : LimitsBook.load())
         prompterLibrary = promo ? PrompterLibrary() : PrompterLibrary.load()
     }
@@ -289,6 +292,23 @@ final class ConsoleModel {
             setExpanded(true)
             tab = .prompter
         }
+    }
+
+    /// Виртуальные часы промо: без таймера, записи «Недавних» и показа окна.
+    func preparePromoPrompter(_ text: String) {
+        precondition(promoMode)
+        _ = prompter.start(text: text, now: Date(timeIntervalSinceReferenceDate: 100))
+        prompterLines = prompter.script.lines { PrompterLook.fits($0, points: prompterTextSize.points) }
+        setExpanded(false)
+    }
+
+    func seekPromoPrompter(elapsed: Double, paused: Bool) {
+        precondition(promoMode)
+        now = Date(timeIntervalSinceReferenceDate: 100 + elapsed)
+        prompter.seek(toFraction: elapsed / prompter.total, now: now)
+        if (prompter.mode == .paused) != paused { prompter.togglePause(now: now) }
+        updatePrompterPlace()
+        refresh(agentWaiting: false)
     }
 
     func startPrompter() {

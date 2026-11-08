@@ -170,6 +170,7 @@ private struct ShelfTile: View {
                 .frame(width: Self.size, height: 28, alignment: .top)
         }
         .frame(width: Self.size)
+        .promoTarget("file-\(item.name)")
         .background {
             GeometryReader { Color.clear.preference(key: ShelfFrames.self, value: [item.url: $0.frame(in: .named(ShelfTab.space))]) }
         }
@@ -220,6 +221,7 @@ struct ShelfTab: View {
             if model.shelf.items.isEmpty {
                 VStack(spacing: 24) {
                     LibraryCharacter(skin: model.librarySkin, paused: !model.expanded)
+                        .promoTarget("library-character")
                     VStack(spacing: 8) {
                         Text("Перетащите сюда файлы, чтобы держать их под рукой")
                             .font(ConsoleStyle.font(14, .medium)).foregroundStyle(ConsoleStyle.text)
@@ -247,6 +249,7 @@ struct ShelfTab: View {
             .buttonStyle(ConsolePressStyle())
             .font(ConsoleStyle.font(12, .medium))
             .foregroundStyle(title == "Добавить" ? ConsoleStyle.green : ConsoleStyle.red)
+            .promoTarget("shelf-\(title)")
     }
 
     private var files: some View {
@@ -391,6 +394,7 @@ struct PrompterSmallButton: View {
             .contentShape(Rectangle())
         }
         .buttonStyle(ConsolePressStyle())
+        .promoTarget("prompter-\(title)")
     }
 }
 
@@ -420,6 +424,7 @@ struct PrompterTab: View {
         VStack(spacing: 0) {
             ZStack(alignment: .topLeading) {
                 PrompterEditor(text: $model.prompterDraft)
+                    .promoTarget("prompter-editor")
                 if model.prompterDraft.isEmpty {
                     Text("Вставь текст или перетащи .txt и .md")
                         .font(ConsoleStyle.font(14, .medium))
@@ -434,6 +439,7 @@ struct PrompterTab: View {
                         .buttonStyle(ConsolePressStyle())
                         .font(ConsoleStyle.font(12, .medium))
                         .foregroundStyle(ConsoleStyle.red)
+                        .promoTarget("prompter-clear")
                     Spacer(minLength: 8)
                     if let estimate = model.prompterEstimate {
                         Text(estimate).font(noteFont).foregroundStyle(ConsoleStyle.caption)
@@ -589,6 +595,7 @@ struct TranslateTab: View {
                     header(russianSource ? "Русский" : "Английский", action: "Очистить", color: ConsoleStyle.red) { model.clearTranslation() }
                     ZStack(alignment: .topLeading) {
                         PrompterEditor(text: Binding(get: { model.translateInput }, set: { model.typeTranslation($0) }))
+                            .promoTarget("translate-editor")
                         if model.translateInput.isEmpty {
                             Text("Введи текст или выдели его и нажми ⌃⌥T")
                                 .font(ConsoleStyle.font(14, .medium)).foregroundStyle(ConsoleStyle.caption).allowsHitTesting(false)
@@ -612,6 +619,7 @@ struct TranslateTab: View {
             Button(language) { model.flipTranslation() }.foregroundStyle(ConsoleStyle.caption).font(ConsoleStyle.font(12, .semibold))
             Spacer(minLength: 0)
             Button(action, action: perform).foregroundStyle(color).font(ConsoleStyle.font(12, .medium))
+                .promoTarget("translate-\(action)")
         }.buttonStyle(ConsolePressStyle()).frame(height: 20)
     }
 

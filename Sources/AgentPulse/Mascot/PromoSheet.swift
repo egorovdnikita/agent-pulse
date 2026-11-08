@@ -11,6 +11,8 @@ enum PromoSheet {
     struct Script: Decodable {
         struct StateMark: Decodable { let t: Double; let state: String }
         struct ReactionMark: Decodable { let t: Double; let name: String }
+        struct PrompterFrame: Decodable { let elapsed: Double; let paused: Bool }
+        let prompterFrames: [PrompterFrame]?
         struct Bubble: Decodable { let id: String; let category: String; let title: String; let text: String }
         let assetsOnly: Bool?
         let fps: Double
@@ -32,7 +34,10 @@ enum PromoSheet {
             print("promo: нет script.json")
             return
         }
-        if script.assetsOnly != true { renderMascot(script, to: folder.appending(path: "mascot")) }
+        if script.assetsOnly != true {
+            renderMascot(script, to: folder.appending(path: "mascot"))
+            renderLibrary(script, to: folder.appending(path: "library"))
+        }
         for bubble in script.bubbles {
             guard let category = BubbleCategory(rawValue: bubble.category) else { continue }
             let message = BubbleMessage(category: category, title: bubble.title, text: bubble.text)
@@ -40,6 +45,7 @@ enum PromoSheet {
                      to: folder.appending(path: "bubble-\(bubble.id).png"))
         }
         renderConsole(scale: script.scale, to: folder)
+        renderPrompter(script, to: folder)
 
     }
 
@@ -109,15 +115,22 @@ enum PromoSheet {
     private static func renderConsole(scale: Double, to folder: URL) {
         let model = ConsoleModel(promo: true)
         model.translatorEnabled = true
+        model.fit = .full(width: 170)
         model.tick(now: Date(), agentWaiting: false, inputActive: false)
         model.showPanelNow()
         let panel = CGSize(width: ConsoleLayout.expandedWidth, height: ConsoleLayout.expandedHeight)
         func page(_ name: String, _ tab: ConsoleModuleID) {
             model.tab = tab
-            snapshot(PanelPreview(model: model).frame(width: panel.width, height: panel.height).padding(8),
+            snapshot(PanelPreview(model: model).frame(width: panel.width, height: panel.height)
+                .overlay(RoundedRectangle(cornerRadius: ConsoleStyle.surfaceRadius).strokeBorder(ConsoleStyle.edge, lineWidth: 1)).padding(8),
                      scale: scale, to: folder.appending(path: "panel-\(name).png"))
         }
+        func capsule(_ name: String) {
+            snapshot(CapsulePreview(model: model).overlay(Capsule().strokeBorder(ConsoleStyle.edge, lineWidth: 1)).padding(8),
+                     scale: scale, to: folder.appending(path: "capsule-\(name).png"))
+        }
         page("limits-empty", .limits)
+        capsule("empty")
         let now = Date()
         for (service, used, week) in [(LimitService.claude, 31, 64), (.codex, 12, 27)] {
             model.ingest(LimitSnapshot(service: service, windows: [
@@ -125,8 +138,9 @@ enum PromoSheet {
                 LimitWindow(kind: .week, usedPercent: Double(week), resetsAt: now.addingTimeInterval(4 * 86_400)),
             ], at: now))
             page(service == .claude ? "limits-claude" : "limits", .limits)
+            capsule(service == .claude ? "claude" : "filled")
         }
-        snapshot(CapsulePreview(model: model).padding(8), scale: scale, to: folder.appending(path: "capsule.png"))
+        snapshot(CapsulePreview(model: model).overlay(Capsule().strokeBorder(ConsoleStyle.edge, lineWidth: 1)).padding(8), scale: scale, to: folder.appending(path: "capsule.png"))
         page("shelf-empty", .shelf)
         model.dropTargeted = true
         page("shelf-drop", .shelf)
@@ -136,9 +150,13 @@ enum PromoSheet {
         page("shelf-one", .shelf)
         model.addToShelf(Array(files.dropFirst()))
         page("shelf", .shelf)
-        model.selectAllShelf()
+        model.clickShelf(files[0], flags: [])
+        page("shelf-selected-one", .shelf)
+        model.clickShelf(files[1], flags: .command)
         page("shelf-selected", .shelf)
         model.removeSelectedFiles()
+        page("shelf-remaining", .shelf)
+        model.clearShelf()
         page("shelf-cleared", .shelf)
         page("prompter-empty", .prompter)
         let speech = "Привет! Сегодня покажу Пульт.\n\nЛимиты нейросетей всегда под рукой. Файлы можно сохранить на полке, а текст — быстро перевести.\n\nВсё работает прямо на этом Mac."
@@ -164,12 +182,54 @@ enum PromoSheet {
         model.translateCopied = true
         page("translate-copied", .translate)
         model.clearTranslation()
+        model.translateCopied = false
         page("translate-cleared", .translate)
+    }
+
+    private static func renderLibrary(_ script: Script, to folder: URL) {
+        try? FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+        let view = LibraryCharacterView(frame: NSRect(x: 0, y: 0, width: 60, height: 60), offline: true)
+        view.use(PalSkin(bot: PalSkin.defaultBot))
+        view.layoutSubtreeIfNeeded()
+        let side = Int(132 * script.scale)
+        for i in 0..<Int(2 * script.fps) {
+            view.seekOffline(Double(i) / (2 * script.fps))
+            guard let context = CGContext(data: nil, width: side, height: side, bitsPerComponent: 8, bytesPerRow: 0,
+                space: CGColorSpace(name: CGColorSpace.sRGB)!, bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue) else { continue }
+            context.scaleBy(x: script.scale, y: script.scale)
+            context.translateBy(x: 36, y: 36)
+            view.layer?.render(in: context)
+            guard let image = context.makeImage() else { continue }
+            try? NSBitmapImageRep(cgImage: image).representation(using: .png, properties: [:])?
+                .write(to: folder.appending(path: String(format: "%04d.png", i)))
+        }
+    }
+
+    private static func renderPrompter(_ script: Script, to folder: URL) {
+        guard let frames = script.prompterFrames else { return }
+        let directory = folder.appending(path: "prompter")
+        try? FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        let model = ConsoleModel(promo: true)
+        model.fit = .full(width: 170)
+        model.setPrompterSpeed(160)
+        model.preparePromoPrompter("Привет! Сегодня покажу Пульт.\n\nЛимиты нейросетей всегда под рукой. Файлы можно сохранить на полке, а текст — быстро перевести.\n\nВсё работает прямо на этом Mac.")
+        for (i, frame) in frames.prefix(script.assetsOnly == true ? 1 : frames.count).enumerated() {
+            model.seekPromoPrompter(elapsed: frame.elapsed, paused: frame.paused)
+            snapshot(PrompterPreview(model: model)
+                .background(.black, in: RoundedRectangle(cornerRadius: 20))
+                .overlay(RoundedRectangle(cornerRadius: 20).strokeBorder(ConsoleStyle.edge, lineWidth: 1)).padding(8),
+                scale: script.scale, to: directory.appending(path: String(format: "%04d.png", i)))
+            if i % Int(script.fps) == 0 {
+                snapshot(CapsulePreview(model: model).overlay(Capsule().strokeBorder(ConsoleStyle.edge, lineWidth: 1)).padding(8),
+                         scale: script.scale, to: directory.appending(path: String(format: "capsule-%02d.png", i / Int(script.fps))))
+            }
+        }
     }
 
     /// Прозрачный фон: монтаж кладёт картинку на свой рабочий стол.
     private static func snapshot(_ view: some View, scale: Double, to url: URL) {
-        let host = NSHostingView(rootView: view.fixedSize())
+        let capture = PromoCapture()
+        let host = NSHostingView(rootView: view.environment(\.promoCapture, capture).fixedSize())
         host.appearance = NSAppearance(named: .darkAqua)
         let size = host.fittingSize
         host.frame = CGRect(origin: .zero, size: size)
@@ -180,6 +240,10 @@ enum PromoSheet {
         defer { window.contentView = nil }
         host.layoutSubtreeIfNeeded()
         host.displayIfNeeded()
+        let rectangles = capture.rectangles(in: host)
+        if !rectangles.isEmpty, let data = try? JSONSerialization.data(withJSONObject: rectangles, options: [.sortedKeys]) {
+            try? data.write(to: url.deletingPathExtension().appendingPathExtension("targets.json"))
+        }
         guard let bitmap = NSBitmapImageRep(
             bitmapDataPlanes: nil, pixelsWide: Int(size.width * scale), pixelsHigh: Int(size.height * scale), bitsPerSample: 8,
             samplesPerPixel: 4, hasAlpha: true, isPlanar: false, colorSpaceName: .deviceRGB, bytesPerRow: 0, bitsPerPixel: 0

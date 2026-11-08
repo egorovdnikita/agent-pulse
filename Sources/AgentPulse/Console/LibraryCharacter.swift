@@ -5,11 +5,15 @@ import SwiftUI
 
 /// Выбранный сейчас облик, но всегда вариант Working с орбитой, как в Figma.
 struct LibraryCharacter: NSViewRepresentable {
+    @Environment(\.promoCapture) private var promoCapture
     let skin: PalSkin?
     var paused = false
 
     func makeNSView(context: Context) -> LibraryCharacterView { LibraryCharacterView() }
-    func updateNSView(_ view: LibraryCharacterView, context: Context) { view.use(skin); view.paused = paused }
+    func updateNSView(_ view: LibraryCharacterView, context: Context) {
+        view.isHidden = promoCapture != nil
+        if promoCapture == nil { view.use(skin); view.paused = paused }
+    }
     static func dismantleNSView(_ view: LibraryCharacterView, coordinator: ()) { view.stop() }
     func sizeThatFits(_ proposal: ProposedViewSize, nsView: LibraryCharacterView, context: Context) -> CGSize? {
         CGSize(width: 60, height: 60)
@@ -20,13 +24,20 @@ struct LibraryCharacter: NSViewRepresentable {
 final class LibraryCharacterView: NSView {
     private let canvas = CALayer()
     private let backCanvas = CALayer()
-    private let backAnimation = LottieAnimationLayer(animation: nil, configuration: LottieConfiguration(renderingEngine: .coreAnimation))
-    private let animation = LottieAnimationLayer(animation: nil, configuration: LottieConfiguration(renderingEngine: .coreAnimation))
+    private let backAnimation: LottieAnimationLayer
+    private let animation: LottieAnimationLayer
+    private let offline: Bool
     private var current: String?
     private var classic: MascotLayerView?
     var paused = false { didSet { if oldValue != paused { playback() } } }
 
-    override init(frame: NSRect) {
+    override convenience init(frame: NSRect) { self.init(frame: frame, offline: false) }
+
+    init(frame: NSRect, offline: Bool) {
+        self.offline = offline
+        let config = LottieConfiguration(renderingEngine: offline ? .mainThread : .coreAnimation)
+        backAnimation = LottieAnimationLayer(animation: nil, configuration: config)
+        animation = LottieAnimationLayer(animation: nil, configuration: config)
         super.init(frame: frame)
         wantsLayer = true
         layer?.masksToBounds = false
@@ -114,9 +125,17 @@ final class LibraryCharacterView: NSView {
     }
 
     override func viewDidMoveToWindow() { super.viewDidMoveToWindow(); playback() }
+    func seekOffline(_ progress: Double) {
+        for clip in [backAnimation, animation] {
+            clip.pause()
+            clip.currentProgress = progress
+            clip.forceDisplayUpdate()
+        }
+    }
+
     func stop() { animation.pause(); backAnimation.pause(); classic?.paused = true }
     private func playback() {
-        guard window != nil, !paused else { stop(); return }
+        guard !offline, window != nil, !paused else { stop(); return }
         let reduced = NSWorkspace.shared.accessibilityDisplayShouldReduceMotion
         classic?.paused = reduced
         for animation in [backAnimation, animation] {

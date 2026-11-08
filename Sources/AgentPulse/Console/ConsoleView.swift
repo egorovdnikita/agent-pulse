@@ -124,6 +124,7 @@ private struct CapsuleBody: View {
         .accessibilityElement(children: .contain)
         .accessibilityLabel(model.capsule?.label ?? "Пульт")
         .onTapGesture { model.toggle() }
+        .promoTarget("capsule")
     }
 }
 
@@ -145,6 +146,7 @@ private struct LimitCard: View {
                             .buttonStyle(ConsolePressStyle())
                             .font(ConsoleStyle.font(12, .medium))
                             .foregroundStyle(ConsoleStyle.green)
+                            .promoTarget("connect-\(service.rawValue)")
                     } else {
                         HStack(spacing: 8) {
                             chip(readings.map(\.reading))
@@ -207,6 +209,7 @@ private struct PageTabs: View {
                 }
                 .buttonStyle(ConsolePressStyle())
                 .accessibilityLabel(tab.title)
+                .promoTarget("tab-\(tab.id.rawValue)")
             }
             Spacer(minLength: 0)
             Button {

@@ -164,6 +164,7 @@ struct PrompterView: View {
                         .contentShape(Rectangle())
                 }
                 .accessibilityLabel(model.prompter.mode == .paused ? "Дальше" : "Пауза")
+                .promoTarget("top-pause")
                 Button { model.stopPrompter() } label: {
                     Image(nsImage: SolarIcons.image("stop-circle") ?? NSImage())
                         .resizable()
@@ -173,6 +174,7 @@ struct PrompterView: View {
                         .contentShape(Rectangle())
                 }
                 .accessibilityLabel("Стоп")
+                .promoTarget("top-stop")
             }
             .buttonStyle(ConsolePressStyle())
             .padding(.top, PrompterLook.topInset)

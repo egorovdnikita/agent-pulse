@@ -123,59 +123,87 @@ class Timeline:
         self.hover = []
         self.panel = []           # (t, событие, аргумент)
         self.duration = 0.0
+        self.prompter = (31.05, 39.05)
+        self.pause = (36.0, 37.0)
 
 
 SPEECH = "Привет! Сегодня покажу Пульт.\n\nЛимиты нейросетей всегда под рукой. Файлы можно сохранить на полке, а текст — быстро перевести.\n\nВсё работает прямо на этом Mac."
 SOURCE = "Маскот показывает, что агент ждёт тебя."
 
 
-def build_timeline(tabs):
+def build_timeline(assets, geometry):
     tl = Timeline()
     tl.states = [(0, "idle"), (1.8, "think"), (3.5, "edit"), (5.1, "permission"), (7.1, "edit"), (8.5, "idle")]
     tl.bubbles = [(1.9, 3.4, "think"), (3.6, 5, "edit"), (5.2, 7, "permission"), (8.5, 10.4, "done")]
     tl.reactions = [(8.5, "done")]
     tl.camera += [(0.6, CAM_MASCOT), (10.3, CAM_WIDE), (11.3, CAM_CONSOLE)]
     tl.cursor = [(0, 800, 400)]
-    def click(t, xy):
-        tl.clicks.append(t)
-        tl.cursor.extend([(t - .4, *xy), (t + .4, *xy)])
-    def page(t, name):
-        tl.panel.append((t, "tab", name))
-    def tab(t, name, state):
-        click(t, tabs[name]); page(t + .02, state)
+    capsule, panel = geometry
+    px, py = panel[:2]
+
+    def click(t, xy, label, rect=None):
+        if rect:
+            x, y, w, h = rect
+            assert x <= xy[0] <= x+w and y <= xy[1] <= y+h, label
+        tl.clicks.append({"t": t, "x": xy[0], "y": xy[1], "target": label, "rect": rect})
+        tl.cursor.extend([(t - .25, *xy), (t + .25, *xy)])
+    def hit(t, state, target):
+        rect = assets.target(state, target)
+        rect = [px + rect[0], py + rect[1], *rect[2:]]
+        click(t, (rect[0]+rect[2]/2, rect[1]+rect[3]/2), target, rect)
+    def top_hit(t, target):
+        rect = assets.target("prompter/0000", target)
+        rect = [(W-560)/2 + rect[0], 16 + rect[1], *rect[2:]]
+        click(t, (rect[0]+rect[2]/2, rect[1]+rect[3]/2), target, rect)
+    def capsule_hit(t):
+        variant="empty" if t<14.1 else "claude" if t<15.3 else "filled"
+        x,y,w,h=assets.target("capsule-"+variant,"capsule")
+        rect=[capsule[0]+x,capsule[1]+y,w,h]
+        click(t,(rect[0]+w/2,rect[1]+h/2),"capsule",rect)
+    def page(t, name): tl.panel.append((t, "tab", name))
+    def tab(t, old, name, state):
+        hit(t, old, "tab-"+name); page(t + .02, state)
     def type_text(start, duration, text, prefix):
-        for i in range(1, len(text) + 1):
-            page(start + duration * i / len(text), f"{prefix}-type-{i}")
-    px, py = tabs["panel_origin"]
-    def local(x, y): return (px + x, py + y)
-    click(6.8, (MASCOT[0] - 4, MASCOT[1] - 2))
-    click(12.2, tabs["capsule_center"])
-    tl.panel.append((12.22, "open", "limits-empty"))
-    page(14.1, "limits-claude"); page(15.2, "limits")
-    tab(17, "shelf", "shelf-empty")
-    # Файл прилетает в зону приёма без стрелки курсора.
+        for i in range(1, len(text)+1): page(start + duration*i/len(text), f"{prefix}-type-{i}")
+
+    click(6.8, MASCOT, "mascot")
+    capsule_hit(12.2); tl.panel.append((12.22, "open", "limits-empty"))
+    hit(13.8, "limits-empty", "connect-claude"); page(14.1, "limits-claude")
+    hit(15.0, "limits-claude", "connect-codex"); page(15.3, "limits")
+    tab(17, "limits", "shelf", "shelf-empty")
     page(18.7, "shelf-drop")
-    tl.drag = (18.2, 19.5, local(760, -35), local(310, 130))
-    click(19.5, local(310, 130)); page(19.52, "shelf-one")
-    click(21.1, local(506, 230)); page(21.6, "shelf")
-    click(23.1, local(54, 95)); page(23.12, "shelf-selected")
-    click(24.8, local(580, 230)); page(24.82, "shelf-cleared")
-    tab(26.2, "prompter", "prompter-empty")
-    click(27.5, local(110, 90))
-    type_text(27.8, 5.2, SPEECH, "prompter")
-    page(33.1, "prompter")
-    click(34.4, local(600, 76)); page(34.42, "prompter-speed")
-    click(36, local(49, 230)); page(36.02, "prompter-cleared")
-    tab(37.3, "translate", "translate-empty")
-    click(38.6, local(100, 112))
-    type_text(38.9, 2.8, SOURCE, "translate")
-    page(42.05, "translate-working"); page(42.85, "translate")
-    click(45, local(565, 64)); page(45.02, "translate-copied")
-    click(47.1, local(264, 64)); page(47.12, "translate-cleared")
-    click(49, (830, 170)); tl.panel.append((49.02, "close", None))
-    tl.camera.append((49.6, CAM_WIDE))
-    tl.duration = 52
+    tl.drag = (18.2, 19.5, (px+730,py-40), (px+310,py+130))
+    page(19.52, "shelf-one")
+    hit(20.8, "shelf-one", "shelf-Добавить"); page(21.25, "shelf")
+    hit(22.3, "shelf", "file-Доклад.pdf"); page(22.32, "shelf-selected-one")
+    hit(23.1, "shelf-selected-one", "file-Заметки.md"); page(23.12, "shelf-selected")
+    hit(24.0, "shelf-selected", "shelf-Убрать"); page(24.02, "shelf-remaining")
+    hit(25.0, "shelf-remaining", "shelf-Очистить"); page(25.02, "shelf-cleared")
+    tab(26.2, "shelf-cleared", "prompter", "prompter-empty")
+    hit(26.85, "prompter-empty", "prompter-editor")
+    type_text(27.1, 2.0, SPEECH, "prompter"); page(29.15, "prompter")
+    hit(30.0, "prompter", "prompter-+"); page(30.02, "prompter-speed")
+    hit(31.0, "prompter-speed", "prompter-Старт")
+    tl.panel.append((31.02, "close", None))
+    tl.camera += [(31.1, CAM_WIDE), (33, ((W-720)/2, 0, 720))]
+    top_hit(36, "top-pause"); top_hit(37, "top-pause"); top_hit(39, "top-stop")
+    tl.camera += [(39.5, CAM_WIDE), (40.5, CAM_CONSOLE)]
+    capsule_hit(41.3); tl.panel.append((41.32, "open", "prompter-speed"))
+    tab(42.2, "prompter-speed", "translate", "translate-empty")
+    hit(42.9, "translate-empty", "translate-editor")
+    type_text(43.1, 1.1, SOURCE, "translate")
+    page(44.5, "translate-working"); page(45.2, "translate")
+    hit(47, "translate", "translate-Скопировать"); page(47.02, "translate-copied")
+    hit(48.7, "translate-copied", "translate-Очистить"); page(48.72, "translate-cleared")
+    click(50, (830, 170), "outside"); tl.panel.append((50.02, "close", None))
+    tl.camera.append((50.6, CAM_WIDE)); tl.duration = 52.5
     return tl
+
+
+def prompter_frame(tl, t):
+    start,end = tl.prompter
+    a,b = tl.pause
+    return {"elapsed": max(0,t-start-max(0,min(t,b)-a)), "paused": a <= t < b}
 
 
 def cursor_at(tl, t):
@@ -207,6 +235,8 @@ def write_script(folder, tl, assets_only=False):
         "hover": [list(h) for h in tl.hover],
         "cursor": cursor,
         "bubbles": BUBBLES,
+        "prompterFrames": [prompter_frame(tl, tl.prompter[0] + i/FPS)
+                           for i in range(round((tl.prompter[1]-tl.prompter[0])*FPS))],
     }
     (folder / "script.json").write_text(json.dumps(script, ensure_ascii=False))
 
@@ -236,17 +266,52 @@ class Assets:
         self.bubbles = {b["id"]: Image.open(folder / f"bubble-{b['id']}.png").convert("RGBA") for b in BUBBLES}
         self.capsule = Image.open(folder / "capsule.png").convert("RGBA")
         self.panels = PanelAssets(folder)
+        self.target_cache = {}
 
         self.mascot_dir = folder / "mascot"
         self.dock = Image.open(folder / "dock.png").convert("RGBA") if (folder / "dock.png").exists() else None
-        self.dock_screen_width = json.loads((folder / "dock.json").read_text())["screen_width"] if self.dock else None
+        dock_spec = json.loads((folder / "dock.json").read_text()) if self.dock else {}
+        self.dock_screen_width = dock_spec.get("screen_width")
+        if self.dock and dock_spec.get("remove_ranges"):
+            # Монтаж Dock: исходные пиксели остаются без изменений, исключается только лишняя секция.
+            segments, last = [], 0
+            for left,right in dock_spec["remove_ranges"]:
+                assert 0 <= last <= left < right <= self.dock.width
+                segments.append(self.dock.crop((last,0,left,self.dock.height))); last=right
+            segments.append(self.dock.crop((last,0,self.dock.width,self.dock.height)))
+            dock = Image.new("RGBA", (sum(p.width for p in segments), self.dock.height))
+            x=0
+            for part in segments: dock.paste(part,(x,0)); x+=part.width
+            self.dock = dock
         # Запас по краям: на перелёте камеры видно чуть больше экрана.
         self.margin = 80.0
         self.wall = wallpaper(int((W + 2 * self.margin) * 2), int((H + 2 * self.margin) * 2))
 
+    def target(self, state, name):
+        key = state if "/" in state or state.startswith("capsule-") else "panel-"+state
+        if key not in self.target_cache:
+            self.target_cache[key] = json.loads((self.folder / (key+".targets.json")).read_text())
+        if name not in self.target_cache[key]:
+            raise ValueError(f"Нет измеренной кнопки {name} в {key}")
+        return self.target_cache[key][name]
+
     def mascot(self, index):
         path = self.mascot_dir / f"{index:04d}.png"
-        return Image.open(path).convert("RGBA") if path.exists() else None
+        return Image.open(path).convert("RGBA")
+
+
+def configure_stage(assets):
+    global MASCOT
+    if assets.dock:
+        x=assets.dock.width//2
+        rows=[y for y in range(assets.dock.height) if assets.dock.getpixel((x,y))[3]>220]
+        scale=W/(2*assets.dock_screen_width)
+        center=H-assets.dock.height*scale+(min(rows)+max(rows))/2*scale
+        MASCOT=(MASCOT[0],center)
+        # Облачко и Dock не пересекаются даже у самой длинной реплики.
+        right=(W+assets.dock.width*scale)/2
+        bubble_left=min(MASCOT[0]-BOX/2+OVERLAP+12-b.width/ASSET_SCALE for b in assets.bubbles.values())
+        assert right+12 <= bubble_left, (right,bubble_left)
 
 
 def capsule_geometry(assets):
@@ -311,9 +376,7 @@ class Frame:
 
 
 def draw_background(frame, assets):
-    s, m = 2.0, assets.margin
-    box = ((frame.x0 + m) * s, (frame.y0 + m) * s, (frame.x0 + m + OUT_W / frame.k) * s, (frame.y0 + m + OUT_H / frame.k) * s)
-    frame.img.paste(assets.wall.resize((OUT_W, OUT_H), Image.BICUBIC, box=box), (0, 0))
+    frame.img.paste((13,17,23,255), (0,0,OUT_W,OUT_H))
 
 
 def draw_dock(frame, assets):
@@ -356,6 +419,7 @@ def panel_state(tl, t):
             break
         if kind == "open":
             open_t, close_t, tab = when, None, arg
+            prev, change = None, -10
         elif kind == "tab":
             prev, tab, change = tab, arg, when
         elif kind == "close":
@@ -377,12 +441,23 @@ def rounded_mask(size, radius):
     return mask
 
 
+def capsule_image(assets, tl, t):
+    start,end=tl.prompter
+    if start <= t < end:
+        index=min(round((end-start)*FPS)-1, max(0,int((t-start)*FPS)))
+        return Image.open(assets.folder / "prompter" / f"capsule-{index//FPS:02d}.png").convert("RGBA")
+    name="empty" if t<14.1 else "claude" if t<15.3 else "filled"
+    return Image.open(assets.folder / f"capsule-{name}.png").convert("RGBA")
+
+
 def draw_console(frame, assets, tl, t, geometry):
     capsule, panel = geometry
     cx, cy, cw, ch = capsule
     openness, content, tab, prev, change = panel_state(tl, t)
+    cap = capsule_image(assets,tl,t)
+    cw,ch = cap.width/ASSET_SCALE-16,cap.height/ASSET_SCALE-16
     if openness <= 0.001:
-        frame.paste(assets.capsule, cx - 8, cy - 8)
+        frame.paste(cap, cx - 8, cy - 8)
         return
     px_, py_, pw, ph = panel
     # Форма растёт из капсулы: ширина, высота и радиус от капсулы к панели, низ и левый край на месте.
@@ -408,9 +483,14 @@ def draw_console(frame, assets, tl, t, geometry):
         offset_y = round((py_ - top) * frame.k)
         shape.alpha_composite(page, (0, offset_y)) if offset_y >= 0 else shape.alpha_composite(page.crop((0, -offset_y, full_w, full_h)), (0, 0))
     shape.putalpha(ImageChops.multiply(shape.getchannel("A"), mask))
+    if abs(openness-1)>.005:
+        edge=Image.new("RGBA",shape.size)
+        ImageDraw.Draw(edge).rounded_rectangle((.5,.5,wpx-1,hpx-1),radius=radius*frame.k,
+            outline=(255,255,255,18),width=max(1,round(frame.k)))
+        shape.alpha_composite(edge)
     frame._paste_clipped(shape, round(l), round(tp)) if l < 0 or tp < 0 else frame.img.alpha_composite(shape, (round(l), round(tp)))
     # Капсула в приложении лежит поверх формы (VStack: панель, затем капсула).
-    frame.paste(assets.capsule, cx - 8, cy - 8)
+    frame.paste(cap, cx - 8, cy - 8)
 
 
 def crop_panel(img):
@@ -427,7 +507,10 @@ def page_image(assets, tab, prev, change, t):
     order = ["limits", "prompter", "shelf", "translate"]
     direction = 1 if order.index(tab.split("-")[0]) > order.index(prev.split("-")[0]) else -1
     if tab.split("-")[0] == prev.split("-")[0]:
-        return current
+        if "-type-" in tab or "-type-" in prev:
+            return current
+        old = crop_panel(assets.panels[prev])
+        return Image.blend(old, current, ease_out(dt/.18))
     old = crop_panel(assets.panels[prev])
     p = ease_out(dt / .24)
     out = Image.new("RGBA", current.size, (10, 10, 10, 255))
@@ -448,11 +531,11 @@ def page_image(assets, tab, prev, change, t):
     return out
 
 
-def draw_ring(frame, x, y, rel):
+def draw_ring(frame, x, y, rel, radius_pt=18):
     radius_share, alpha, hole = tap_state(rel)
     if alpha <= 0.01:
         return
-    r = 26 * frame.k * radius_share
+    r = radius_pt * frame.k * radius_share
     pad = int(r + 12)
     cx, cy = frame.px(x, y)
     box = (int(cx - pad), int(cy - pad), int(cx + pad), int(cy + pad))
@@ -488,14 +571,47 @@ def draw_drag(frame, assets, tl, t, geometry):
     frame.paste(tile, x, y, anchor=(.5, .5), alpha=min(1, (t-start)/.15))
 
 
-def compose(folder, tl, geometry, out):
+def draw_library(frame, assets, tl, t, geometry):
+    openness,content,tab,prev,change=panel_state(tl,t)
+    empty={"shelf-empty","shelf-drop","shelf-cleared"}
+    if tab not in empty or content<=0 or openness<.98: return
+    rect=assets.target(tab,"library-character")
+    x,y,w,h=rect; px,py=geometry[1][:2]
+    index=int(t*FPS) % (2*FPS)
+    sprite=Image.open(assets.folder/"library"/f"{index:04d}.png").convert("RGBA")
+    frame.paste(sprite,px+x+w/2,py+y+h/2,anchor=(.5,.5),alpha=content)
+
+
+def draw_prompter(frame, assets, tl, t):
+    start,end=tl.prompter
+    if not start <= t < end+.3: return
+    index=min(round((end-start)*FPS)-1,max(0,int((t-start)*FPS)))
+    sprite=Image.open(assets.folder/"prompter"/f"{index:04d}.png").convert("RGBA")
+    # Поле 8 pt снято с настоящего вида; форма раскрывается сверху по центру.
+    sprite=crop_panel(sprite)
+    p=spring(t-start,.42,.8) if t<end else 1-ease_out((t-end)/.3)
+    width=180+(560-180)*p; height=32+(148-32)*p
+    w,h=max(1,round(width*ASSET_SCALE)),max(1,round(height*ASSET_SCALE))
+    shape=Image.new("RGBA",(w,h),(0,0,0,255))
+    content=ease_out((t-start-.06)/.22) if t<end else 1-ease_out((t-end)/.15)
+    sprite.putalpha(sprite.getchannel("A").point(lambda a:round(a*content)))
+    shape.alpha_composite(sprite,(round((w-sprite.width)/2),0))
+    shape.putalpha(rounded_mask((w,h),20*ASSET_SCALE))
+    if abs(p-1)>.005:
+        edge=Image.new("RGBA",shape.size)
+        ImageDraw.Draw(edge).rounded_rectangle((1,1,w-2,h-2),radius=20*ASSET_SCALE,outline=(255,255,255,18),width=4)
+        shape.alpha_composite(edge)
+    frame.paste(shape,W/2,16,anchor=(.5,0))
+
+
+def compose(folder, tl, geometry, out, keys_only=False):
     import imageio_ffmpeg
     assets = Assets(folder)
     frames = int(round(tl.duration * FPS))
     keys_file = folder / "keys.json"
     keys = {int(round(k * FPS)) for k in json.loads(keys_file.read_text())} if keys_file.exists() else set()
     # Потоковая запись: не держим тысячи несжатых кадров в памяти.
-    encoder = subprocess.Popen([
+    encoder = None if keys_only else subprocess.Popen([
         imageio_ffmpeg.get_ffmpeg_exe(), "-y", "-v", "error", "-f", "rawvideo",
         "-pix_fmt", "rgba", "-s", f"{OUT_W}x{OUT_H}", "-r", str(FPS), "-i", "-",
         "-c:v", "libwebp_anim", "-lossless", "1", "-quality", "92", "-compression_level", "4",
@@ -509,40 +625,63 @@ def compose(folder, tl, geometry, out):
     border = border.resize((OUT_W, OUT_H), Image.LANCZOS)
     mask = rounded_mask((OUT_W*sup, OUT_H*sup), 20*K*sup).resize((OUT_W, OUT_H), Image.LANCZOS)
     try:
-        for i in range(frames):
+        for i in (sorted(keys) if keys_only else range(frames)):
             t = i / FPS
             frame = Frame(camera_at(tl, t))
             draw_background(frame, assets)
             draw_dock(frame, assets)
             draw_console(frame, assets, tl, t, geometry)
+            draw_library(frame, assets, tl, t, geometry)
+            draw_prompter(frame, assets, tl, t)
             draw_mascot(frame, assets, tl, t, i)
             draw_drag(frame, assets, tl, t, geometry)
             for c in tl.clicks:
-                x, y = cursor_at(tl, c)
-                draw_ring(frame, x, y, t - c)
+                radius = 22 if c["target"].startswith("top-") else 26
+                draw_ring(frame, c["x"], c["y"], t-c["t"],radius)
             frame.img.putalpha(mask)
             frame.img.alpha_composite(border)
-            encoder.stdin.write(frame.img.tobytes())
+            if encoder: encoder.stdin.write(frame.img.tobytes())
             if i in keys:
                 frame.img.save(folder / f"key-{t:05.2f}.png")
             if i % (FPS * 5) == 0:
                 print(f"Монтаж: {t:.0f}/{tl.duration:.0f} с", flush=True)
     finally:
-        encoder.stdin.close()
-    if encoder.wait() != 0:
+        if encoder: encoder.stdin.close()
+    if encoder and encoder.wait() != 0:
         raise RuntimeError("Не удалось записать WebP")
     return out
 
 
-def tab_targets(assets, geometry):
-    """Где на экране вкладки Пульта (pt). Отступы — по картинке панели."""
-    _, panel = geometry
-    px_, py_, _, _ = panel
-    spec = json.loads((assets.folder / "tabs.json").read_text()) if (assets.folder / "tabs.json").exists() else None
-    names = {"limits": 0, "prompter": 1, "shelf": 2, "translate": 3}
-    if spec:
-        return {n: (px_ + spec[n][0], py_ + spec[n][1]) for n in names}
-    return {n: (px_ + x, py_ + 23) for n, x in {"limits":48.5,"prompter":126,"shelf":206,"translate":290}.items()}
+def verify_assets(assets, tl, geometry):
+    import hashlib
+    def unique(directory, count):
+        return len({hashlib.sha256((assets.folder/directory/f"{i:04d}.png").read_bytes()).digest()
+                    for i in range(count)})
+    for i in range(round(tl.duration*FPS)):
+        if not (assets.mascot_dir/f"{i:04d}.png").is_file():
+            raise ValueError(f"Нет кадра маскота {i}")
+    library_unique=unique("library",2*FPS)
+    assert library_unique>FPS, "Библиотека не анимируется"
+    start,end=tl.prompter
+    count=round((end-start)*FPS)
+    prompter_unique=unique("prompter",count)
+    assert prompter_unique>FPS, "Текст Докладчика не движется"
+    pause_start=round((tl.pause[0]-start)*FPS)+2
+    pause_end=round((tl.pause[1]-start)*FPS)-2
+    paused={hashlib.sha256((assets.folder/"prompter"/f"{i:04d}.png").read_bytes()).digest()
+            for i in range(pause_start,pause_end)}
+    assert len(paused)==1,"Текст продолжает ехать на паузе"
+    for c in tl.clicks:
+        if c["rect"]:
+            x,y,w,h=c["rect"]
+            assert abs(c["x"]-(x+w/2))<.001 and abs(c["y"]-(y+h/2))<.001
+    cap=geometry[0]
+    assert abs(cap[1]+cap[3]/2-MASCOT[1])<.001
+    report={"clicks":len(tl.clicks),"library_unique_frames":library_unique,
+            "prompter_unique_frames":prompter_unique,"pause_is_static":True,
+            "capsule_center_y":cap[1]+cap[3]/2,"mascot_center_y":MASCOT[1]}
+    (assets.folder/"verification.json").write_text(json.dumps(report,ensure_ascii=False,indent=2))
+    print("Проверка исходников:",json.dumps(report,ensure_ascii=False),flush=True)
 
 
 def main():
@@ -552,7 +691,9 @@ def main():
     parser.add_argument("--only-compose", action="store_true")
     parser.add_argument("--only-assets", action="store_true", help="Обновить страницы без кадров маскота и монтажа")
     parser.add_argument("--out")
+    parser.add_argument("--keys-only", action="store_true", help="Только контрольные кадры, без кодирования")
     parser.add_argument("--dock", help="Прозрачный PNG только окна Dock, обрезанный по альфа-каналу (Retina 2x)")
+    parser.add_argument("--dock-cut", help="Убрать секцию исходного Dock: левая:правая координаты в px")
     parser.add_argument("--dock-screen-width", type=float, help="Ширина экрана, на котором снят Dock, в pt")
     args = parser.parse_args()
     folder = Path(args.folder).resolve()
@@ -563,28 +704,31 @@ def main():
         import shutil
         if Path(args.dock).resolve() != folder / "dock.png":
             shutil.copyfile(args.dock, folder / "dock.png")
-        (folder / "dock.json").write_text(json.dumps({"screen_width": args.dock_screen_width}))
+        dock_spec={"screen_width":args.dock_screen_width}
+        if args.dock_cut: dock_spec["remove_ranges"]=[list(map(int,args.dock_cut.split(":")))]
+        (folder / "dock.json").write_text(json.dumps(dock_spec))
     # Геометрия вкладок и капсулы нужна до сценария, а картинки — после: первый проход рисует их с черновым сценарием.
     if not args.only_compose:
-        draft = build_timeline({"capsule_center": (60, MASCOT[1]), "limits": (0, 0), "prompter": (0, 0), "shelf": (0, 0), "translate": (0, 0), "panel_origin": (16, 350)})
+        draft = Timeline()
+        draft.states=[(0,"idle")]; draft.cursor=[(0,0,0)]
         draft.duration = 1 / FPS
         write_script(folder, draft, assets_only=True)
         subprocess.run([args.app, "--promo-sheet", str(folder)], check=True)
     assets = Assets(folder)
+    configure_stage(assets)
     geometry = capsule_geometry(assets)
     capsule, _ = geometry
-    targets = tab_targets(assets, geometry)
-    targets["panel_origin"] = geometry[1][:2]
-    targets["capsule_center"] = (capsule[0] + capsule[2] / 2, capsule[1] + capsule[3] / 2)
-    tl = build_timeline(targets)
+    tl = build_timeline(assets, geometry)
+    (folder/"clicks.json").write_text(json.dumps(tl.clicks,ensure_ascii=False,indent=2))
     if not args.only_compose:
         write_script(folder, tl, assets_only=args.only_assets)
         subprocess.run([args.app, "--promo-sheet", str(folder)], check=True)
     if args.only_assets:
         return
     out = Path(args.out) if args.out else folder / "agent-pulse-demo.webp"
-    compose(folder, tl, geometry, out)
-    print(out)
+    verify_assets(assets,tl,geometry)
+    compose(folder, tl, geometry, out, keys_only=args.keys_only)
+    print(folder if args.keys_only else out)
 
 
 if __name__ == "__main__":
