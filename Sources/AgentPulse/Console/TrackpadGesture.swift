@@ -188,7 +188,7 @@ final class MultitouchReader: @unchecked Sendable {
         let now = ProcessInfo.processInfo.systemUptime
         var sane = (0..<64).contains(count) && (count == 0 || touches != nil)
         var contacts: [TouchContact] = []
-        let surface = lock.withLock { device.flatMap { surfaces[$0] } } ?? (160, 100)
+        let surface: (width: Double, height: Double) = lock.withLock { device.flatMap { surfaces[$0] } } ?? (160, 100)
         if sane, let touches {
             for index in 0..<count {
                 let contact = touches + index * Self.stride

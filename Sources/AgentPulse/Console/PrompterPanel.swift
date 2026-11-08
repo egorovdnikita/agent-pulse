@@ -126,7 +126,7 @@ private struct PrompterLineView: View {
         guard words.indices.contains(index) else { return nil }
         let measure = { (text: String) in (text as NSString).size(withAttributes: [.font: PrompterLook.font(points)]).width }
         let before = index == 0 ? "" : words[..<index].joined(separator: " ") + " "
-        return (measure(before), measure(words[index]))
+        return (Double(measure(before)), Double(measure(words[index])))
     }
 }
 
