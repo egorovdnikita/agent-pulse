@@ -154,19 +154,18 @@ struct ModuleCard<Options: View>: View {
     }
 }
 
-/// Значок как в Системных настройках: белый знак на цветной скруглённой плашке. Знаки — из box-ui.
+/// Значок как в Системных настройках: белый системный символ на цветной скруглённой плашке.
 struct SettingsIcon: View {
     let name: String
     var tint: Color = Color(nsColor: .systemGray)
+    var size = 20.0
 
     var body: some View {
-        Image(nsImage: SolarIcons.image(name) ?? NSImage())
-            .resizable()
-            .scaledToFit()
+        Image(systemName: name)
+            .font(.system(size: size * 0.58, weight: .medium))
             .foregroundStyle(.white)
-            .frame(width: 14, height: 14)
-            .frame(width: 20, height: 20)
-            .background(tint.gradient, in: RoundedRectangle(cornerRadius: 5, style: .continuous))
+            .frame(width: size, height: size)
+            .background(tint.gradient, in: RoundedRectangle(cornerRadius: size * 0.24, style: .continuous))
             .accessibilityHidden(true)
     }
 }

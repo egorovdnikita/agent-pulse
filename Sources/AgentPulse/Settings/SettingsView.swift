@@ -60,12 +60,12 @@ enum SettingsNavigation {
 
         var icon: String {
             switch self {
-            case .general: "settings"
-            case .character: "emoji-funny-circle"
-            case .sources: "cpu-bolt"
-            case .console: "widget"
-            case .news: "palette"
-            case .lab: "test-tube"
+            case .general: "gearshape"
+            case .character: "face.smiling"
+            case .sources: "cpu"
+            case .console: "square.grid.2x2"
+            case .news: "newspaper"
+            case .lab: "flask"
             }
         }
     }
@@ -388,12 +388,12 @@ private struct ConsoleSettings: View {
                     .disabled(!settings.enabled)
             }
             Group {
-                card("Лимиты", "Сколько осталось у Claude и Codex", icon: "pie-chart-2", tint: Color(nsColor: .systemGreen), isOn: settings.limits, toggle: { app.setLimitsEnabled($0) }) {
+                card("Лимиты", "Сколько осталось у Claude и Codex", icon: "chart.pie.fill", tint: Color(nsColor: .systemGreen), isOn: settings.limits, toggle: { app.setLimitsEnabled($0) }) {
                     ModuleOption {
                         Button("Подключить в разделе «Агенты»") { app.showSettings(.sources, anchor: "Лимиты") }
                     }
                 }
-                card("Суфлёр", "Текст под камерой", icon: "document-text", tint: Color(nsColor: .systemOrange), isOn: settings.prompter, toggle: { app.setPrompterEnabled($0) }) {
+                card("Суфлёр", "Текст под камерой", icon: "text.alignleft", tint: Color(nsColor: .systemOrange), isOn: settings.prompter, toggle: { app.setPrompterEnabled($0) }) {
                     ModuleOption {
                         SettingsPicker("Размер текста", selection: Binding(get: { settings.prompterTextSize }, set: { app.setPrompterTextSize($0) })) {
                             ForEach(PrompterTextSize.allCases, id: \.self) { Text($0.title).tag($0) }
@@ -421,7 +421,7 @@ private struct ConsoleSettings: View {
                             .font(SettingsStyle.caption).foregroundStyle(SettingsStyle.muted)
                     }
                 }
-                card("Файлы", "Полка для файлов под рукой", icon: "folder-with-files", tint: Color(nsColor: .systemBlue), isOn: settings.shelf, toggle: { app.setShelfEnabled($0) }) {
+                card("Файлы", "Полка для файлов под рукой", icon: "folder.fill", tint: Color(nsColor: .systemBlue), isOn: settings.shelf, toggle: { app.setShelfEnabled($0) }) {
                     ModuleOption {
                         Toggle(isOn: Binding(get: { settings.shelfScreenshots }, set: { app.setShelfScreenshots($0) })) {
                             Text("Новые снимки экрана")
@@ -431,15 +431,15 @@ private struct ConsoleSettings: View {
                 }
                 card(
                     "Музыка", model.console.media.availability == .unavailable ? "Недоступно на этой системе" : "Что играет и управление",
-                    icon: "music-note", tint: Color(nsColor: .systemPink), isOn: settings.music, toggle: { app.setMusicEnabled($0) }
+                    icon: "music.note", tint: Color(nsColor: .systemPink), isOn: settings.music, toggle: { app.setMusicEnabled($0) }
                 ) {
                     EmptyView()
                 }
-                card("Диктовка", "Зажми клавишу, говори, отпусти", icon: "microphone-2", tint: Color(nsColor: .systemIndigo), isOn: settings.dictation, toggle: { app.setDictationEnabled($0) }) {
+                card("Диктовка", "Зажми клавишу, говори, отпусти", icon: "mic.fill", tint: Color(nsColor: .systemIndigo), isOn: settings.dictation, toggle: { app.setDictationEnabled($0) }) {
                     DictationOptions(model: model, app: app, controller: app.dictation)
                 }
                 if ConsoleTranslator.isAvailable {
-                    card("Перевод", "Русский и английский на этом Mac", icon: "chat-round-dots", tint: Color(nsColor: .systemTeal), isOn: settings.translator, toggle: { app.setTranslatorEnabled($0) }) {
+                    card("Перевод", "Русский и английский на этом Mac", icon: "character.bubble.fill", tint: Color(nsColor: .systemTeal), isOn: settings.translator, toggle: { app.setTranslatorEnabled($0) }) {
                         TranslatorOptions(model: model, app: app)
                     }
                 }
