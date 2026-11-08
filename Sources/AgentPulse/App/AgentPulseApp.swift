@@ -8,10 +8,10 @@ struct AgentPulseApp: App {
 
     var body: some Scene {
         MenuBarExtra {
-            PulseMenuView(app: app) { NSApp.keyWindow?.close() }
+            PulseMenuItems(app: app)
         } label: {
             Image(nsImage: SolarIcons.menuBarImage(app.model.menuSymbol))
         }
-        .menuBarExtraStyle(.window)
+        .menuBarExtraStyle(.menu)
     }
 }

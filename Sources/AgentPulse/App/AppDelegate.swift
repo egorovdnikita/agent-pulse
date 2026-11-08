@@ -21,7 +21,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     private let dictationHotKey = ConsoleHotKey(id: 5)
     private let translateHotKey = ConsoleHotKey(id: 6)
     private(set) var dictation: DictationController?
-    private var menuPanel: PulseMenuPanel?
     let trackpadGesture = TrackpadGesture()
     private var prompterPanel: PrompterPanel?
     private var codexTimer: Timer?
@@ -859,9 +858,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     /// Одно окно «Настройки» с вкладками; `tab` — сразу открыть нужную. Пока окно открыто,
     /// у приложения есть иконка в Dock и меню — как у обычного окна настроек; закрыли — снова только маскот.
     func showMenu() {
-        let menu = menuPanel ?? PulseMenuPanel(app: self)
-        menuPanel = menu
-        menu.show(at: NSEvent.mouseLocation)
+        // Системное меню у курсора, как контекстное меню любого окна.
+        PulseMenu.make(app: self).popUp(positioning: nil, at: NSEvent.mouseLocation, in: nil)
     }
 
     func showSettings(_ tab: SettingsNavigation.Tab? = nil, anchor: String? = nil) {

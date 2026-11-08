@@ -385,8 +385,6 @@ enum ConsoleSheet {
         write(PanelPreview(model: model), size: panel, to: folder.appending(path: "shelf-selected.png"))
         model.clearShelfSelection()
 
-        // Меню маскота.
-        write(PulseMenuView(app: app) {}, size: CGSize(width: PulseMenuView.width + 16, height: 340), to: folder.appending(path: "menu.png"))
 
         // Перевод: шесть страниц — самая тесная строка навигации.
         if let text = model.pressTranslate(selection: "Привет, это проверка перевода", clipboard: nil) {
