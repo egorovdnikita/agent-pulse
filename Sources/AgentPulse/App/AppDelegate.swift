@@ -870,9 +870,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
             controller.sizingOptions = [.minSize]
             controller.sceneBridgingOptions = [.title, .toolbars]
             let window = NSWindow(contentViewController: controller)
-            // Заголовок — название раздела, его ставит сама форма, как в Системных настройках.
+            // Как Системные настройки: колонка на всю высоту, кнопки окна на ней, название раздела слева над формой.
+            // Для этого окну нужна панель инструментов — её заполняет SwiftUI.
             window.styleMask = [.titled, .closable, .miniaturizable, .resizable, .fullSizeContentView]
+            window.toolbar = NSToolbar(identifier: "settings")
             window.toolbarStyle = .unified
+            window.titlebarSeparatorStyle = .automatic
             window.setContentSize(SettingsWindow.size)
             window.isReleasedWhenClosed = false
             window.delegate = self

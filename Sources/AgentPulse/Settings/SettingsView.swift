@@ -41,6 +41,23 @@ enum SettingsNavigation {
             }
         }
 
+        /// Что есть в разделе: по этим словам его находит поиск.
+        var keywords: [String] {
+            switch self {
+            case .general: ["маскот", "облик", "бот", "угол", "дисплей", "экран", "размер", "запуск", "вход", "эксперимент", "версия", "лицензии"]
+            case .character: ["болтливость", "озорство", "тишина", "тихие часы", "простой", "день рождения", "память", "забыть"]
+            case .sources: ["claude", "code", "chatgpt", "codex", "cowork", "orca", "браузер", "chrome", "figma", "лимиты", "подключить"]
+            case .console: ["пульт", "клавиша", "звуки", "лимиты", "суфлёр", "календарь", "файлы", "музыка", "диктовка", "перевод", "голос"]
+            case .news: ["новости", "темы", "дизайн", "наука", "игры", "космос", "экономика", "искусство"]
+            case .lab: ["лаборатория", "настроение", "гравитация", "жест", "состояния", "реакции", "сигнал"]
+            }
+        }
+
+        func matches(_ query: String) -> Bool {
+            let words = query.lowercased().trimmingCharacters(in: .whitespaces)
+            return words.isEmpty || title.lowercased().contains(words) || keywords.contains { $0.contains(words) }
+        }
+
         var icon: String {
             switch self {
             case .general: "settings"
@@ -83,6 +100,8 @@ final class SettingsSelection {
     var anchor: String?
     /// Раскрытый модуль: один за раз.
     var module: String?
+    /// Поиск над колонкой разделов.
+    var query = ""
 }
 
 /// Окно «Настройки» — как системные: боковая колонка и сгруппированная форма.
@@ -105,13 +124,13 @@ struct SettingsRoot: View {
                         .tag(tab)
                 }
             }
-            .navigationSplitViewColumnWidth(min: 180, ideal: 200, max: 260)
+            .navigationSplitViewColumnWidth(min: 200, ideal: 215, max: 280)
             .toolbar(removing: .sidebarToggle)
+            .searchable(text: $selection.query, placement: .sidebar, prompt: "Поиск")
         } detail: {
             SettingsWindow.content(selection.tab, app: app, selection: selection)
                 .id(selection.tab)
                 .navigationTitle(selection.tab.title)
-                .background(WindowTitle(title: selection.tab.title))
         }
         .frame(minWidth: 720, minHeight: 480)
         .environment(\.settingsAnchor, selection.anchor)
@@ -119,7 +138,9 @@ struct SettingsRoot: View {
 
     /// «Лаборатория» — только с включёнными экспериментами.
     private var tabs: [SettingsNavigation.Tab] {
-        SettingsNavigation.Tab.allCases.filter { $0 != .lab || app.model.config.senses.experimental || selection.tab == .lab }
+        SettingsNavigation.Tab.allCases
+            .filter { $0 != .lab || app.model.config.senses.experimental || selection.tab == .lab }
+            .filter { $0.matches(selection.query) }
     }
 }
 
@@ -133,17 +154,6 @@ private extension AppDelegate {
                 self.startSenses()
             }
         )
-    }
-}
-
-/// Название раздела в заголовке окна: само из формы оно туда не доходит.
-private struct WindowTitle: NSViewRepresentable {
-    let title: String
-
-    func makeNSView(context: Context) -> NSView { NSView() }
-
-    func updateNSView(_ view: NSView, context: Context) {
-        DispatchQueue.main.async { view.window?.title = title }
     }
 }
 
