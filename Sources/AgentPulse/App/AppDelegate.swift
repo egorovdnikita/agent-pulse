@@ -83,6 +83,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         panel.orderFrontRegardless()
         self.panel = panel
         startConsole()
+        if CommandLine.arguments.contains("--enable-shift") { setConsoleHotKey("shift") }
 
         // Панель переезжает на монитор с курсором; на её экране что-то развернули на весь экран — прячемся.
         // Опрос дешёвый и не требует никаких прав: только размеры окон, без названий и содержимого.
@@ -645,6 +646,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     }
 
     func setConsoleHotKey(_ letter: String) {
+        if letter == "shift" {
+            ConsoleShiftKey.requestPermission()
+            watchTrust()
+        }
         model.config.console.hotkey = letter
         try? model.config.save()
         applyConsoleHotKey()
@@ -819,6 +824,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
 
     private func startChatWindow() {
         model.accessibilityTrusted = ChatWindowWatcher.isTrusted
+        if model.config.console.hotkey == "shift" { watchTrust() }
         guard model.config.sources.claudeChat else { return }
         let inbox = model.inbox
         let watcher = ChatWindowWatcher { events in
@@ -837,6 +843,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
             MainActor.assumeIsolated {
                 guard let self, ChatWindowWatcher.isTrusted else { return }
                 self.model.accessibilityTrusted = true
+                if self.model.config.console.hotkey == "shift" { self.applyConsoleHotKey() }
                 self.trustTimer?.invalidate()
                 self.trustTimer = nil
             }

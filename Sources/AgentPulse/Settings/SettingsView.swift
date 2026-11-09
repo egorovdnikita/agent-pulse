@@ -497,10 +497,18 @@ private struct ConsoleSettings: View {
             SettingsBlock {
                 Toggle("Показывать Пульт", isOn: Binding(get: { settings.enabled }, set: { app.setConsoleEnabled($0) }))
                 SettingsPicker("Клавиша раскрытия", selection: Binding(get: { settings.hotkey }, set: { app.setConsoleHotKey($0) })) {
+                    Text("Shift — короткое нажатие").tag("shift")
                     ForEach(ConsoleHotKey.letters, id: \.self) { Text("⌃⌥\($0.uppercased())").tag($0) }
                     Text("Нет").tag("")
                 }
                 .disabled(!settings.enabled)
+                if settings.hotkey == "shift" {
+                    Text("Одиночное короткое нажатие открывает и закрывает Пульт. Сочетания с Shift работают как обычно.")
+                        .font(SettingsStyle.caption).foregroundStyle(SettingsStyle.muted)
+                    if !model.accessibilityTrusted {
+                        Button("Разрешить Shift в Универсальном доступе") { app.setConsoleHotKey("shift") }
+                    }
+                }
                 Toggle("Звуки", isOn: Binding(get: { settings.sounds }, set: { app.setSounds($0) }))
                     .disabled(!settings.enabled)
             }

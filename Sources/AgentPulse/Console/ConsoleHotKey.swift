@@ -13,6 +13,7 @@ final class ConsoleHotKey {
     private static var releaseHandlers: [UInt32: () -> Void] = [:]
     private static var installed = false
 
+    private let shiftKey = ConsoleShiftKey()
     private var reference: EventHotKeyRef?
     private let id: UInt32
 
@@ -26,6 +27,9 @@ final class ConsoleHotKey {
         if let reference { UnregisterEventHotKey(reference) }
         reference = nil
         Self.handlers[id] = nil
+        Self.releaseHandlers[id] = nil
+        shiftKey.set(letter == "shift" ? action : nil)
+        if letter == "shift" { return true }
         guard let code = Self.keyCodes[letter] else { return letter.isEmpty }
         return register(code: code, action: action)
     }
@@ -33,6 +37,7 @@ final class ConsoleHotKey {
     /// Ставит клавишу ⌃⌥ + код; nil — снимает. `released` — для удержания: отпускание Input Monitoring тоже не нужно.
     @discardableResult
     func set(code: Int?, released: (() -> Void)? = nil, action: @escaping () -> Void) -> Bool {
+        shiftKey.set(nil)
         if let reference { UnregisterEventHotKey(reference) }
         reference = nil
         Self.handlers[id] = nil
