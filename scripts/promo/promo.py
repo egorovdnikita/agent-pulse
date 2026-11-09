@@ -197,6 +197,7 @@ def build_timeline(assets, geometry):
     page(44.5, "translate-working"); page(45.2, "translate")
     hit(47, "translate", "translate-Скопировать"); page(47.02, "translate-copied")
     hit(48.7, "translate-copied", "translate-Очистить"); page(48.72, "translate-cleared")
+    hit(49.2, "translate-cleared", "translate-swap"); page(49.22, "translate-reversed-empty")
     click(50, (830, 170), "outside"); tl.panel.append((50.02, "close", None))
     tl.camera.append((50.6, CAM_WIDE)); tl.duration = 52.5
     return tl

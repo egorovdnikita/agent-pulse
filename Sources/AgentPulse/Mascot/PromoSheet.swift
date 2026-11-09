@@ -260,6 +260,8 @@ enum PromoSheet {
         model.clearTranslation()
         model.translateCopied = false
         page("translate-cleared", .translate)
+        model.flipTranslation()
+        page("translate-reversed-empty", .translate)
     }
 
     private static func renderLibrary(_ script: Script, to folder: URL) {
