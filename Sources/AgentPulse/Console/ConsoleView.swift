@@ -145,7 +145,7 @@ private struct LimitCard: View {
     var body: some View {
         let readings = LimitWindowKind.allCases.map { (kind: $0, reading: model.limits.book.reading(service, $0, now: model.now)) }
         ConsoleCard {
-            VStack(alignment: .leading, spacing: 22) {
+            VStack(alignment: .leading, spacing: 0) {
                 HStack(spacing: 4) {
                     ServiceMark(service: service, size: 17)
                     Text(service.title).font(ConsoleStyle.font(16, .semibold)).foregroundStyle(ConsoleStyle.text).lineLimit(1)
@@ -170,6 +170,7 @@ private struct LimitCard: View {
                     }
                 }
                 .frame(height: ConsoleStyle.cardHeader)
+                Spacer(minLength: 0)
                 HStack(spacing: 12) {
                     ForEach(readings, id: \.kind) { item in
                         LimitGauge(reading: item.reading, kind: item.kind, now: model.now).frame(maxWidth: .infinity)
@@ -193,7 +194,7 @@ private struct LimitsTab: View {
     let model: ConsoleModel
 
     var body: some View {
-        HStack(spacing: 8) {
+        HStack(spacing: ConsoleStyle.splitGap) {
             ForEach(LimitService.allCases, id: \.self) { LimitCard(model: model, service: $0) }
         }
     }

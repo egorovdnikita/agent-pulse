@@ -49,7 +49,7 @@ public struct PulseConfig: Codable, Sendable, Equatable {
         public var translator = true
         /// Универсальный доступ для вставки и чтения выделения: только с твоего согласия.
         public var accessibility = false
-        /// Глобальная клавиша раскрытия: буква вместе с ⌃⌥; пусто — без клавиши.
+        /// Глобальная клавиша раскрытия: control — отдельное нажатие, буква — вместе с ⌃⌥; пусто — выключено.
         public var hotkey = "x"
         /// Путь к `codex`; пусто — найти самому.
         public var codexPath: String?
@@ -182,8 +182,9 @@ public struct PulseConfig: Codable, Sendable, Equatable {
             let user = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any],
             let defaults = try? JSONSerialization.jsonObject(with: JSONEncoder().encode(PulseConfig())) as? [String: Any],
             let merged = try? JSONSerialization.data(withJSONObject: deepMerge(defaults, user)),
-            let config = try? JSONDecoder().decode(PulseConfig.self, from: merged)
+            var config = try? JSONDecoder().decode(PulseConfig.self, from: merged)
         else { return PulseConfig() }
+        if config.console.hotkey == "shift" { config.console.hotkey = "control" }
         return config
     }
 

@@ -229,6 +229,7 @@ struct ShelfTab: View {
                             .font(ConsoleStyle.font(12, .medium)).foregroundStyle(ConsoleStyle.caption)
                     }
                 }
+                .padding(ConsoleStyle.cardPadding)
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
                 .overlay(RoundedRectangle(cornerRadius: 20).strokeBorder(.white.opacity(0.16), style: StrokeStyle(lineWidth: 1, dash: [4, 4])))
                 .contentShape(Rectangle()).onTapGesture { model.chooseFiles() }
@@ -449,7 +450,7 @@ struct PrompterTab: View {
                 .padding(.top, 4)
             }
         }
-        .padding(12)
+        .padding(ConsoleStyle.cardPadding)
         .background(ConsoleStyle.card, in: RoundedRectangle(cornerRadius: ConsoleStyle.cardRadius, style: .continuous))
         .overlay {
             RoundedRectangle(cornerRadius: ConsoleStyle.cardRadius, style: .continuous)
@@ -589,7 +590,7 @@ struct TranslateTab: View {
     private var russianSource: Bool { direction.title.hasPrefix("Русский") }
 
     var body: some View {
-        HStack(spacing: 8) {
+        HStack(spacing: ConsoleStyle.splitGap) {
             ConsoleCard {
                 VStack(alignment: .leading, spacing: 12) {
                     header(russianSource ? "Русский" : "Английский", flag: russianSource ? "flag-russia" : "flag-united-kingdom", action: "Очистить", color: ConsoleStyle.red) { model.clearTranslation() }
@@ -612,21 +613,37 @@ struct TranslateTab: View {
                 }
             }
         }
+        .overlay {
+            Button { model.flipTranslation() } label: {
+                ConsoleAsset(name: "swap-languages", width: 20, height: 20, tint: ConsoleStyle.text)
+                    .frame(width: 24, height: 40)
+                    .background(ConsoleStyle.card, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+                    // Обводка макета идёт снаружи: внутренняя половина перекрыта заливкой кнопки.
+                    .background {
+                        RoundedRectangle(cornerRadius: 16, style: .continuous)
+                            .stroke(ConsoleStyle.surface, lineWidth: 6)
+                    }
+                    .contentShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+            }
+            .buttonStyle(ConsolePressStyle())
+            .accessibilityLabel("Поменять языки")
+            .help("Поменять языки")
+            .promoTarget("translate-swap")
+        }
     }
 
     private func header(_ language: String, flag: String, action: String, color: Color, perform: @escaping () -> Void) -> some View {
         HStack {
-            Button { model.flipTranslation() } label: {
-                HStack(spacing: 8) {
-                    ConsoleAsset(name: flag, width: 16, height: 12)
-                        .frame(width: 16, height: 16)
-                        .promoTarget("translate-" + flag)
-                    Text(language)
-                        .font(ConsoleStyle.font(12, .semibold))
-                        .foregroundStyle(ConsoleStyle.text)
-                        .frame(height: 16)
-                }
+            HStack(spacing: 8) {
+                ConsoleAsset(name: flag, width: 16, height: 12)
+                    .frame(width: 16, height: 16)
+                    .promoTarget("translate-" + flag)
+                Text(language)
+                    .font(ConsoleStyle.font(12, .semibold))
+                    .foregroundStyle(ConsoleStyle.text)
+                    .frame(height: 16)
             }
+            .accessibilityElement(children: .combine)
             .accessibilityLabel(language)
             .promoTarget("translate-language-" + language)
             Spacer(minLength: 0)
@@ -645,7 +662,7 @@ struct TranslateTab: View {
         case .askToCopy: ConsoleEmpty(icon: "chat-round-dots", title: "Выделение не прочиталось", hint: TranslateModule.askToCopyHint)
         case .working: ConsoleEmpty(icon: "chat-round-dots", title: "Перевожу…")
         case .failed(let problem):
-            VStack {
+            VStack(spacing: 4) {
                 ConsoleEmpty(icon: "chat-round-dots", title: "Перевод не вышел", hint: problem)
                 if problem == ConsoleTranslator.needsLanguages {
                     PrompterSmallButton(title: "Скачать языки") { model.onOpenSettings?("Переводчик") }

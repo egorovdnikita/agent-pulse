@@ -48,10 +48,30 @@ enum PromoSheet {
         page("languages-needed")
         model.tab = .limits
         page("neighbor-limits")
+        let now = Date()
+        for (service, used, week) in [(LimitService.claude, 31, 84), (.codex, 100, 12)] {
+            model.ingest(LimitSnapshot(service: service, windows: [
+                LimitWindow(kind: .fiveHour, usedPercent: Double(used), resetsAt: now.addingTimeInterval(2 * 3600)),
+                LimitWindow(kind: .week, usedPercent: Double(week), resetsAt: now.addingTimeInterval(3 * 86_400)),
+            ], at: now))
+        }
+        page("neighbor-limits-filled")
         model.tab = .prompter
         page("neighbor-prompter")
+        model.prompterDraft = "Здравствуйте! Сегодня покажу, что изменилось в Пульте."
+        page("neighbor-prompter-filled")
+        model.prompterDraft = long
+        page("neighbor-prompter-long")
+        model.preparePromoPrompter(long)
+        model.seekPromoPrompter(elapsed: 0, paused: false)
+        model.showPanelNow()
+        model.tab = .prompter
+        page("neighbor-prompter-running")
+        model.stopPrompter()
         model.tab = .shelf
         page("neighbor-shelf")
+        model.addToShelf(["Доклад.pdf", "Заметки.md", "Бюджет.xlsx", "Презентация.key"].map { URL(filePath: "/tmp/pulse-layout16-fiction/\($0)") })
+        page("neighbor-shelf-filled")
     }
 
     struct Script: Decodable {

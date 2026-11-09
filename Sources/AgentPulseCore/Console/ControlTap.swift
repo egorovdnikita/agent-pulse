@@ -1,5 +1,5 @@
-/// Распознаёт короткое отдельное нажатие Shift без чтения текста клавиш.
-public struct ShiftTap: Sendable {
+/// Распознаёт короткое отдельное нажатие Control без чтения текста клавиш.
+public struct ControlTap: Sendable {
     private var down = false
     private var start: Double?
     private var activity: UInt64 = 0
@@ -7,10 +7,10 @@ public struct ShiftTap: Sendable {
     public init() {}
 
     /// Активность — общий счётчик нажатий и мыши, без их содержимого.
-    public mutating func observe(shift: Bool, otherModifier: Bool, activity: UInt64, time: Double) -> Bool {
-        defer { down = shift }
+    public mutating func observe(control: Bool, otherModifier: Bool, activity: UInt64, time: Double) -> Bool {
+        defer { down = control }
         if otherModifier { start = nil; return false }
-        if shift {
+        if control {
             if !down { start = time; self.activity = activity }
             return false
         }
