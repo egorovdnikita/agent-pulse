@@ -8,10 +8,12 @@ import SwiftUI
 /// и клики добавляет монтаж.
 @MainActor
 enum PromoSheet {
+    private static let promoSkin = PalSkin(bot: "Flower")
     /// Нативные состояния переводчика без сети, окон и сохранения пользовательских данных.
     static func renderTranslation(to folder: URL) {
         try? FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
         let model = ConsoleModel(promo: true)
+        model.librarySkin = promoSkin
         model.translatorEnabled = true
         model.showPanelNow()
         model.tab = .translate
@@ -141,8 +143,8 @@ enum PromoSheet {
         try? FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
         let animator = MascotAnimator()
         animator.screenCenter = .zero
-        let skin = PalSkin(bot: PalSkin.defaultBot)
-        precondition(skin.isComplete(), "Для промо нужен установленный Agent Pals / Circle")
+        let skin = promoSkin
+        precondition(skin.isComplete(), "Для промо нужен установленный Agent Pals / Flower")
         animator.skin = skin
         let box = MascotView.boxSize(script.diameter)
         let view = MascotLayerView(animator: animator, diameter: script.diameter)
@@ -187,6 +189,7 @@ enum PromoSheet {
 
     private static func renderConsole(scale: Double, to folder: URL) {
         let model = ConsoleModel(promo: true)
+        model.librarySkin = promoSkin
         model.translatorEnabled = true
         model.fit = .full(width: 170)
         model.tick(now: Date(), agentWaiting: false, inputActive: false)
@@ -270,7 +273,7 @@ enum PromoSheet {
     private static func renderLibrary(_ script: Script, to folder: URL) {
         try? FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
         let view = LibraryCharacterView(frame: NSRect(x: 0, y: 0, width: 60, height: 60), offline: true)
-        view.use(PalSkin(bot: PalSkin.defaultBot))
+        view.use(promoSkin)
         view.layoutSubtreeIfNeeded()
         let side = Int(132 * script.scale)
         for i in 0..<Int(2 * script.fps) {
