@@ -40,6 +40,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     func applicationDidFinishLaunching(_ notification: Notification) {
         ConsoleStyle.registerFont()
         NSApp.setActivationPolicy(.accessory)
+        if let index = CommandLine.arguments.firstIndex(of: "--translate-sheet"), index + 1 < CommandLine.arguments.count {
+            PromoSheet.renderTranslation(to: URL(filePath: CommandLine.arguments[index + 1]))
+            exit(0)
+        }
         // Отладка: `--design-sheet out.png` — нарисовать ключевые позы и выйти.
         if let index = CommandLine.arguments.firstIndex(of: "--design-sheet"), index + 1 < CommandLine.arguments.count {
             DesignSheet.render(to: URL(filePath: CommandLine.arguments[index + 1]))

@@ -592,12 +592,12 @@ struct TranslateTab: View {
         HStack(spacing: 8) {
             ConsoleCard {
                 VStack(alignment: .leading, spacing: 12) {
-                    header(russianSource ? "Русский" : "Английский", action: "Очистить", color: ConsoleStyle.red) { model.clearTranslation() }
+                    header(russianSource ? "Русский" : "Английский", flag: russianSource ? "flag-russia" : "flag-united-kingdom", action: "Очистить", color: ConsoleStyle.red) { model.clearTranslation() }
                     ZStack(alignment: .topLeading) {
                         PrompterEditor(text: Binding(get: { model.translateInput }, set: { model.typeTranslation($0) }))
                             .promoTarget("translate-editor")
                         if model.translateInput.isEmpty {
-                            Text("Введи текст или выдели его и нажми ⌃⌥T")
+                            Text("Введи или выдели его и нажми ⌃⌥T")
                                 .font(ConsoleStyle.font(14, .medium)).foregroundStyle(ConsoleStyle.caption).allowsHitTesting(false)
                         }
                     }.consoleScrollFade()
@@ -605,7 +605,7 @@ struct TranslateTab: View {
             }
             ConsoleCard {
                 VStack(alignment: .leading, spacing: 12) {
-                    header(russianSource ? "Английский" : "Русский", action: model.translateCopied ? "Скопировано" : "Скопировать", color: ConsoleStyle.green) {
+                    header(russianSource ? "Английский" : "Русский", flag: russianSource ? "flag-united-kingdom" : "flag-russia", action: model.translateCopied ? "Скопировано" : "Скопировать", color: ConsoleStyle.green) {
                         if case .done(_, let result) = model.translate.state { model.copyTranslation(result) }
                     }
                     output
@@ -614,9 +614,21 @@ struct TranslateTab: View {
         }
     }
 
-    private func header(_ language: String, action: String, color: Color, perform: @escaping () -> Void) -> some View {
+    private func header(_ language: String, flag: String, action: String, color: Color, perform: @escaping () -> Void) -> some View {
         HStack {
-            Button(language) { model.flipTranslation() }.foregroundStyle(ConsoleStyle.caption).font(ConsoleStyle.font(12, .semibold))
+            Button { model.flipTranslation() } label: {
+                HStack(spacing: 8) {
+                    ConsoleAsset(name: flag, width: 16, height: 12)
+                        .frame(width: 16, height: 16)
+                        .promoTarget("translate-" + flag)
+                    Text(language)
+                        .font(ConsoleStyle.font(12, .semibold))
+                        .foregroundStyle(ConsoleStyle.text)
+                        .frame(height: 16)
+                }
+            }
+            .accessibilityLabel(language)
+            .promoTarget("translate-language-" + language)
             Spacer(minLength: 0)
             Button(action, action: perform).foregroundStyle(color).font(ConsoleStyle.font(12, .medium))
                 .promoTarget("translate-\(action)")

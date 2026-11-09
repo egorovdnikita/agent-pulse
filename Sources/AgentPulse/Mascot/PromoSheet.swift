@@ -8,6 +8,52 @@ import SwiftUI
 /// и клики добавляет монтаж.
 @MainActor
 enum PromoSheet {
+    /// Нативные состояния переводчика без сети, окон и сохранения пользовательских данных.
+    static func renderTranslation(to folder: URL) {
+        try? FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+        let model = ConsoleModel(promo: true)
+        model.translatorEnabled = true
+        model.showPanelNow()
+        model.tab = .translate
+        func page(_ name: String) {
+            snapshot(PanelPreview(model: model).padding(8), scale: 4,
+                     to: folder.appending(path: name + ".png"))
+        }
+        page("empty")
+        let source = "Привет, это проверка перевода"
+        _ = model.pressTranslate(selection: source, clipboard: nil)
+        model.showPanelNow()
+        page("working")
+        model.finishTranslate(source: source, result: .success("Hello, this is a translation check"))
+        page("filled")
+        model.translateCopied = true
+        page("copied")
+        model.translateCopied = false
+        model.flipTranslation()
+        page("reversed")
+        model.clearTranslation()
+        page("cleared")
+        model.flipTranslation()
+        page("empty-reversed")
+        model.clearTranslation()
+        let long = Array(repeating: source + ".", count: 12).joined(separator: " ")
+        _ = model.pressTranslate(selection: long, clipboard: nil)
+        model.finishTranslate(source: long, result: .success(Array(repeating: "A longer translation.", count: 24).joined(separator: " ")))
+        model.showPanelNow()
+        page("long")
+        model.clearTranslation()
+        _ = model.pressTranslate(selection: source, clipboard: nil)
+        model.finishTranslate(source: source, result: .failure(TranslateProblem(text: ConsoleTranslator.needsLanguages)))
+        model.showPanelNow()
+        page("languages-needed")
+        model.tab = .limits
+        page("neighbor-limits")
+        model.tab = .prompter
+        page("neighbor-prompter")
+        model.tab = .shelf
+        page("neighbor-shelf")
+    }
+
     struct Script: Decodable {
         struct StateMark: Decodable { let t: Double; let state: String }
         struct ReactionMark: Decodable { let t: Double; let name: String }
