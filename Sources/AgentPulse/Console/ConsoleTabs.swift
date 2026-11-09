@@ -125,7 +125,8 @@ private extension ShelfFileKind {
 private struct ShelfTile: View {
     let model: ConsoleModel
     let item: ShelfItem
-    static let size = (624.0 - 48) / 7
+    static let size = (624.0 - 6 * ShelfTab.fileGap) / 7
+    @Environment(\.promoCapture) private var capture
 
     // Обычный @State без Xcode недоступен: его макрос лежит только там.
     private let hovering = State(initialValue: false)
@@ -152,13 +153,14 @@ private struct ShelfTile: View {
                     )
                 }
                 .overlay(alignment: .topTrailing) {
-                    if hovering.wrappedValue {
+                    if hovering.wrappedValue || capture?.hoverShelfFiles == true {
                         Button { model.removeFromShelf(item.url) } label: {
                             solar("close-circle", 18)
                         }
                         .buttonStyle(ConsolePressStyle())
-                        .offset(x: 5, y: -5)
+                        .padding(4)
                         .accessibilityLabel("Убрать")
+                        .promoTarget("remove-file-\(item.name)")
                     }
                 }
             Text(item.name)
@@ -215,6 +217,7 @@ private struct ShelfTile: View {
 struct ShelfTab: View {
     let model: ConsoleModel
     fileprivate static let space = "shelf"
+    fileprivate static let fileGap = 4.0
 
     var body: some View {
         Group {
@@ -256,7 +259,7 @@ struct ShelfTab: View {
     private var files: some View {
         VStack(alignment: .leading, spacing: 4) {
             ScrollView {
-                LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 8), count: 7), alignment: .leading, spacing: 8) {
+                LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: Self.fileGap), count: 7), alignment: .leading, spacing: 8) {
                     ForEach(model.shelf.items.reversed()) { ShelfTile(model: model, item: $0) }
                 }
                 // Пустое место тоже страница: клик снимает выделение, тянешь — рамка.

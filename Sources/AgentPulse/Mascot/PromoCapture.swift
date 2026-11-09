@@ -10,6 +10,7 @@ final class PromoCapture {
         init(_ view: NSView) { self.view = view }
     }
     var markers: [String: WeakView] = [:]
+    var hoverShelfFiles = false
 
     func rectangles(in host: NSView) -> [String: [Double]] {
         markers.compactMapValues { marker in

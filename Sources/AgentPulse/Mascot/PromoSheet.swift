@@ -72,6 +72,9 @@ enum PromoSheet {
         page("neighbor-shelf")
         model.addToShelf(["Доклад.pdf", "Заметки.md", "Бюджет.xlsx", "Презентация.key"].map { URL(filePath: "/tmp/pulse-layout16-fiction/\($0)") })
         page("neighbor-shelf-filled")
+        model.addToShelf(["План.docx", "Архив.zip", "Идеи.txt", "Пример.png"].map { URL(filePath: "/tmp/pulse-layout16-fiction/\($0)") })
+        snapshot(PanelPreview(model: model).padding(8), scale: 4,
+                 to: folder.appending(path: "neighbor-shelf-hover.png"), hoverShelfFiles: true)
     }
 
     struct Script: Decodable {
@@ -306,8 +309,9 @@ enum PromoSheet {
     }
 
     /// Прозрачный фон: монтаж кладёт картинку на свой рабочий стол.
-    private static func snapshot(_ view: some View, scale: Double, to url: URL) {
+    private static func snapshot(_ view: some View, scale: Double, to url: URL, hoverShelfFiles: Bool = false) {
         let capture = PromoCapture()
+        capture.hoverShelfFiles = hoverShelfFiles
         let host = NSHostingView(rootView: view.environment(\.promoCapture, capture).fixedSize())
         host.appearance = NSAppearance(named: .darkAqua)
         let size = host.fittingSize
