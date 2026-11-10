@@ -4,16 +4,36 @@ import SwiftUI
 /// Поле текста. Файлы принимает вкладка: NSTextView вставил бы вместо них путь.
 struct PrompterEditor: NSViewRepresentable {
     final class TextView: NSTextView {
+        var selectionActions: ((String, NSRange) -> [(String, () -> Void)])?
+        private var menuActions: [() -> Void] = []
+        override func menu(for event: NSEvent) -> NSMenu? {
+            let menu = super.menu(for: event) ?? NSMenu()
+            let additions = selectionActions?(string, selectedRange()) ?? []
+            menuActions = additions.map { $0.1 }
+            if !additions.isEmpty { menu.addItem(.separator()) }
+            for (index, entry) in additions.enumerated() {
+                let item = NSMenuItem(title: entry.0, action: #selector(runSelectionAction(_:)), keyEquivalent: "")
+                item.target = self; item.tag = index
+                menu.addItem(item)
+            }
+            return menu
+        }
+        @objc private func runSelectionAction(_ item: NSMenuItem) {
+            guard menuActions.indices.contains(item.tag) else { return }
+            menuActions[item.tag]()
+        }
         override func updateDragTypeRegistration() { unregisterDraggedTypes() }
     }
 
     @Binding var text: String
+    var selectionActions: ((String, NSRange) -> [(String, () -> Void)])? = nil
 
     func makeCoordinator() -> Coordinator { Coordinator(text: $text) }
 
     func makeNSView(context: Context) -> NSScrollView {
         let view = TextView()
         view.delegate = context.coordinator
+        view.selectionActions = selectionActions
         view.isRichText = false
         view.allowsUndo = true
         view.drawsBackground = false
@@ -41,6 +61,7 @@ struct PrompterEditor: NSViewRepresentable {
 
     func updateNSView(_ scroll: NSScrollView, context: Context) {
         context.coordinator.text = $text
+        (scroll.documentView as? TextView)?.selectionActions = selectionActions
         if let view = scroll.documentView as? NSTextView, view.string != text { view.string = text }
     }
 
