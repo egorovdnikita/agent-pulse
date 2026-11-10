@@ -13,7 +13,10 @@ struct TranslateTab: View {
                 VStack(alignment: .leading, spacing: 8) {
                     languageRow(source: true)
                     ZStack(alignment: .topLeading) {
-                        PrompterEditor(text: Binding(get: { model.translateInput }, set: { model.typeTranslation($0) }))
+                        PrompterEditor(text: Binding(get: { model.translateInput }, set: { model.typeTranslation($0) }), selectionActions: { source, range in
+                            guard let fragment = TextFragment(source: source, range: range) else { return [] }
+                            return [("Перевести выделенный фрагмент", { model.translateFragment(fragment) })]
+                        })
                             .promoTarget("translate-editor")
                         if model.translateInput.isEmpty {
                             Text("Введи или выдели его и нажми ⌃⌥T")

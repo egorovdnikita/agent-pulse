@@ -86,6 +86,7 @@ final class ConsoleModel {
     @ObservationIgnored private var translateTask: Task<Void, Never>?
     /// Перевод только что скопирован.
     var translateCopied = false
+    private var translationFragment: TextFragment?
     private var translationReview: (module: TranslateModule, input: String)?
     var canRestoreTranslationReview: Bool { translationReview != nil }
     var shelfEnabled = true
@@ -793,6 +794,7 @@ final class ConsoleModel {
 
     func pressTranslate(selection: String?, clipboard: String?, editable: Bool = true) -> String? {
         guard translatorEnabled else { return nil }
+        translationFragment = nil
         translationReview = nil
         translateTask?.cancel()
         translateCopied = false
@@ -807,12 +809,22 @@ final class ConsoleModel {
 
     /// Текст на странице: перевод идёт, когда набор затихает.
     func typeTranslation(_ text: String, preservingSelection: Bool = false) {
+        translationFragment = nil
         translationReview = nil
         translateCopied = false
         translateInput = text
         translateTask?.cancel()
         guard let source = translate.type(text, preservingSelection: preservingSelection) else { return }
         scheduleTranslation(source)
+    }
+
+    func translateFragment(_ fragment: TextFragment) {
+        guard fragment.source == translateInput else { return }
+        typeTranslation(translateInput)
+        translateTask?.cancel()
+        translationFragment = fragment
+        guard let text = translate.type(fragment.text) else { return }
+        scheduleTranslation(text)
     }
 
     private func scheduleTranslation(_ source: String) {
@@ -888,6 +900,7 @@ final class ConsoleModel {
     }
 
     func clearTranslation() {
+        translationFragment = nil
         translationReview = nil
         translateTask?.cancel()
         translateInput = ""
@@ -897,7 +910,11 @@ final class ConsoleModel {
 
     func finishTranslate(source: String, result: Result<String, TranslateProblem>, request: Int? = nil) {
         switch result {
-        case .success(let text): translate.finish(source: source, result: text, request: request)
+        case .success(let text):
+            if let fragment = translationFragment {
+                guard fragment.text == source, let full = fragment.replacing(with: text, in: translateInput) else { return }
+                translate.finish(source: source, result: full, request: request)
+            } else { translate.finish(source: source, result: text, request: request) }
         case .failure(let problem): translate.fail(source: source, problem: problem.text, request: request)
         }
     }
