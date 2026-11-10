@@ -223,6 +223,10 @@ struct ShelfTab: View {
                 files
             }
         }
+        .contextMenu {
+            Button("Отменить изменение Библиотеки") { model.undoShelf() }.disabled(!model.shelfHistory.canUndo)
+            Button("Повторить изменение Библиотеки") { model.redoShelf() }.disabled(!model.shelfHistory.canRedo)
+        }
         .overlay {
             if model.dropTargeted {
                 RoundedRectangle(cornerRadius: ConsoleStyle.cardRadius, style: .continuous)

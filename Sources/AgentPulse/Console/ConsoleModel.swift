@@ -311,6 +311,11 @@ final class ConsoleModel {
         restoreShelf(items)
     }
 
+    func redoShelf() {
+        guard let items = shelfHistory.redo(current: shelf.items) else { return }
+        restoreShelf(items)
+    }
+
     private func restoreShelf(_ items: [ShelfItem]) {
         shelfThumbnailTask?.cancel()
         shelfPreviewTasks.values.forEach { $0.cancel() }
