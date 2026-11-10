@@ -9,6 +9,13 @@ import Testing
         #expect(PrompterTiming(words: 0, target: 20) == nil)
         #expect(PrompterTiming(words: 600, target: .nan) == nil)
     }
+    @Test func exactTempoIsVisibleAndButtonsReturnToSteps() {
+        var module = PrompterModule()
+        module.setExactSpeed(120)
+        #expect(module.multiplierText == "0.92x")
+        module.changeSpeed(faster: true)
+        #expect(module.multiplierText == "1.25x")
+    }
     @Test func parseDurations() {
         #expect(PrompterTiming.parse("5") == 300)
         #expect(PrompterTiming.parse("2:30") == 150)

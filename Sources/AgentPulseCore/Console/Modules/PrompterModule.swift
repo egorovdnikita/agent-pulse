@@ -147,6 +147,7 @@ public struct PrompterModule: ConsoleModule {
     public private(set) var mode = Mode.idle
     /// Слова в минуту.
     public private(set) var speed = PrompterModule.defaultSpeed
+    private var preciseSpeed = false
     /// Сколько слов уже прочитано; дробное, чтобы скорость не теряла точность.
     public private(set) var position = 0.0
     /// Текст идёт за голосом, а не по часам.
@@ -237,7 +238,7 @@ public struct PrompterModule: ConsoleModule {
         (Double(speed) / Double(Self.defaultSpeed) / Self.multiplierStep).rounded() * Self.multiplierStep
     }
 
-    public var multiplierText: String { String(format: "%.2fx", multiplier) }
+    public var multiplierText: String { String(format: "%.2fx", preciseSpeed ? Double(speed) / Double(Self.defaultSpeed) : multiplier) }
 
     /// Шаг 0.25x, от 0.5x до 2x.
     public mutating func changeSpeed(faster: Bool) {
@@ -251,10 +252,12 @@ public struct PrompterModule: ConsoleModule {
     }
 
     public mutating func setExactSpeed(_ value: Int) {
+        preciseSpeed = true
         speed = min(Self.speedRange.upperBound, max(Self.speedRange.lowerBound, value))
     }
 
     private mutating func setMultiplier(_ value: Double) {
+        preciseSpeed = false
         let wanted = Int((value * Double(Self.defaultSpeed)).rounded())
         speed = min(Self.speedRange.upperBound, max(Self.speedRange.lowerBound, wanted))
     }
