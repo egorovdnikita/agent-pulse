@@ -145,7 +145,7 @@ final class ConsoleModel {
     /// Диктовка: записать, закончить запись, открыть настройки модели.
     var dictationReplaying = false
     var dictationReplayUntil = Date.distantPast
-    var canReplayDictation: Bool { dictationEnabled && !dictationReplaying && dictation.phase == .idle && now < dictationReplayUntil }
+    var canReplayDictation: Bool { dictationEnabled && !dictationReplaying && !prompter.isActive && dictation.phase == .idle && now < dictationReplayUntil }
     @ObservationIgnored var onReplayDictation: (() -> Void)?
     @ObservationIgnored var onDictationStart: (() -> Void)?
     @ObservationIgnored var onDictationStop: ((_ keep: Bool) -> Void)?
@@ -567,7 +567,7 @@ final class ConsoleModel {
     }
 
     func startPrompter(text override: String? = nil) {
-        guard prompterEnabled, !prompter.isActive, let text = override ?? prompterText else { return }
+        guard prompterEnabled, !dictationReplaying, dictation.phase == .idle, !prompter.isActive, let text = override ?? prompterText else { return }
         now = Date()
         let resume = override != nil ? nil : prompterCheckpoint?.fraction(for: text)
         guard prompter.start(text: text, now: now, markup: prompterMarkup) else { return }

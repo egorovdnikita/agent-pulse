@@ -186,6 +186,7 @@ struct PrompterTab: View {
                         .opacity(model.prompterLibrary.texts.isEmpty ? 0.4 : 1)
                 }
                 PrompterSmallButton(title: model.prompterStartTitle, strong: true, wide: true) { model.startPrompterDraft() }
+                    .disabled(model.dictation.phase != .idle || model.dictationReplaying)
                     .contextMenu {
                         Button("Длительность выступления…") { model.askPrompterDuration() }.disabled(!hasText || model.prompter.followsVoice)
                         Toggle("Паузы по разметке", isOn: $model.prompterMarkup)
