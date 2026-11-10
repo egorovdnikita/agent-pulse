@@ -665,10 +665,10 @@ final class ConsoleModel {
 
     // MARK: - Диктовка
 
-    func pressDictation() {
+    func pressDictation(correcting: Bool = false) {
         guard dictationEnabled, !prompter.isActive else { return }
         now = Date()
-        let recording = dictation.press(now: now, modelReady: dictationModelReady())
+        let recording = dictation.press(now: now, modelReady: dictationModelReady(), correcting: correcting)
         settleDictation()
         guard recording else {
             if dictation.notice == .needsModel { onDictationNeedsModel?() }

@@ -120,7 +120,7 @@ final class DictationController {
             return
         }
         correctionMode = true
-        console.pressDictation()
+        console.pressDictation(correcting: true)
         if console.dictation.phase != .recording { correctionMode = false }
     }
 

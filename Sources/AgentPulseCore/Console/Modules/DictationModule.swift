@@ -18,7 +18,7 @@ public struct DictationModule: ConsoleModule {
             case .failed: "Не вышло распознать"
             case .noMicrophone: "Нет доступа к микрофону"
             case .corrected: "Исправлено"
-            case .correctionUnavailable: "Нет недавней вставки для исправления"
+            case .correctionUnavailable: "Нечего исправлять"
             case .correctionFailed: "Исправление не вышло"
             }
         }
@@ -36,6 +36,7 @@ public struct DictationModule: ConsoleModule {
     public let accent: UInt32 = 0xFF375F
 
     public private(set) var phase = Phase.idle
+    public private(set) var correcting = false
     public private(set) var notice: Notice?
     private var noticeUntil = Date.distantPast
     private var startedAt = Date.distantPast
@@ -43,12 +44,13 @@ public struct DictationModule: ConsoleModule {
     public init() {}
 
     /// Клавиша нажата. false — записи не будет: модели нет или запись уже идёт.
-    public mutating func press(now: Date, modelReady: Bool) -> Bool {
+    public mutating func press(now: Date, modelReady: Bool, correcting: Bool = false) -> Bool {
         guard phase == .idle else { return false }
         guard modelReady else {
             show(.needsModel, now: now)
             return false
         }
+        self.correcting = correcting
         phase = .recording
         startedAt = now
         notice = nil
@@ -60,6 +62,7 @@ public struct DictationModule: ConsoleModule {
         guard phase == .recording else { return false }
         guard now.timeIntervalSince(startedAt) >= Self.minimumHold else {
             phase = .idle
+            correcting = false
             return false
         }
         phase = .recognizing
@@ -74,6 +77,7 @@ public struct DictationModule: ConsoleModule {
     /// Распознавание и вставка закончились.
     public mutating func finish(now: Date, notice: Notice?) {
         phase = .idle
+        correcting = false
         if let notice { show(notice, now: now) }
     }
 
@@ -95,7 +99,7 @@ public struct DictationModule: ConsoleModule {
         if phase == .idle, let notice = visibleNotice(now: now) {
             return CapsuleContent(rings: [], label: notice.text, text: notice.text, icon: "document-text")
         }
-        return CapsuleContent(rings: [], label: title, wave: true)
+        return CapsuleContent(rings: [], label: correcting ? "Исправление" : title, wave: true)
     }
 
     public mutating func tick(now: Date) -> [ToolSignal] { [] }
