@@ -56,6 +56,7 @@ public struct TranslateModule: ConsoleModule {
     public private(set) var recentTargets = ["en", "ru", "de"]
     public private(set) var requestVersion = 0
     private var askedAt = Date.distantPast
+    private var replacementSource: String?
 
     public init() {}
 
@@ -63,9 +64,11 @@ public struct TranslateModule: ConsoleModule {
     /// `editable` — выделение стоит в поле, его можно заменить; текст на странице заменить нельзя.
     public mutating func press(selection: String?, clipboard: String?, now: Date, editable: Bool = true) -> String? {
         requestVersion += 1
+        replacementSource = nil
         if let text = Self.cleaned(selection) {
             state = .working(source: text)
             replaceable = editable
+            replacementSource = editable ? text : nil
             return text
         }
         if state == .askToCopy, now.timeIntervalSince(askedAt) < Self.askToCopyLength, let text = Self.cleaned(clipboard) {
@@ -80,9 +83,10 @@ public struct TranslateModule: ConsoleModule {
     }
 
     /// Текст введён на странице. Возвращает то, что пора переводить.
-    public mutating func type(_ text: String) -> String? {
+    public mutating func type(_ text: String, preservingSelection: Bool = false) -> String? {
         requestVersion += 1
-        replaceable = false
+        replaceable = preservingSelection && replacementSource != nil && replacementSource == Self.cleaned(text)
+        if !replaceable { replacementSource = nil }
         guard let text = Self.cleaned(text) else {
             state = .idle
             return nil
@@ -102,7 +106,7 @@ public struct TranslateModule: ConsoleModule {
         }
         sourceLanguage = code
         if let code { Self.remember(code, in: &recentSources) }
-        invalidate()
+        invalidate(keepingSelection: true)
     }
 
     public mutating func selectTarget(_ code: String) {
@@ -112,7 +116,7 @@ public struct TranslateModule: ConsoleModule {
         }
         targetLanguage = code
         Self.remember(code, in: &recentTargets)
-        invalidate()
+        invalidate(keepingSelection: true)
     }
 
     @discardableResult
@@ -128,7 +132,14 @@ public struct TranslateModule: ConsoleModule {
         return newInput
     }
 
-    private mutating func invalidate() { requestVersion += 1; state = .idle; replaceable = false }
+    private mutating func invalidate(keepingSelection: Bool = false) {
+        requestVersion += 1
+        state = .idle
+        if !keepingSelection {
+            replaceable = false
+            replacementSource = nil
+        }
+    }
     private static func remember(_ code: String, in list: inout [String]) {
         guard !list.contains(code) else { return }
         list.insert(code, at: 0)
@@ -147,11 +158,7 @@ public struct TranslateModule: ConsoleModule {
         state = .failed(problem)
     }
 
-    public mutating func reset() {
-        requestVersion += 1
-        state = .idle
-        replaceable = false
-    }
+    public mutating func reset() { invalidate() }
 
     private static func cleaned(_ text: String?) -> String? {
         guard let text = text?.trimmingCharacters(in: .whitespacesAndNewlines), !text.isEmpty else { return nil }

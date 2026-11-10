@@ -569,11 +569,11 @@ final class ConsoleModel {
     }
 
     /// Текст на странице: перевод идёт, когда набор затихает.
-    func typeTranslation(_ text: String) {
+    func typeTranslation(_ text: String, preservingSelection: Bool = false) {
         translateCopied = false
         translateInput = text
         translateTask?.cancel()
-        guard let source = translate.type(text) else { return }
+        guard let source = translate.type(text, preservingSelection: preservingSelection) else { return }
         translateTask = Task { [weak self] in
             try? await Task.sleep(for: .milliseconds(350))
             guard !Task.isCancelled else { return }
@@ -597,7 +597,7 @@ final class ConsoleModel {
     func selectTranslationLanguage(_ code: String?, source: Bool) {
         if source { translate.selectSource(code) }
         else if let code { translate.selectTarget(code) }
-        typeTranslation(translateInput)
+        typeTranslation(translateInput, preservingSelection: true)
     }
 
     func clearTranslation() {
