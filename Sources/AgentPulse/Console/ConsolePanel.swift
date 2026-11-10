@@ -188,7 +188,10 @@ final class ConsolePanel: NSPanel {
         model.expanded && model.tab == .shelf && !shelfPreview.urls.isEmpty
     }
 
-    override func beginPreviewPanelControl(_ panel: QLPreviewPanel!) { panel.dataSource = shelfPreview }
+    override func beginPreviewPanelControl(_ panel: QLPreviewPanel!) {
+        panel.dataSource = shelfPreview
+        panel.reloadData()
+    }
     override func endPreviewPanelControl(_ panel: QLPreviewPanel!) { panel.dataSource = nil }
 
     private func showShelfPreview(_ urls: [URL]) {
@@ -199,11 +202,14 @@ final class ConsolePanel: NSPanel {
         }
         shelfPreview.urls = urls
         makeKey()
-        preview.updateController()
-        guard (preview.currentController as AnyObject?) === self else { return }
-        preview.reloadData()
-        preview.currentPreviewItemIndex = 0
+        // Показ запускает поиск контроллера по цепочке responder; у скрытой панели его ещё нет.
+        NSApp.activate()
         preview.makeKeyAndOrderFront(nil)
+        preview.updateController()
+        if (preview.currentController as AnyObject?) === self {
+            preview.reloadData()
+            preview.currentPreviewItemIndex = 0
+        }
     }
 
     /// ⌘A и Delete на странице «Файлы»: выделить всё и убрать выбранное.
