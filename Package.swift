@@ -30,5 +30,6 @@ let package = Package(
         // Помощник диктовки: распознавание в своём процессе, чтобы модель можно было выгрузить целиком.
         .executableTarget(name: "pulse-asr"),
         .testTarget(name: "AgentPulseCoreTests", dependencies: ["AgentPulseCore"]),
+        .testTarget(name: "AgentPulseUITests", dependencies: ["AgentPulse"]),
     ]
 )
