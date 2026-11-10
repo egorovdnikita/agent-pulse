@@ -68,6 +68,8 @@ final class ConsoleModel {
     @ObservationIgnored var placementChanged: () -> Bool = { false }
     /// Превью картинок на полке.
     private(set) var shelfPreviews: [URL: NSImage] = [:]
+    @ObservationIgnored private var shelfPreviewTasks: [URL: Task<Void, Never>] = [:]
+    @ObservationIgnored private var shelfThumbnailTask: Task<Void, Never>?
     private(set) var shelfSelection = ShelfSelection()
     /// Рамка выделения, пока ведут мышью.
     var shelfRubber: CGRect?
@@ -213,9 +215,12 @@ final class ConsoleModel {
     }
 
     private func loadPreview(_ url: URL) {
-        Task { [weak self] in
+        shelfPreviewTasks[url]?.cancel()
+        shelfPreviewTasks[url] = Task { [weak self] in
             let image = await ShelfThumbnails.preview(for: url)
-            self?.shelfPreviews[url] = image
+            guard !Task.isCancelled, let self, self.shelf.items.contains(where: { $0.url == url }) else { return }
+            self.shelfPreviews[url] = image
+            self.shelfPreviewTasks[url] = nil
         }
     }
 
@@ -226,9 +231,17 @@ final class ConsoleModel {
     func removeFromShelf(_ urls: [URL]) {
         shelf.remove(urls)
         saveShelf()
-        for url in urls { shelfPreviews[url] = nil }
+        for url in urls {
+            shelfPreviewTasks.removeValue(forKey: url)?.cancel()
+            shelfPreviews[url] = nil
+        }
         shelfSelection.keep(only: shelfOrder)
-        if shelf.items.isEmpty { shelfThumbnail = nil } else if let last = shelf.items.last { loadThumbnail(last.url) }
+        if let last = shelf.items.last { loadThumbnail(last.url) }
+        else {
+            shelfThumbnailTask?.cancel()
+            shelfThumbnailTask = nil
+            shelfThumbnail = nil
+        }
         refresh(agentWaiting: false)
     }
 
@@ -274,6 +287,10 @@ final class ConsoleModel {
     func clearShelf() {
         shelf.clear()
         saveShelf()
+        shelfThumbnailTask?.cancel()
+        shelfThumbnailTask = nil
+        shelfPreviewTasks.values.forEach { $0.cancel() }
+        shelfPreviewTasks = [:]
         shelfThumbnail = nil
         shelfPreviews = [:]
         shelfSelection.clear()
@@ -286,9 +303,12 @@ final class ConsoleModel {
     }
 
     private func loadThumbnail(_ url: URL) {
-        Task { [weak self] in
+        shelfThumbnailTask?.cancel()
+        shelfThumbnailTask = Task { [weak self] in
             let image = await ShelfThumbnails.image(for: url)
-            self?.shelfThumbnail = image
+            guard !Task.isCancelled, let self, self.shelf.items.last?.url == url else { return }
+            self.shelfThumbnail = image
+            self.shelfThumbnailTask = nil
         }
     }
 
