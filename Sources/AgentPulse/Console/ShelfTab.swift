@@ -195,7 +195,7 @@ private struct ShelfTile: View {
                 Button("Открыть в Докладчике") { model.importPrompterFile(item.url) }.disabled(model.prompter.isActive)
             }
             Button("Скопировать путь") { model.copyShelfPaths(from: item.url) }
-            Button(item.isPinned ? "Открепить" : "Закрепить") { model.pinShelfFiles(from: item.url) }
+            Button(model.shelfPinActionTitle(from: item.url)) { model.pinShelfFiles(from: item.url) }
             Button("Найти файл…") { model.findShelfFile(item.url) }
             Divider()
             Button("Убрать из Библиотеки") { model.removeFromShelf(model.shelfTargets(from: item.url)) }
@@ -204,7 +204,7 @@ private struct ShelfTile: View {
         .opacity(model.shelfFileStates[item.url]?.available == false ? 0.45 : 1)
         .help(model.shelfFileStates[item.url]?.available == false ? "Файл недоступен. Подключи диск или выбери «Найти файл» в контекстном меню" : item.url.path)
         .accessibilityElement(children: .contain)
-        .accessibilityLabel(item.name + (model.shelfFileStates[item.url]?.available == false ? ", файл недоступен" : ""))
+        .accessibilityLabel(item.name + (item.isPinned ? ", закреплён" : "") + (model.shelfFileStates[item.url]?.available == false ? ", файл недоступен" : ""))
     }
 
     private var preview: some View {
