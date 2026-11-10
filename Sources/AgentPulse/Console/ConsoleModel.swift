@@ -565,11 +565,11 @@ final class ConsoleModel {
     }
 
     func startPrompter(text override: String? = nil) {
-        guard !prompter.isActive, let text = override ?? prompterText else { return }
-        prompterRehearsing = override != nil
+        guard prompterEnabled, !prompter.isActive, let text = override ?? prompterText else { return }
         now = Date()
-        let resume = prompterRehearsing ? nil : prompterCheckpoint?.fraction(for: text)
+        let resume = override != nil ? nil : prompterCheckpoint?.fraction(for: text)
         guard prompter.start(text: text, now: now, markup: prompterMarkup) else { return }
+        prompterRehearsing = override != nil
         if !prompterRehearsing, !promoMode {
             prompterLibrary.remember(text)
             prompterLibrary.save()
@@ -595,7 +595,8 @@ final class ConsoleModel {
 
     /// Кнопка работает только с видимым черновиком; горячая клавиша сохраняет запуск недавнего.
     func startPrompterDraft() {
-        guard !prompterDraft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+        let spoken = prompterMarkup ? PrompterScore(prompterDraft).text : prompterDraft
+        guard !spoken.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
             prompterValidationTask?.cancel()
             prompterInputInvalid = true
             prompterValidationTask = Task { [weak self] in
