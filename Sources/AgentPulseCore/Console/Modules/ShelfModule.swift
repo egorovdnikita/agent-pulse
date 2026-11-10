@@ -5,6 +5,9 @@ public struct ShelfItem: Codable, Sendable, Equatable, Identifiable {
     public var url: URL
     public var name: String { url.lastPathComponent }
     private var bookmark: Data?
+    private var pinned: Bool?
+    public var isPinned: Bool { pinned == true }
+    public mutating func setPinned(_ value: Bool) { pinned = value ? true : nil }
 
     public init(url: URL) {
         self.url = url
@@ -18,7 +21,11 @@ public struct ShelfItem: Codable, Sendable, Equatable, Identifiable {
         guard let resolved = try? URL(resolvingBookmarkData: bookmark, options: [.withoutUI, .withoutMounting], relativeTo: nil, bookmarkDataIsStale: &stale),
               resolved.isFileURL, FileManager.default.fileExists(atPath: resolved.path) else { return self }
         if !stale, resolved.resolvingSymlinksInPath() == url.resolvingSymlinksInPath() { return self }
-        if resolved != url || stale { return ShelfItem(url: resolved) }
+        if resolved != url || stale {
+            var item = ShelfItem(url: resolved)
+            item.setPinned(isPinned)
+            return item
+        }
         return self
     }
 }
@@ -90,7 +97,9 @@ public struct ShelfModule: ConsoleModule {
     @discardableResult
     public mutating func replace(_ old: URL, with new: URL) -> Bool {
         guard new.isFileURL, let index = items.firstIndex(where: { $0.url == old }), old != new else { return false }
+        let pinned = items[index].isPinned
         items[index] = ShelfItem(url: new)
+        items[index].setPinned(pinned)
         var seen: Set<URL> = []
         items = items.filter { seen.insert($0.url).inserted }
         return true
@@ -100,6 +109,16 @@ public struct ShelfModule: ConsoleModule {
     public mutating func restore(_ saved: [ShelfItem]) {
         var seen: Set<URL> = []
         items = Array(saved.filter { $0.url.isFileURL && seen.insert($0.url).inserted }.prefix(Self.capacity))
+    }
+
+    /// Закреплённые первыми, остальная часть сохраняет ручной порядок.
+    public var displayItems: [ShelfItem] {
+        let reversed = Array(items.reversed())
+        return reversed.filter(\.isPinned) + reversed.filter { !$0.isPinned }
+    }
+
+    public mutating func pin(_ urls: [URL], value: Bool) {
+        for index in items.indices where urls.contains(items[index].url) { items[index].setPinned(value) }
     }
 
     public mutating func tick(now: Date) -> [ToolSignal] { [] }
