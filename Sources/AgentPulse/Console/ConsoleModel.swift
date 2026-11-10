@@ -66,6 +66,9 @@ final class ConsoleModel {
     @ObservationIgnored var placementChanged: () -> Bool = { false }
     /// Превью картинок на полке.
     private(set) var shelfPreviews: [URL: NSImage] = [:]
+    private(set) var shelfFileStates: [URL: ShelfFileState] = [:]
+    @ObservationIgnored private var shelfRefreshTask: Task<Void, Never>?
+    @ObservationIgnored private var shelfRefreshedAt = Date.distantPast
     @ObservationIgnored private var shelfPreviewTasks: [URL: Task<Void, Never>] = [:]
     @ObservationIgnored private var shelfThumbnailTask: Task<Void, Never>?
     private(set) var shelfSelection = ShelfSelection()
@@ -213,6 +216,45 @@ final class ConsoleModel {
         if let last = added.last { loadThumbnail(last.url) }
         added.filter { ShelfFileKind(name: $0.name) == .image }.forEach { loadPreview($0.url) }
         refresh(agentWaiting: false)
+    }
+
+    private func refreshShelfFiles() {
+        guard !promoMode, shelfRefreshTask == nil, now.timeIntervalSince(shelfRefreshedAt) >= 3 else { return }
+        shelfRefreshedAt = now
+        let items = shelf.items
+        shelfRefreshTask = Task { [weak self] in
+            let results = await Task.detached(priority: .utility) {
+                items.map { item in
+                    let resolved = item.resolvingReference()
+                    return (item, resolved, ShelfFileState.read(resolved.url))
+                }
+            }.value
+            guard let self else { return }
+            defer { self.shelfRefreshTask = nil }
+            guard self.shelf.items == items else { return }
+            let resolved = results.map { $0.1 }
+            if resolved != items {
+                let mapping = Dictionary(uniqueKeysWithValues: results.map { ($0.0.url, $0.1.url) })
+                let selected = Set(self.shelfSelection.urls.compactMap { mapping[$0] })
+                self.shelf.restore(resolved)
+                self.shelfSelection.replace(with: selected)
+                self.shelfSelection.keep(only: self.shelfOrder)
+                self.saveShelf()
+            }
+            var states: [URL: ShelfFileState] = [:]
+            for (old, item, state) in results {
+                states[item.url] = state
+                if old.url != item.url { self.shelfPreviews[old.url] = nil }
+                if self.shelfFileStates[item.url] != state {
+                    self.shelfPreviews[item.url] = nil
+                    if state.available {
+                        if ShelfFileKind(name: item.name) == .image { self.loadPreview(item.url) }
+                        if item.url == self.shelf.items.last?.url { self.loadThumbnail(item.url) }
+                    }
+                }
+            }
+            self.shelfFileStates = states
+        }
     }
 
     private func loadPreview(_ url: URL) {
@@ -677,6 +719,7 @@ final class ConsoleModel {
         lastTick = now
         if inputActive { director.noteInput(seconds: 1) }
         self.now = now
+        if expanded && shelfEnabled { refreshShelfFiles() }
         tickModules()
         refresh(agentWaiting: agentWaiting)
     }

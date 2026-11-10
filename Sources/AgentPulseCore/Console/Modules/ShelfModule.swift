@@ -15,7 +15,7 @@ public struct ShelfItem: Codable, Sendable, Equatable, Identifiable {
     public func resolvingReference() -> ShelfItem {
         guard let bookmark else { return self }
         var stale = false
-        guard let resolved = try? URL(resolvingBookmarkData: bookmark, options: .withoutUI, relativeTo: nil, bookmarkDataIsStale: &stale),
+        guard let resolved = try? URL(resolvingBookmarkData: bookmark, options: [.withoutUI, .withoutMounting], relativeTo: nil, bookmarkDataIsStale: &stale),
               resolved.isFileURL, FileManager.default.fileExists(atPath: resolved.path) else { return self }
         if !stale, resolved.resolvingSymlinksInPath() == url.resolvingSymlinksInPath() { return self }
         if resolved != url || stale { return ShelfItem(url: resolved) }
