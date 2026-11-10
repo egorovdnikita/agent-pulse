@@ -13,11 +13,19 @@ struct PulseMenuItems: View {
             Text("Сейчас никто не работает")
         } else {
             ForEach(active.prefix(6)) { session in
-                Button {} label: {
-                    Text(BubbleCategory.sessionTitle(session))
-                    Text(session.phase.text)
+                if case .awaitingUser = session.phase {
+                    Menu(BubbleCategory.sessionTitle(session)) {
+                        Button("Напомнить через 10 минут") { model.postponeWait(session) }
+                        if model.waitReminderDate(session) != nil {
+                            Button("Отменить напоминание") { model.cancelWaitReminder(session) }
+                        }
+                    }
+                } else {
+                    Button {} label: {
+                        Text(BubbleCategory.sessionTitle(session))
+                        Text(session.phase.text)
+                    }.disabled(true)
                 }
-                .disabled(true)
             }
         }
         if model.serverError != nil {
@@ -60,6 +68,17 @@ enum PulseMenu {
             for session in active.prefix(6) {
                 let item = disabled(BubbleCategory.sessionTitle(session))
                 if #available(macOS 14.4, *) { item.subtitle = session.phase.text }
+                if case .awaitingUser = session.phase {
+                    item.isEnabled = true
+                    let actions = NSMenu()
+                    actions.addItem(ActionItem("Напомнить через 10 минут") { model.postponeWait(session) })
+                    if let date = model.waitReminderDate(session) {
+                        let formatter = DateFormatter(); formatter.timeStyle = .short
+                        actions.addItem(disabled("Напоминание в " + formatter.string(from: date)))
+                        actions.addItem(ActionItem("Отменить напоминание") { model.cancelWaitReminder(session) })
+                    }
+                    item.submenu = actions
+                }
                 menu.addItem(item)
             }
         }
