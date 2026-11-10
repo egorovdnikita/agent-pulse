@@ -29,7 +29,7 @@ public struct PrompterTiming: Sendable, Equatable {
 extension PrompterModule {
     /// Точная скорость для времени, без округления к шагу кнопок множителя.
     public mutating func fitDuration(_ seconds: TimeInterval) -> PrompterTiming? {
-        guard let timing = PrompterTiming(words: script.words.count, target: seconds) else { return nil }
+        guard let timing = PrompterTiming(words: script.words.count, target: seconds, pauses: followsVoice ? 0 : markupPauseDuration) else { return nil }
         setExactSpeed(timing.speed)
         return timing
     }

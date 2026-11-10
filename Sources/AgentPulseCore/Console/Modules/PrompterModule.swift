@@ -158,6 +158,7 @@ public struct PrompterModule: ConsoleModule {
     private var scorePauses: [Int: TimeInterval] = [:]
     private var passedPauses: Set<Int> = []
     private var pauseRemaining = 0.0
+    public var markupPauseDuration: TimeInterval { scorePauses.values.reduce(0, +) }
     public var holdsForMarkup: Bool { !followsVoice && pauseRemaining > 0 }
     private var voicePace = PrompterVoicePace()
 
@@ -172,7 +173,7 @@ public struct PrompterModule: ConsoleModule {
     }
 
     public var elapsed: TimeInterval { position / Double(speed) * 60 + (followsVoice ? 0 : passedPauses.reduce(0) { $0 + (scorePauses[$1] ?? 0) } - pauseRemaining) }
-    public var total: TimeInterval { Double(script.words.count) / Double(speed) * 60 + (followsVoice ? 0 : scorePauses.values.reduce(0, +)) }
+    public var total: TimeInterval { Double(script.words.count) / Double(speed) * 60 + (followsVoice ? 0 : markupPauseDuration) }
 
     public func priority(now: Date) -> ConsolePriority? {
         isActive ? .activeMode : nil

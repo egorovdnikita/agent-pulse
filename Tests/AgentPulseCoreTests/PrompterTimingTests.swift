@@ -1,3 +1,4 @@
+import Foundation
 import Testing
 @testable import AgentPulseCore
 
@@ -15,6 +16,13 @@ import Testing
         #expect(module.multiplierText == "0.92x")
         module.changeSpeed(faster: true)
         #expect(module.multiplierText == "1.25x")
+    }
+    @Test func runningScriptDurationIncludesMarkupPause() {
+        var module = PrompterModule()
+        module.start(text: "One two three\n[pause 2]\nFour five six", now: Date(), markup: true)
+        let timing = module.fitDuration(5)
+        #expect(timing?.speed == 120)
+        #expect(module.total == 5)
     }
     @Test func parseDurations() {
         #expect(PrompterTiming.parse("5") == 300)
