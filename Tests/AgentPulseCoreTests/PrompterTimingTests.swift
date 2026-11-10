@@ -31,5 +31,11 @@ import Testing
         #expect(PrompterTiming.parse("2:60") == nil)
         #expect(PrompterTiming.parse("-2") == nil)
         #expect(PrompterTiming.parse("nan") == nil)
+        #expect(PrompterTiming.parse("0:01") == 1)
+        #expect(PrompterTiming.parse("0:00") == nil)
+        #expect(PrompterTiming.parse("0,001") == nil)
+        #expect(PrompterTiming.parse("1.5:20") == nil)
+        #expect(PrompterTiming.parse("120:00") == 7200)
+        #expect(PrompterTiming.parse("120:01") == nil)
     }
 }

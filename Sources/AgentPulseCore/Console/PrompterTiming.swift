@@ -17,11 +17,11 @@ public struct PrompterTiming: Sendable, Equatable {
         let text = input.trimmingCharacters(in: .whitespaces)
         let parts = text.split(separator: ":", omittingEmptySubsequences: false)
         let result: Double?
-        if parts.count == 2, let minutes = Double(parts[0]), let seconds = Double(parts[1]), minutes >= 0, seconds >= 0, seconds < 60 {
+        if parts.count == 2, let minutes = Double(parts[0]), let seconds = Double(parts[1]), minutes >= 0, minutes.rounded(.towardZero) == minutes, seconds >= 0, seconds < 60 {
             result = minutes * 60 + seconds
         } else if parts.count == 1, let minutes = Double(text.replacingOccurrences(of: ",", with: ".")) { result = minutes * 60 }
         else { result = nil }
-        guard let result, result.isFinite, result > 0, result <= 7200 else { return nil }
+        guard let result, result.isFinite, result >= 1, result <= 7200 else { return nil }
         return result
     }
 }
