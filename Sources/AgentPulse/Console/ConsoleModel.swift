@@ -250,6 +250,10 @@ final class ConsoleModel {
         shelfSelection.click(url, order: shelfOrder, command: flags.contains(.command), shift: flags.contains(.shift))
     }
 
+    func moveShelfSelection(by step: Int, extending: Bool) {
+        shelfSelection.move(by: step, order: shelfOrder, extending: extending)
+    }
+
     func selectAllShelf() {
         shelfSelection.selectAll(shelfOrder)
     }

@@ -149,8 +149,8 @@ final class ConsolePanel: NSPanel {
             }
             localMonitor = NSEvent.addLocalMonitorForEvents(matching: [.keyDown, .leftMouseDown]) { [weak self] event in
                 if MainActor.assumeIsolated({ self?.menuTracking == true }) { return event }
-                if event.type == .keyDown, MainActor.assumeIsolated({ self?.handlePageKey(event) == true }) { return nil }
                 if event.type == .keyDown, MainActor.assumeIsolated({ self?.handleShelfKey(event) == true }) { return nil }
+                if event.type == .keyDown, MainActor.assumeIsolated({ self?.handlePageKey(event) == true }) { return nil }
                 // У приложения без меню ⌘V и остальные некому обработать: поле суфлёра осталось бы без вставки.
                 if event.type == .keyDown, event.modifierFlags.intersection(.deviceIndependentFlagsMask) == .command,
                    let key = event.charactersIgnoringModifiers?.lowercased(), let action = Self.editActions[key],
@@ -181,7 +181,14 @@ final class ConsolePanel: NSPanel {
     /// ⌘A и Delete на странице «Файлы»: выделить всё и убрать выбранное.
     private func handleShelfKey(_ event: NSEvent) -> Bool {
         guard model.tab == .shelf else { return false }
+        guard !(firstResponder is NSTextView) else { return false }
         let flags = event.modifierFlags.intersection(.deviceIndependentFlagsMask)
+        let navigationFlags = flags.subtracting([.function, .numericPad])
+        if navigationFlags.isEmpty || navigationFlags == .shift,
+           let step = [123: -1, 124: 1, 125: 7, 126: -7][Int(event.keyCode)] {
+            model.moveShelfSelection(by: step, extending: navigationFlags == .shift)
+            return true
+        }
         if flags == .command, event.charactersIgnoringModifiers?.lowercased() == "a" {
             model.selectAllShelf()
             return true

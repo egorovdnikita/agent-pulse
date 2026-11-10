@@ -238,6 +238,7 @@ struct ShelfTab: View {
 
     private var files: some View {
         VStack(alignment: .leading, spacing: 4) {
+            ScrollViewReader { proxy in
             ScrollView {
                 LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: Self.fileGap), count: 7), alignment: .leading, spacing: 8) {
                     ForEach(model.shelf.items.reversed()) { ShelfTile(model: model, item: $0) }
@@ -272,6 +273,10 @@ struct ShelfTab: View {
                 }
             }
             .consoleScrollFade()
+            .onChange(of: model.shelfSelection.focused) { _, focused in
+                if let focused { proxy.scrollTo(focused) }
+            }
+            }
             footer.frame(height: 26).padding(8)
         }
     }
