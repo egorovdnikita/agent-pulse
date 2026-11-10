@@ -15,6 +15,7 @@ final class ConsoleModel {
         limits = LimitsModule(book: promo ? LimitsBook() : LimitsBook.load())
         prompterLibrary = promo ? PrompterLibrary() : PrompterLibrary.load()
         shelf = promo ? ShelfModule() : ShelfModule.load()
+        prompterDraft = promo ? "" : PrompterDraft.load().text
         if !promo {
             Task { [weak self] in
                 guard let self else { return }
@@ -91,7 +92,8 @@ final class ConsoleModel {
     @ObservationIgnored var onRefreshLimits: ((LimitService) -> Void)?
 
     /// Текст в поле суфлёра.
-    var prompterDraft = ""
+    var prompterDraft = "" { didSet { schedulePrompterDraftSave() } }
+    @ObservationIgnored private var prompterDraftSaveTask: Task<Void, Never>?
     private(set) var prompterInputInvalid = false
     @ObservationIgnored private var prompterValidationTask: Task<Void, Never>?
     /// Вместо поля открыт список недавних текстов.
@@ -418,6 +420,22 @@ final class ConsoleModel {
     }
 
     // MARK: - Суфлёр
+
+    private func schedulePrompterDraftSave() {
+        guard !promoMode else { return }
+        prompterDraftSaveTask?.cancel()
+        prompterDraftSaveTask = Task { [weak self] in
+            try? await Task.sleep(for: .milliseconds(500))
+            guard !Task.isCancelled else { return }
+            self?.flushPrompterDraft()
+        }
+    }
+
+    func flushPrompterDraft() {
+        guard !promoMode else { return }
+        prompterDraftSaveTask?.cancel()
+        try? PrompterDraft(text: prompterDraft).save()
+    }
 
     var prompterTabOpen: Bool { expanded && tab == .prompter }
 

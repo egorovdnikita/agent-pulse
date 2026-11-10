@@ -193,6 +193,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         companion?.stop()
         chatWindow?.stop()
         screenshots.stop()
+        model.console.flushPrompterDraft()
         senses.forEach { $0.stop() }
         model.markCleanExit()
     }
