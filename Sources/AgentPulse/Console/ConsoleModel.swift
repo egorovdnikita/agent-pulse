@@ -87,6 +87,8 @@ final class ConsoleModel {
     /// Перевод только что скопирован.
     var translateCopied = false
     var comparingTranslation = false
+    private var clearedTranslation: (module: TranslateModule, input: String)?
+    var canRecoverTranslation: Bool { translateInput.isEmpty && clearedTranslation != nil }
     private var translationFragment: TextFragment?
     private var translationReview: (module: TranslateModule, input: String)?
     var canRestoreTranslationReview: Bool { translationReview != nil }
@@ -900,7 +902,20 @@ final class ConsoleModel {
         try? translate.preferences.save()
     }
 
+    func recoverTranslation() {
+        guard canRecoverTranslation, let saved = clearedTranslation else { return }
+        translateTask?.cancel()
+        translate.restore(saved.module)
+        translateInput = saved.input
+        translationFragment = nil
+        translationReview = nil
+        clearedTranslation = nil
+        translateCopied = false
+        saveTranslationLanguages()
+    }
+
     func clearTranslation() {
+        if case .done = translate.state { clearedTranslation = (translate, translateInput) }
         translationFragment = nil
         translationReview = nil
         translateTask?.cancel()

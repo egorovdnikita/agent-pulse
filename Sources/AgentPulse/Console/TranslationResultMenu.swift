@@ -42,6 +42,9 @@ final class TranslationResultMenuView: NSView {
             actions.append(action)
             menu.addItem(item)
         }
+        if model.canRecoverTranslation {
+            add("Восстановить последний перевод") { model.recoverTranslation() }
+        }
         if model.canRestoreTranslationReview {
             add("Вернуть исходный перевод") { model.restoreTranslationReview() }
         }
