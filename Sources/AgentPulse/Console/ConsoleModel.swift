@@ -310,6 +310,22 @@ final class ConsoleModel {
     /// В том порядке, в каком плитки стоят на странице: новые первыми.
     var shelfOrder: [URL] { shelf.displayItems.map(\.url) }
 
+    func sortShelf(_ sort: ShelfSort) {
+        let old = shelf.items
+        shelf.sort(sort)
+        guard old != shelf.items else { return }
+        shelfHistory.record(old)
+        saveShelf()
+    }
+
+    func moveShelf(_ urls: [URL], before target: URL) {
+        let old = shelf.items
+        shelf.move(urls, before: target)
+        guard old != shelf.items else { return }
+        shelfHistory.record(old)
+        saveShelf()
+    }
+
     func pinShelfFiles(from url: URL) {
         let targets = shelfTargets(from: url)
         let pin = !shelf.items.filter { targets.contains($0.url) }.allSatisfy(\.isPinned)

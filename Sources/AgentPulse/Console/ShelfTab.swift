@@ -12,6 +12,24 @@ private final class ShelfDragView: NSView, NSDraggingSource {
     var payload: (() -> [URL])?
     var onClick: ((NSEvent.ModifierFlags) -> Void)?
     var onOpen: (() -> Void)?
+    var onMove: (([URL], URL) -> Void)?
+
+    override init(frame: NSRect) {
+        super.init(frame: frame)
+        registerForDraggedTypes([.fileURL])
+    }
+    required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
+
+    override func draggingEntered(_ sender: any NSDraggingInfo) -> NSDragOperation {
+        sender.draggingSource is ShelfDragView ? .move : []
+    }
+    override func draggingUpdated(_ sender: any NSDraggingInfo) -> NSDragOperation { draggingEntered(sender) }
+    override func prepareForDragOperation(_ sender: any NSDraggingInfo) -> Bool { sender.draggingSource is ShelfDragView }
+    override func performDragOperation(_ sender: any NSDraggingInfo) -> Bool {
+        guard let source = sender.draggingSource as? ShelfDragView, let target = url else { return false }
+        onMove?(source.payload?() ?? [], target)
+        return true
+    }
     private var pressedAt: NSPoint?
 
     override func acceptsFirstMouse(for event: NSEvent?) -> Bool { true }
@@ -50,7 +68,7 @@ private final class ShelfDragView: NSView, NSDraggingSource {
     }
 
     func draggingSession(_ session: NSDraggingSession, sourceOperationMaskFor context: NSDraggingContext) -> NSDragOperation {
-        context == .outsideApplication ? .copy : []
+        context == .outsideApplication ? .copy : .move
     }
 }
 
@@ -59,6 +77,7 @@ private struct ShelfDragArea: NSViewRepresentable {
     let payload: () -> [URL]
     let onClick: (NSEvent.ModifierFlags) -> Void
     let onOpen: () -> Void
+    let onMove: ([URL], URL) -> Void
 
     func makeNSView(context: Context) -> ShelfDragView { ShelfDragView() }
 
@@ -67,6 +86,7 @@ private struct ShelfDragArea: NSViewRepresentable {
         view.payload = payload
         view.onClick = onClick
         view.onOpen = onOpen
+        view.onMove = onMove
     }
 }
 
@@ -139,7 +159,8 @@ private struct ShelfTile: View {
                         url: item.url,
                         payload: { model.shelfSelection.dragged(from: item.url, order: model.shelfOrder) },
                         onClick: { model.clickShelf(item.url, flags: $0) },
-                        onOpen: { model.openShelfFiles(from: item.url) }
+                        onOpen: { model.openShelfFiles(from: item.url) },
+                        onMove: { model.moveShelf($0, before: $1) }
                     )
                 }
                 .overlay(alignment: .topTrailing) {
@@ -243,6 +264,9 @@ struct ShelfTab: View {
             }
         }
         .contextMenu {
+            Menu("Сортировка") {
+                ForEach(ShelfSort.allCases, id: \.self) { sort in Button(sort.title) { model.sortShelf(sort) } }
+            }
             Button("Отменить изменение Библиотеки") { model.undoShelf() }.disabled(!model.shelfHistory.canUndo)
             Button("Повторить изменение Библиотеки") { model.redoShelf() }.disabled(!model.shelfHistory.canRedo)
         }
