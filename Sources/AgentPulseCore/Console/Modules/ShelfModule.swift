@@ -86,6 +86,16 @@ public struct ShelfModule: ConsoleModule {
         items.removeAll()
     }
 
+    /// Новый файл занимает прежнее место; уже существующая ссылка не дублируется.
+    @discardableResult
+    public mutating func replace(_ old: URL, with new: URL) -> Bool {
+        guard new.isFileURL, let index = items.firstIndex(where: { $0.url == old }), old != new else { return false }
+        items[index] = ShelfItem(url: new)
+        var seen: Set<URL> = []
+        items = items.filter { seen.insert($0.url).inserted }
+        return true
+    }
+
     /// Восстановление истории: порядок и метаданные сохраняются, оригиналы не меняются.
     public mutating func restore(_ saved: [ShelfItem]) {
         var seen: Set<URL> = []

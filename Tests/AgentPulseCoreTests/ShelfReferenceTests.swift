@@ -35,4 +35,19 @@ import Testing
         #expect(ShelfModule.load(from: storage).items.first?.url.resolvingSymlinksInPath() == moved.resolvingSymlinksInPath())
     }
 
+    @Test func relinkPreservesPositionAndMergesDuplicates() {
+        var shelf = ShelfModule()
+        let urls = (0..<3).map { URL(filePath: "/tmp/pulse-relink-\($0)") }
+        _ = shelf.add(urls)
+        let replacement = URL(filePath: "/tmp/pulse-relinked")
+        let replaced = shelf.replace(urls[1], with: replacement)
+        #expect(replaced)
+        #expect(shelf.items.map(\.url) == [urls[0], replacement, urls[2]])
+        let merged = shelf.replace(replacement, with: urls[0])
+        #expect(merged)
+        #expect(shelf.items.map(\.url) == [urls[0], urls[2]])
+        let missing = shelf.replace(replacement, with: urls[1])
+        #expect(!missing)
+    }
+
 }
