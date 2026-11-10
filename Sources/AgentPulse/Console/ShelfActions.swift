@@ -13,6 +13,12 @@ extension ConsoleModel {
         }
     }
 
+    func previewShelfFiles(from url: URL? = nil) {
+        let urls = shelfTargets(from: url).filter { FileManager.default.isReadableFile(atPath: $0.path) }
+        guard !urls.isEmpty else { return }
+        onShelfPreview?(urls)
+    }
+
     func copyShelfPaths(from url: URL? = nil) {
         let urls = shelfTargets(from: url)
         guard !urls.isEmpty else { return }

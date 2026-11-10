@@ -1,6 +1,7 @@
 import AgentPulseCore
 import AppKit
 import SwiftUI
+import QuickLookUI
 
 /// Вид Пульта: сообщает о курсоре и принимает первый клик, не активируя приложение.
 private final class ConsoleHostingView<Content: View>: NSHostingView<Content> {
@@ -38,6 +39,7 @@ private final class ConsoleHostingView<Content: View>: NSHostingView<Content> {
 @MainActor
 final class ConsolePanel: NSPanel {
     private let model: ConsoleModel
+    private let shelfPreview = ShelfPreviewSource()
     private var shrinkTask: Task<Void, Never>?
     private var outsideMonitor: Any?
     private var localMonitor: Any?
@@ -73,6 +75,7 @@ final class ConsolePanel: NSPanel {
         host.onDropTarget = { [weak model] on in model?.dropTargeted = on }
         host.onDrop = { [weak model] urls in model?.dropped(urls) }
         contentView = host
+        model.onShelfPreview = { [weak self] urls in self?.showShelfPreview(urls) }
         // Изменили размер Dock или скрыли его: система сдвинула видимую область, Пульт идёт за ней.
         model.placementChanged = { [weak self] in
             guard let self, let screen = self.placedScreen else { return false }
@@ -148,6 +151,7 @@ final class ConsolePanel: NSPanel {
                 MainActor.assumeIsolated { if self?.menuTracking == false { self?.model.setExpanded(false) } }
             }
             localMonitor = NSEvent.addLocalMonitorForEvents(matching: [.keyDown, .leftMouseDown]) { [weak self] event in
+                if event.window is QLPreviewPanel { return event }
                 if MainActor.assumeIsolated({ self?.menuTracking == true }) { return event }
                 if event.type == .keyDown, MainActor.assumeIsolated({ self?.handleShelfKey(event) == true }) { return nil }
                 if event.type == .keyDown, MainActor.assumeIsolated({ self?.handlePageKey(event) == true }) { return nil }
@@ -167,6 +171,8 @@ final class ConsolePanel: NSPanel {
                 return escape ? nil : event
             }
         } else {
+            if QLPreviewPanel.sharedPreviewPanelExists(), let preview = QLPreviewPanel.shared(),
+               (preview.currentController as AnyObject?) === self { preview.orderOut(nil) }
             menuObservers.forEach(NotificationCenter.default.removeObserver)
             menuObservers.removeAll()
             menuTracking = false
@@ -178,6 +184,28 @@ final class ConsolePanel: NSPanel {
         }
     }
 
+    override func acceptsPreviewPanelControl(_ panel: QLPreviewPanel!) -> Bool {
+        model.expanded && model.tab == .shelf && !shelfPreview.urls.isEmpty
+    }
+
+    override func beginPreviewPanelControl(_ panel: QLPreviewPanel!) { panel.dataSource = shelfPreview }
+    override func endPreviewPanelControl(_ panel: QLPreviewPanel!) { panel.dataSource = nil }
+
+    private func showShelfPreview(_ urls: [URL]) {
+        guard let preview = QLPreviewPanel.shared() else { return }
+        if preview.isVisible, (preview.currentController as AnyObject?) === self {
+            preview.orderOut(nil)
+            return
+        }
+        shelfPreview.urls = urls
+        makeKey()
+        preview.updateController()
+        guard (preview.currentController as AnyObject?) === self else { return }
+        preview.reloadData()
+        preview.currentPreviewItemIndex = 0
+        preview.makeKeyAndOrderFront(nil)
+    }
+
     /// ⌘A и Delete на странице «Файлы»: выделить всё и убрать выбранное.
     private func handleShelfKey(_ event: NSEvent) -> Bool {
         guard model.tab == .shelf else { return false }
@@ -187,6 +215,10 @@ final class ConsolePanel: NSPanel {
         if navigationFlags.isEmpty || navigationFlags == .shift,
            let step = [123: -1, 124: 1, 125: 7, 126: -7][Int(event.keyCode)] {
             model.moveShelfSelection(by: step, extending: navigationFlags == .shift)
+            return true
+        }
+        if navigationFlags.isEmpty, event.keyCode == 49, !model.shelfSelection.isEmpty {
+            model.previewShelfFiles()
             return true
         }
         if navigationFlags.isEmpty, [36, 76].contains(Int(event.keyCode)), !model.shelfSelection.isEmpty {

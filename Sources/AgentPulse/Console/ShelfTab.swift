@@ -167,6 +167,7 @@ private struct ShelfTile: View {
             GeometryReader { Color.clear.preference(key: ShelfFrames.self, value: [item.url: $0.frame(in: .named(ShelfTab.space))]) }
         }
         .contextMenu {
+            Button("Быстрый просмотр") { model.previewShelfFiles(from: item.url) }
             Button("Открыть") { model.openShelfFiles(from: item.url) }
             Button("Показать в Finder") { model.revealShelfFiles(from: item.url) }
             Button("Скопировать путь") { model.copyShelfPaths(from: item.url) }

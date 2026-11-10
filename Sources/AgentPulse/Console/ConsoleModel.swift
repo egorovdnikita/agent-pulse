@@ -84,6 +84,7 @@ final class ConsoleModel {
     var translateCopied = false
     var shelfEnabled = true
     var librarySkin: PalSkin?
+    @ObservationIgnored var onShelfPreview: (([URL]) -> Void)?
     @ObservationIgnored var onRefreshLimits: ((LimitService) -> Void)?
 
     /// Текст в поле суфлёра.
