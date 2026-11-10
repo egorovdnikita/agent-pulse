@@ -712,6 +712,7 @@ final class ConsoleModel {
     }
 
     func askPrompterDuration() {
+        defer { setExpanded(true); tab = .prompter }
         let alert = NSAlert()
         alert.messageText = "Длительность выступления"
         alert.informativeText = "Введи минуты или время м:с. Темп останется в диапазоне 65–260 слов в минуту."
