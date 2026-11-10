@@ -39,6 +39,8 @@ enum ConsoleTranslator {
     /// Возвращает перевод. Ошибка — текст для вкладки.
     static func translate(_ text: String, direction: TranslateDirection) async -> Result<String, TranslateProblem> {
         if direction.source == direction.target { return .success(text) }
+        let layout = TranslationLayout(text)
+        if layout.texts.isEmpty { return .success(text) }
         #if canImport(Translation)
         if #available(macOS 26, *) {
             let source = Locale.Language(identifier: direction.source)
@@ -50,7 +52,21 @@ enum ConsoleTranslator {
             }
             do {
                 let session = TranslationSession(installedSource: source, target: target)
-                return .success(try await session.translate(text).targetText)
+                try Task.checkCancellation()
+                let requests = layout.texts.enumerated().map {
+                    TranslationSession.Request(sourceText: $0.element, clientIdentifier: String($0.offset))
+                }
+                let responses = try await session.translations(from: requests)
+                try Task.checkCancellation()
+                var parts: [String: String] = [:]
+                for response in responses {
+                    if let id = response.clientIdentifier { parts[id] = response.targetText }
+                }
+                let ordered = layout.texts.indices.compactMap { parts[String($0)] }
+                guard let result = layout.assembling(ordered) else {
+                    return .failure(TranslateProblem(text: "Не удалось сохранить структуру перевода"))
+                }
+                return .success(result)
             } catch {
                 return .failure(TranslateProblem(text: "Не удалось перевести"))
             }
