@@ -19,6 +19,7 @@ final class DictationController {
     @ObservationIgnored private var recorder: DictationRecorder?
     @ObservationIgnored private var unloadTask: Task<Void, Never>?
     @ObservationIgnored private var selection: TextInsertion.Selection?
+    @ObservationIgnored private var replay: RecentDictation?
     @ObservationIgnored private var correctionMode = false
     @ObservationIgnored private var lastInsertion: (context: RecentDictation, selection: TextInsertion.Selection)?
     /// Отладка: звук из файла вместо микрофона и свой буфер вместо системного.
@@ -32,6 +33,7 @@ final class DictationController {
             guard let self else { return false }
             return self.russian ? self.models.isReady : true
         }
+        console.onReplayDictation = { [weak self] in self?.replayLastDictation() }
         console.onDictationNeedsModel = showSettings
         console.onDictationStart = { [weak self] in self?.startRecording() }
         console.onDictationStop = { [weak self] keep in self?.stopRecording(keep: keep) }
@@ -106,11 +108,30 @@ final class DictationController {
             if correcting { await applyCorrection(text); return }
             let pasteboard = demoSamples != nil ? NSPasteboard(name: Self.demoPasteboard) : .general
             let outcome = await TextInsertion.insert(text, accessibility: settings().accessibility, pasteboard: pasteboard)
+            setReplay(text)
             captureInsertion(text: text, outcome: outcome)
             remember(text)
             console.finishDictation(notice: outcome == .inClipboard ? .inClipboard : .inserted)
         } catch {
             console.finishDictation(notice: .failed)
+        }
+    }
+
+    private func setReplay(_ text: String) {
+        replay = RecentDictation(text: text, now: Date())
+        console.dictationReplayUntil = Date().addingTimeInterval(RecentDictation.lifetime)
+    }
+
+    func replayLastDictation() {
+        guard console.dictationEnabled, console.dictation.phase == .idle, !console.prompter.isActive,
+              let replay, replay.isCurrent(now: Date()) else { return }
+        console.setExpanded(false)
+        Task {
+            try? await Task.sleep(for: .milliseconds(150))
+            guard self.console.dictation.phase == .idle else { return }
+            let outcome = await TextInsertion.insert(replay.text, accessibility: settings().accessibility)
+            captureInsertion(text: replay.text, outcome: outcome)
+            console.finishDictation(notice: outcome == .inClipboard ? .inClipboard : .inserted)
         }
     }
 
@@ -140,7 +161,7 @@ final class DictationController {
         }
         let outcome = await TextInsertion.replace(recent.selection, with: text)
         captureInsertion(text: text, outcome: outcome)
-        if outcome == .inserted { remember(text) }
+        if outcome == .inserted { setReplay(text); remember(text) }
         console.finishDictation(notice: outcome == .inserted ? .corrected : .inClipboard)
     }
 
@@ -151,6 +172,8 @@ final class DictationController {
     }
 
     func clearHistory() {
+        replay = nil
+        console.dictationReplayUntil = .distantPast
         lastInsertion = nil
         history = DictationHistory()
         DictationHistory.erase()
@@ -163,6 +186,8 @@ final class DictationController {
             guard !Task.isCancelled else { return }
             self?.helper.unload()
             self?.lastInsertion = nil
+            self?.replay = nil
+            self?.console.dictationReplayUntil = .distantPast
         }
     }
 
