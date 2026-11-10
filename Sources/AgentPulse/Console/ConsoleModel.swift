@@ -83,6 +83,8 @@ final class ConsoleModel {
     @ObservationIgnored private var translateTask: Task<Void, Never>?
     /// Перевод только что скопирован.
     var translateCopied = false
+    private var translationReview: (module: TranslateModule, input: String)?
+    var canRestoreTranslationReview: Bool { translationReview != nil }
     var shelfEnabled = true
     var librarySkin: PalSkin?
     @ObservationIgnored var onShelfPreview: (([URL]) -> Void)?
@@ -682,6 +684,7 @@ final class ConsoleModel {
 
     func pressTranslate(selection: String?, clipboard: String?, editable: Bool = true) -> String? {
         guard translatorEnabled else { return nil }
+        translationReview = nil
         translateTask?.cancel()
         translateCopied = false
         now = Date()
@@ -695,6 +698,7 @@ final class ConsoleModel {
 
     /// Текст на странице: перевод идёт, когда набор затихает.
     func typeTranslation(_ text: String, preservingSelection: Bool = false) {
+        translationReview = nil
         translateCopied = false
         translateInput = text
         translateTask?.cancel()
@@ -752,12 +756,30 @@ final class ConsoleModel {
         typeTranslation(translateInput, preservingSelection: true)
     }
 
+    func reviewReverseTranslation() {
+        guard case .done = translate.state, translationReview == nil else { return }
+        let saved = (module: translate, input: translateInput)
+        guard let result = translate.flip(sourceText: translateInput) else { return }
+        typeTranslation(result)
+        translationReview = saved
+    }
+
+    func restoreTranslationReview() {
+        guard let saved = translationReview else { return }
+        translateTask?.cancel()
+        translate.restore(saved.module)
+        translateInput = saved.input
+        translateCopied = false
+        translationReview = nil
+    }
+
     private func saveTranslationLanguages() {
         guard !promoMode else { return }
         try? translate.preferences.save()
     }
 
     func clearTranslation() {
+        translationReview = nil
         translateTask?.cancel()
         translateInput = ""
         translate.reset()
