@@ -545,7 +545,7 @@ private struct ConsoleSettings: View {
                     ModuleOption {
                         Toggle(isOn: Binding(get: { settings.shelfScreenshots }, set: { app.setShelfScreenshots($0) })) {
                             Text("Новые снимки экрана")
-                            Text("Хранятся только ссылки, выход очищает список").font(SettingsStyle.caption).foregroundStyle(SettingsStyle.muted)
+                            Text("Хранятся только ссылки, до удаления из Библиотеки").font(SettingsStyle.caption).foregroundStyle(SettingsStyle.muted)
                         }
                     }
                 }
