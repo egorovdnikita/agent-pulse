@@ -17,7 +17,7 @@ final class TranslationResultMenuView: NSView {
     private var actions: [() -> Void] = []
     override func acceptsFirstMouse(for event: NSEvent?) -> Bool { true }
     override func hitTest(_ point: NSPoint) -> NSView? {
-        guard let event = NSApp.currentEvent,
+        guard let event = NSApp?.currentEvent,
               event.type == .rightMouseDown || (event.type == .leftMouseDown && event.modifierFlags.contains(.control)) else { return nil }
         return super.hitTest(point)
     }
