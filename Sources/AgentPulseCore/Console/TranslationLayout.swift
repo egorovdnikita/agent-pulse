@@ -11,16 +11,42 @@ public struct TranslationLayout: Sendable {
         let lines = try! NSRegularExpression(pattern: #"([^\r\n]*)(\r\n|\r|\n|$)"#)
         let prefix = try! NSRegularExpression(pattern: #"^[ \t]*(?:(?:#{1,6}|[-*+]|\d+[.)]|>)[ \t]+)?"#)
         var result: [Segment] = []
+        var fence: (Character, Int)?
         for match in lines.matches(in: source, range: NSRange(location: 0, length: input.length)) where match.range.length > 0 {
             let line = input.substring(with: match.range(at: 1))
             let newline = input.substring(with: match.range(at: 2))
+            let trimmed = line.trimmingCharacters(in: .whitespaces)
+            let marker = trimmed.first
+            let count = marker.map { first in trimmed.prefix(while: { $0 == first }).count } ?? 0
+            if let active = fence {
+                result.append(.literal(line + newline))
+                if marker == active.0, count >= active.1 { fence = nil }
+                continue
+            }
+            if let marker, (marker == "`" || marker == "~"), count >= 3 {
+                fence = (marker, count)
+                result.append(.literal(line + newline))
+                continue
+            }
             let nsLine = line as NSString
             let start = prefix.firstMatch(in: line, range: NSRange(location: 0, length: nsLine.length))?.range.length ?? 0
             if start > 0 { result.append(.literal(nsLine.substring(to: start))) }
-            Self.appendText(nsLine.substring(from: start), to: &result)
+            Self.appendProtectedText(nsLine.substring(from: start), to: &result)
             if !newline.isEmpty { result.append(.literal(newline)) }
         }
         segments = result
+    }
+
+    private static func appendProtectedText(_ raw: String, to result: inout [Segment]) {
+        let regex = try! NSRegularExpression(pattern: #"`+[^`\r\n]*`+|https?://[^\s<>()]+|\[[^\]\r\n]*\]\([^\)\r\n]*\)"#)
+        let input = raw as NSString
+        var cursor = 0
+        for match in regex.matches(in: raw, range: NSRange(location: 0, length: input.length)) {
+            appendText(input.substring(with: NSRange(location: cursor, length: match.range.location - cursor)), to: &result)
+            result.append(.literal(input.substring(with: match.range)))
+            cursor = NSMaxRange(match.range)
+        }
+        appendText(input.substring(from: cursor), to: &result)
     }
 
     private static func appendText(_ raw: String, to result: inout [Segment]) {

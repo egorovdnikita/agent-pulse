@@ -1,3 +1,4 @@
+import Foundation
 import Testing
 @testable import AgentPulseCore
 
@@ -15,4 +16,13 @@ import Testing
             #expect(layout.assembling([]) == text)
         }
     }
+    @Test func codeAndLinksStayVerbatim() {
+        let text = "Hello `let x = 1` https://example.com\n```swift\nlet y = 2\n```\n[Guide](https://example.com/a)"
+        let layout = TranslationLayout(text)
+        #expect(layout.texts == ["Hello"])
+        #expect(layout.assembling(["Привет"]) == text.replacingOccurrences(of: "Hello", with: "Привет"))
+        let unclosed = "Before\n~~~\nprivate code"
+        #expect(TranslationLayout(unclosed).texts == ["Before"])
+    }
+
 }
