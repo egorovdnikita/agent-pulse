@@ -246,7 +246,12 @@ final class ConsoleModel {
                 states[item.url] = state
                 if old.url != item.url { self.shelfPreviews[old.url] = nil }
                 if self.shelfFileStates[item.url] != state {
+                    self.shelfPreviewTasks.removeValue(forKey: item.url)?.cancel()
                     self.shelfPreviews[item.url] = nil
+                    if !state.available, item.url == self.shelf.items.last?.url {
+                        self.shelfThumbnailTask?.cancel()
+                        self.shelfThumbnail = nil
+                    }
                     if state.available {
                         if ShelfFileKind(name: item.name) == .image { self.loadPreview(item.url) }
                         if item.url == self.shelf.items.last?.url { self.loadThumbnail(item.url) }

@@ -160,8 +160,10 @@ private struct ShelfTile: View {
             GeometryReader { Color.clear.preference(key: ShelfFrames.self, value: [item.url: $0.frame(in: .named(ShelfTab.space))]) }
         }
         .onHover { hovering.wrappedValue = $0 }
+        .opacity(model.shelfFileStates[item.url]?.available == false ? 0.45 : 1)
+        .help(model.shelfFileStates[item.url]?.available == false ? "Файл недоступен. Подключи диск или выбери «Найти файл» в контекстном меню" : item.url.path)
         .accessibilityElement(children: .contain)
-        .accessibilityLabel(item.name)
+        .accessibilityLabel(item.name + (model.shelfFileStates[item.url]?.available == false ? ", файл недоступен" : ""))
     }
 
     private var preview: some View {
