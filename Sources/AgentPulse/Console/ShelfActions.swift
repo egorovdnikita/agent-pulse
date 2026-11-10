@@ -14,9 +14,11 @@ extension ConsoleModel {
     }
 
     func previewShelfFiles(from url: URL? = nil) {
-        let urls = shelfTargets(from: url).filter { FileManager.default.isReadableFile(atPath: $0.path) }
+        let selected = url ?? shelfSelection.focused ?? shelfTargets().first
+        let urls = shelfOrder.filter { FileManager.default.isReadableFile(atPath: $0.path) }
         guard !urls.isEmpty else { return }
-        onShelfPreview?(urls)
+        let index = selected.flatMap { urls.firstIndex(of: $0) } ?? 0
+        onShelfPreview?(urls, index)
     }
 
     func copyShelfPaths(from url: URL? = nil) {

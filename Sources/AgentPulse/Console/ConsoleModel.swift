@@ -90,7 +90,7 @@ final class ConsoleModel {
     var canRestoreTranslationReview: Bool { translationReview != nil }
     var shelfEnabled = true
     var librarySkin: PalSkin?
-    @ObservationIgnored var onShelfPreview: (([URL]) -> Void)?
+    @ObservationIgnored var onShelfPreview: (([URL], Int) -> Void)?
     @ObservationIgnored var onRefreshLimits: ((LimitService) -> Void)?
 
     /// Текст в поле суфлёра.
