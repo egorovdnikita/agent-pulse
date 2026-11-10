@@ -94,7 +94,7 @@ enum TextInsertion {
             if let element, await write(text, into: element) { return .inserted }
             let saved = ClipboardSnapshot(pasteboard)
             let change = put(text, on: pasteboard)
-            await pressPaste()
+            guard await pressPaste() else { return .inClipboard }
             // Приложение читает буфер не сразу; если за это время его сменил кто-то ещё, не трогаем.
             try? await Task.sleep(for: .milliseconds(600))
             if pasteboard.changeCount == change { saved.restore(to: pasteboard) }
@@ -137,7 +137,11 @@ enum TextInsertion {
         }
         let saved = ClipboardSnapshot(pasteboard)
         let change = put(text, on: pasteboard)
-        await pressPaste()
+        guard await press(key: kVK_ANSI_V, validating: {
+            guard let focused = focusedElement(), CFEqual(focused, element),
+                  let value = string(element, kAXValueAttribute), expected.matches(value) else { return false }
+            return selectedRange(element) == expected.range
+        }) else { return .inClipboard }
         let inserted = TextReplacement(original: text, range: NSRange(location: range.location, length: text.utf16.count))
         for _ in 0..<15 {
             try? await Task.sleep(for: .milliseconds(40))
@@ -162,21 +166,25 @@ enum TextInsertion {
         return pasteboard.changeCount
     }
 
-    private static func pressPaste() async {
-        await press(key: kVK_ANSI_V)
-    }
+    @discardableResult
+    private static func pressPaste() async -> Bool { await press(key: kVK_ANSI_V) }
 
-    private static func press(key: Int) async {
+    @discardableResult
+    private static func press(key: Int, validating: (() -> Bool)? = nil) async -> Bool {
         // ⌃⌥ могут быть ещё зажаты: с ⌘ они дали бы другую команду.
         for _ in 0..<20 where !CGEventSource.flagsState(.combinedSessionState).isDisjoint(with: [.maskControl, .maskAlternate]) {
             try? await Task.sleep(for: .milliseconds(50))
         }
+        guard !Task.isCancelled,
+              CGEventSource.flagsState(.combinedSessionState).isDisjoint(with: [.maskControl, .maskAlternate]),
+              validating?() != false else { return false }
         let source = CGEventSource(stateID: .combinedSessionState)
         for down in [true, false] {
             let event = CGEvent(keyboardEventSource: source, virtualKey: CGKeyCode(key), keyDown: down)
             event?.flags = .maskCommand
             event?.post(tap: .cghidEventTap)
         }
+        return true
     }
 }
 
