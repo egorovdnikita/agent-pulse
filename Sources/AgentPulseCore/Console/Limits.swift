@@ -68,15 +68,21 @@ public struct LimitWindow: Codable, Sendable, Equatable {
     }
 }
 
+public enum LimitSnapshotOrigin: String, Codable, Sendable {
+    case claudeStatusline, claudeUsage
+}
+
 public struct LimitSnapshot: Codable, Sendable, Equatable {
     public var service: LimitService
     public var windows: [LimitWindow]
     public var at: Date
+    public var origin: LimitSnapshotOrigin?
 
-    public init(service: LimitService, windows: [LimitWindow], at: Date) {
+    public init(service: LimitService, windows: [LimitWindow], at: Date, origin: LimitSnapshotOrigin? = nil) {
         self.service = service
         self.windows = windows
         self.at = at
+        self.origin = origin
     }
 }
 
@@ -151,7 +157,7 @@ public struct LimitsBook: Sendable, Equatable {
             received.observedAt = min(window.observedAt ?? snapshot.at, snapshot.at)
             windows.append(received)
         }
-        merged = LimitSnapshot(service: snapshot.service, windows: windows, at: snapshot.at)
+        merged = LimitSnapshot(service: snapshot.service, windows: windows, at: snapshot.at, origin: snapshot.origin)
         snapshots[snapshot.service] = merged
 
         for window in snapshot.windows {

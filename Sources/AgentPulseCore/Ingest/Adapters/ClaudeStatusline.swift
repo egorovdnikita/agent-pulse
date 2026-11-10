@@ -10,7 +10,7 @@ public enum ClaudeStatusline {
             guard let window = object[key] as? [String: Any], let used = number(window["used_percentage"]) else { return nil }
             return LimitWindow(kind: kind, usedPercent: clamp(used), resetsAt: number(window["resets_at"]).flatMap(date))
         }
-        return windows.isEmpty ? nil : LimitSnapshot(service: .claude, windows: windows, at: now)
+        return windows.isEmpty ? nil : LimitSnapshot(service: .claude, windows: windows, at: now, origin: .claudeStatusline)
     }
 
     static func number(_ value: Any?) -> Double? {
