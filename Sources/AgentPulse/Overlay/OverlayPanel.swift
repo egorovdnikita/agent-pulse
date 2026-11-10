@@ -1,5 +1,6 @@
 import AgentPulseCore
 import AppKit
+import ColorSync
 import SwiftUI
 
 /// Панель поверх всех окон: не крадёт фокус, видна на всех Spaces и поверх полноэкранных приложений.
@@ -93,13 +94,25 @@ final class OverlayPanel: NSPanel {
     /// Дом — угол по умолчанию плюс сдвиг, куда маскота перетащили на этом мониторе.
     private func homeOrigin(on screen: NSScreen) -> NSPoint {
         let base = defaultOrigin(on: screen)
-        guard let offset = model.config.display.offsets[Self.key(screen)], offset.count == 2 else { return base }
+        var positions = model.config.display.offsets
+        guard let offset = DisplayPositionMemory.offset(in: &positions, stableID: Self.key(screen), legacyID: Self.legacyKey(screen)) else { return base }
+        if positions != model.config.display.offsets {
+            model.config.display.offsets = positions
+            try? model.config.save()
+        }
         return clamp(NSPoint(x: base.x + offset[0], y: base.y + offset[1]), on: screen)
+    }
+
+    private static func legacyKey(_ screen: NSScreen) -> String {
+        let number = screen.deviceDescription[NSDeviceDescriptionKey("NSScreenNumber")] as? CGDirectDisplayID ?? 0
+        return String(number)
     }
 
     private static func key(_ screen: NSScreen) -> String {
         let number = screen.deviceDescription[NSDeviceDescriptionKey("NSScreenNumber")] as? CGDirectDisplayID ?? 0
-        return String(number)
+        guard let reference = CGDisplayCreateUUIDFromDisplayID(number) else { return legacyKey(screen) }
+        let uuid = reference.takeRetainedValue()
+        return "display-" + (CFUUIDCreateString(nil, uuid) as String)
     }
 
     /// Центр маскота в экранных координатах — для взгляда за курсором и hover.
