@@ -13,6 +13,15 @@ import Testing
         shelf.sort(.added)
         #expect(shelf.displayItems.map(\.url) == Array(urls.reversed()))
     }
+    @Test func typeThenNaturalName() {
+        let urls = ["file10.txt", "file2.txt", "cover.png"].map { URL(fileURLWithPath: "/tmp/" + $0) }
+        var shelf = ShelfModule(); _ = shelf.add(urls)
+        shelf.pin([urls[0]], value: true)
+        shelf.sort(.kind)
+        #expect(shelf.displayItems.map(\.name) == ["file10.txt", "cover.png", "file2.txt"])
+        shelf.pin([urls[0]], value: false)
+        #expect(shelf.displayItems.map(\.name) == ["cover.png", "file2.txt", "file10.txt"])
+    }
     @Test func reorderWithinPinGroup() {
         var shelf = ShelfModule(); _ = shelf.add(urls)
         shelf.move([urls[0]], before: urls[2])

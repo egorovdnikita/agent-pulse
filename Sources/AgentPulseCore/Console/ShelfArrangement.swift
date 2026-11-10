@@ -24,6 +24,10 @@ extension ShelfModule {
             let right = method == .kind ? b.url.pathExtension.lowercased() : b.name
             let comparison = left.localizedStandardCompare(right)
             if comparison != .orderedSame { return comparison == .orderedAscending }
+            if method == .kind {
+                let names = a.name.localizedStandardCompare(b.name)
+                if names != .orderedSame { return names == .orderedAscending }
+            }
             return lhs.offset < rhs.offset
         }.map(\.element)
         restore(Array(order.reversed()))
