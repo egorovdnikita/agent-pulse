@@ -95,7 +95,7 @@ struct TranslatorOptions: View {
     let app: AppDelegate
 
     var body: some View {
-        ModuleOption { ShortcutRow(title: "Перевести выделенное", keys: "⌃⌥T", busy: model.console.busyKeys.contains("t")) }
+        ModuleOption { ShortcutRow(title: "Перевести выделенное", keys: "⌃⌥T", busy: model.console.busyKeys.contains("translate")) }
         ModuleOption { TranslatorLanguagesRow(direction: model.console.translate.direction(of: model.console.translateInput)) }
         ModuleOption {
             DisclosureGroup("Не переводить: \(model.console.translationTerms.terms.count)") {
