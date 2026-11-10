@@ -294,4 +294,3 @@ struct ShelfTab: View {
         }
     }
 }
-
