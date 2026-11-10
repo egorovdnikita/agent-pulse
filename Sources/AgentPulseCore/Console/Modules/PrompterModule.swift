@@ -154,6 +154,10 @@ public struct PrompterModule: ConsoleModule {
     private var lastTick: Date?
     private var finishedAt: Date?
     private var lastHeard: Date?
+    private var scorePauses: [Int: TimeInterval] = [:]
+    private var passedPauses: Set<Int> = []
+    private var pauseRemaining = 0.0
+    public var holdsForMarkup: Bool { !followsVoice && pauseRemaining > 0 }
     private var voicePace = PrompterVoicePace()
 
     public init() {}
@@ -166,8 +170,8 @@ public struct PrompterModule: ConsoleModule {
         return lastHeard.map { now.timeIntervalSince($0) >= Self.voiceSilence } ?? true
     }
 
-    public var elapsed: TimeInterval { position / Double(speed) * 60 }
-    public var total: TimeInterval { Double(script.words.count) / Double(speed) * 60 }
+    public var elapsed: TimeInterval { position / Double(speed) * 60 + (followsVoice ? 0 : passedPauses.reduce(0) { $0 + (scorePauses[$1] ?? 0) } - pauseRemaining) }
+    public var total: TimeInterval { Double(script.words.count) / Double(speed) * 60 + (followsVoice ? 0 : scorePauses.values.reduce(0, +)) }
 
     public func priority(now: Date) -> ConsolePriority? {
         isActive ? .activeMode : nil
@@ -189,10 +193,14 @@ public struct PrompterModule: ConsoleModule {
 
     /// false — читать нечего.
     @discardableResult
-    public mutating func start(text: String, now: Date) -> Bool {
-        let fresh = PrompterScript(text: text)
+    public mutating func start(text: String, now: Date, markup: Bool = false) -> Bool {
+        let score = markup ? PrompterScore(text) : nil
+        let fresh = PrompterScript(text: score?.text ?? text)
         guard !fresh.isEmpty else { return false }
         script = fresh
+        scorePauses = score?.pauses ?? [:]
+        passedPauses = []
+        pauseRemaining = 0
         voicePace = PrompterVoicePace()
         position = 0
         mode = .running
@@ -204,6 +212,8 @@ public struct PrompterModule: ConsoleModule {
 
     public mutating func stop() {
         mode = .idle
+        pauseRemaining = 0
+        passedPauses = []
         position = 0
         lastTick = nil
         lastHeard = nil
@@ -260,6 +270,8 @@ public struct PrompterModule: ConsoleModule {
 
     private mutating func move(to place: Double, now: Date) {
         position = place
+        pauseRemaining = 0
+        passedPauses = Set(scorePauses.keys.filter { Double($0) < place })
         voicePace.reset()
         lastTick = now
         lastHeard = now
@@ -284,7 +296,23 @@ public struct PrompterModule: ConsoleModule {
         defer { lastTick = now }
         guard mode == .running else { return false }
         if !followsVoice, let lastTick {
-            position += max(0, now.timeIntervalSince(lastTick)) * Double(speed) / 60
+            var seconds = max(0, now.timeIntervalSince(lastTick))
+            while seconds > 0 {
+                if pauseRemaining > 0 {
+                    let consumed = min(seconds, pauseRemaining)
+                    pauseRemaining -= consumed
+                    seconds -= consumed
+                    if seconds <= 0 { break }
+                }
+                let boundary = scorePauses.keys.filter { !passedPauses.contains($0) && Double($0) >= position }.min()
+                guard let boundary else { position += seconds * Double(speed) / 60; break }
+                let until = (Double(boundary) - position) / Double(speed) * 60
+                if seconds < until { position += seconds * Double(speed) / 60; break }
+                position = Double(boundary)
+                seconds -= until
+                passedPauses.insert(boundary)
+                pauseRemaining = scorePauses[boundary] ?? 0
+            }
         }
         let count = Double(script.words.count)
         guard position >= count else { return false }
