@@ -1,5 +1,6 @@
 import AgentPulseCore
 import AppKit
+import Carbon.HIToolbox
 import SwiftUI
 import QuickLookUI
 
@@ -156,8 +157,8 @@ final class ConsolePanel: NSPanel {
                 if event.type == .keyDown, MainActor.assumeIsolated({ self?.handleShelfKey(event) == true }) { return nil }
                 if event.type == .keyDown, MainActor.assumeIsolated({ self?.handlePageKey(event) == true }) { return nil }
                 // У приложения без меню ⌘V и остальные некому обработать: поле суфлёра осталось бы без вставки.
-                if event.type == .keyDown, event.modifierFlags.intersection(.deviceIndependentFlagsMask) == .command,
-                   let key = event.charactersIgnoringModifiers?.lowercased(), let action = Self.editActions[key],
+                if event.type == .keyDown, event.modifierFlags.intersection(.deviceIndependentFlagsMask).subtracting(.capsLock) == .command,
+                   let action = Self.editActions[Int(event.keyCode)],
                    NSApp.sendAction(action, to: nil, from: nil) {
                     return nil
                 }
@@ -216,7 +217,7 @@ final class ConsolePanel: NSPanel {
     private func handleShelfKey(_ event: NSEvent) -> Bool {
         guard model.tab == .shelf else { return false }
         guard !(firstResponder is NSTextView) else { return false }
-        let flags = event.modifierFlags.intersection(.deviceIndependentFlagsMask)
+        let flags = event.modifierFlags.intersection(.deviceIndependentFlagsMask).subtracting(.capsLock)
         let navigationFlags = flags.subtracting([.function, .numericPad])
         if navigationFlags.isEmpty || navigationFlags == .shift,
            let step = [123: -1, 124: 1, 125: 7, 126: -7][Int(event.keyCode)] {
@@ -231,19 +232,19 @@ final class ConsolePanel: NSPanel {
             model.openShelfFiles()
             return true
         }
-        if flags == .command, event.charactersIgnoringModifiers?.lowercased() == "c", !model.shelfSelection.isEmpty {
+        if flags == .command, Int(event.keyCode) == kVK_ANSI_C, !model.shelfSelection.isEmpty {
             model.copyShelfFiles()
             return true
         }
-        if flags == [.command, .shift], event.charactersIgnoringModifiers?.lowercased() == "z", model.shelfHistory.canRedo {
+        if flags == [.command, .shift], Int(event.keyCode) == kVK_ANSI_Z, model.shelfHistory.canRedo {
             model.redoShelf()
             return true
         }
-        if flags == .command, event.charactersIgnoringModifiers?.lowercased() == "z", model.shelfHistory.canUndo {
+        if flags == .command, Int(event.keyCode) == kVK_ANSI_Z, model.shelfHistory.canUndo {
             model.undoShelf()
             return true
         }
-        if flags == .command, event.charactersIgnoringModifiers?.lowercased() == "a" {
+        if flags == .command, Int(event.keyCode) == kVK_ANSI_A {
             model.selectAllShelf()
             return true
         }
@@ -254,9 +255,9 @@ final class ConsolePanel: NSPanel {
         return false
     }
 
-    private static let editActions: [String: Selector] = [
-        "v": #selector(NSText.paste(_:)), "c": #selector(NSText.copy(_:)), "x": #selector(NSText.cut(_:)),
-        "a": #selector(NSText.selectAll(_:)), "z": Selector(("undo:")),
+    private static let editActions: [Int: Selector] = [
+        kVK_ANSI_V: #selector(NSText.paste(_:)), kVK_ANSI_C: #selector(NSText.copy(_:)), kVK_ANSI_X: #selector(NSText.cut(_:)),
+        kVK_ANSI_A: #selector(NSText.selectAll(_:)), kVK_ANSI_Z: Selector(("undo:")),
     ]
 
     /// Прокрутка разбирается здесь, а не в мониторе: поле и списки забирают жест в свой цикл, и монитор его больше не видит.
@@ -339,7 +340,7 @@ final class ConsolePanel: NSPanel {
     /// ← → и цифры листают страницы, если ты не пишешь в поле.
     private func handlePageKey(_ event: NSEvent) -> Bool {
         guard !(firstResponder is NSTextView),
-              event.modifierFlags.intersection(.deviceIndependentFlagsMask).subtracting([.function, .numericPad]).isEmpty else { return false }
+              event.modifierFlags.intersection(.deviceIndependentFlagsMask).subtracting([.function, .numericPad, .capsLock]).isEmpty else { return false }
         switch event.keyCode {
         case 123: model.movePage(by: -1)
         case 124: model.movePage(by: 1)
