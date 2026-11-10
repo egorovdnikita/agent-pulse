@@ -367,14 +367,16 @@ final class PulseModel {
             let fallback = event.awaitReason == .permission ? "Мне нужно твоё разрешение" : "Я жду тебя"
             notifier.post(
                 id: awaitId, title: title, body: event.summary ?? fallback,
-                sound: config.events.awaitingUser.sound != "none", host: event.hostBundleId
+                sound: config.events.awaitingUser.sound != "none", host: event.hostBundleId,
+                source: event.source, sessionID: event.sessionId
             )
         case .stopped:
             notifier.remove(id: awaitId)
             if config.events.done.notification && mascotHidden && event.isError {
                 notifier.post(
                     id: "done-\(event.sessionId)", title: title, body: "Готово, проверь",
-                    sound: config.events.done.sound != "none", host: event.hostBundleId
+                    sound: config.events.done.sound != "none", host: event.hostBundleId,
+                    source: event.source, sessionID: event.sessionId
                 )
             }
         case .promptSubmitted, .toolStarted, .toolFinished, .sessionEnded, .rateLimited:
@@ -394,7 +396,7 @@ final class PulseModel {
         if overlayOccluded {
             if config.events.done.notification {
                 notifier?.post(id: "done-batch-" + latest.id, title: title, body: text,
-                               sound: config.events.done.sound != "none", host: latest.host)
+                               sound: config.events.done.sound != "none", host: latest.host, source: latest.source, sessionID: latest.id)
             }
         } else if batch.count == 1 {
             playReaction(.done, source: latest.source, host: latest.host, now: now)
@@ -684,14 +686,18 @@ final class PulseModel {
         scheduler.say(text, duration: duration, category: .mood, now: Date())
     }
 
-    /// Переход к источнику: активируем приложение, в котором живёт агент.
+    /// Клик ведёт к видимому завершению; ожидание пользователя сохраняет приоритет.
     func activateSource() {
-        guard
-            let bundleId = dominant?.hostBundleId,
-            let app = NSRunningApplication.runningApplications(withBundleIdentifier: bundleId).first
-        else { return }
-        app.activate()
+        if let session = dominant, case .awaitingUser = session.phase {
+            AgentNavigation.open(source: session.source, sessionID: session.id, host: session.hostBundleId)
+        } else if let target = completionTarget, let bubble,
+                  bubble.trigger == .done || (bubble.trigger == .line && bubble.text.hasPrefix("Готово: ")) {
+            AgentNavigation.open(source: target.source, sessionID: target.id, host: target.host)
+        } else if let session = dominant {
+            AgentNavigation.open(source: session.source, sessionID: session.id, host: session.hostBundleId)
+        }
     }
+
 }
 
 /// Короткие имена для журнала: только вид фазы, без текста сообщений.

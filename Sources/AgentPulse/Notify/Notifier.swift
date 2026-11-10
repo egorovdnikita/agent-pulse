@@ -1,3 +1,4 @@
+import AgentPulseCore
 import AppKit
 import Foundation
 import UserNotifications
@@ -18,12 +19,16 @@ final class Notifier: NSObject, UNUserNotificationCenterDelegate {
         center?.requestAuthorization(options: [.alert, .sound]) { _, _ in }
     }
 
-    func post(id: String, title: String, body: String, sound: Bool, host: String?) {
+    func post(id: String, title: String, body: String, sound: Bool, host: String?, source: AgentEvent.Source? = nil, sessionID: String? = nil) {
         let content = UNMutableNotificationContent()
         content.title = title
         content.body = body
         if sound { content.sound = .default }
-        if let host { content.userInfo = [Self.hostKey: host] }
+        if let host { content.userInfo[Self.hostKey] = host }
+        if let source, let sessionID {
+            content.userInfo["agentSource"] = source.rawValue
+            content.userInfo["agentSession"] = sessionID
+        }
         center?.add(UNNotificationRequest(identifier: id, content: content, trigger: nil))
     }
 
@@ -37,11 +42,10 @@ final class Notifier: NSObject, UNUserNotificationCenterDelegate {
         withCompletionHandler completionHandler: @escaping () -> Void
     ) {
         let host = response.notification.request.content.userInfo[Self.hostKey] as? String
+        let source = (response.notification.request.content.userInfo["agentSource"] as? String).flatMap { AgentEvent.Source(rawValue: $0) }
+        let sessionID = response.notification.request.content.userInfo["agentSession"] as? String
         completionHandler()
-        guard let host else { return }
-        DispatchQueue.main.async {
-            NSRunningApplication.runningApplications(withBundleIdentifier: host).first?.activate()
-        }
+        DispatchQueue.main.async { AgentNavigation.open(source: source, sessionID: sessionID, host: host) }
     }
 
     /// Показываем баннер, даже если Agent Pulse вдруг активен (например, открыт MascotLab).
