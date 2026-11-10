@@ -14,6 +14,7 @@ final class ConsoleModel {
         translate = TranslateModule(preferences: promo ? TranslatePreferences() : TranslatePreferences.load())
         limits = LimitsModule(book: promo ? LimitsBook() : LimitsBook.load())
         prompterLibrary = promo ? PrompterLibrary() : PrompterLibrary.load()
+        translationTerms = promo ? TranslationTerms() : TranslationTerms.load()
         shelf = promo ? ShelfModule() : ShelfModule.load()
         prompterCheckpoint = promo ? nil : PrompterCheckpoint.load()
         prompterDraft = promo ? "" : PrompterDraft.load().text
@@ -30,6 +31,7 @@ final class ConsoleModel {
     private(set) var prompter = PrompterModule()
     private(set) var dictation = DictationModule()
     private(set) var translate: TranslateModule
+    private(set) var translationTerms: TranslationTerms
     var translationLanguages = ["en", "ru", "de"]
     private(set) var shelf = ShelfModule()
     private(set) var director = ConsoleDirector()
@@ -859,10 +861,22 @@ final class ConsoleModel {
         }
     }
 
+    func protectTranslationTerm(_ term: String) {
+        translationTerms.add(term)
+        if !promoMode { try? translationTerms.save() }
+        typeTranslation(translateInput)
+    }
+
+    func removeTranslationTerm(_ term: String) {
+        translationTerms.remove(term)
+        if !promoMode { try? translationTerms.save() }
+        typeTranslation(translateInput)
+    }
+
     func runTranslation(_ text: String) async {
         let version = translate.requestVersion
         let direction = translate.direction(of: text)
-        let result = await ConsoleTranslator.translate(text, direction: direction)
+        let result = await ConsoleTranslator.translate(text, direction: direction, protectedTerms: translationTerms.terms)
         guard !Task.isCancelled else { return }
         finishTranslate(source: text, result: result, request: version)
     }

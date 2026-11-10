@@ -15,7 +15,11 @@ struct TranslateTab: View {
                     ZStack(alignment: .topLeading) {
                         PrompterEditor(text: Binding(get: { model.translateInput }, set: { model.typeTranslation($0) }), selectionActions: { source, range in
                             guard let fragment = TextFragment(source: source, range: range) else { return [] }
-                            return [("Перевести выделенный фрагмент", { model.translateFragment(fragment) })]
+                            var actions: [(String, () -> Void)] = [("Перевести выделенный фрагмент", { model.translateFragment(fragment) })]
+                            if fragment.text.count <= 120, !fragment.text.contains(where: \.isNewline) {
+                                actions.append(("Не переводить этот термин", { model.protectTranslationTerm(fragment.text) }))
+                            }
+                            return actions
                         })
                             .promoTarget("translate-editor")
                         if model.translateInput.isEmpty {

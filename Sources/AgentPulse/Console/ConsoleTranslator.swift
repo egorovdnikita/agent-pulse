@@ -37,9 +37,9 @@ enum ConsoleTranslator {
     }
 
     /// Возвращает перевод. Ошибка — текст для вкладки.
-    static func translate(_ text: String, direction: TranslateDirection) async -> Result<String, TranslateProblem> {
+    static func translate(_ text: String, direction: TranslateDirection, protectedTerms: [String] = []) async -> Result<String, TranslateProblem> {
         if direction.source == direction.target { return .success(text) }
-        let layout = TranslationLayout(text)
+        let layout = TranslationLayout(text, protectedTerms: protectedTerms)
         if layout.texts.isEmpty { return .success(text) }
         #if canImport(Translation)
         if #available(macOS 26, *) {
