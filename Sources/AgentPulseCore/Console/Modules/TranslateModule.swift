@@ -58,7 +58,14 @@ public struct TranslateModule: ConsoleModule {
     private var askedAt = Date.distantPast
     private var replacementSource: String?
 
-    public init() {}
+    public init(preferences: TranslatePreferences = TranslatePreferences()) {
+        sourceLanguage = preferences.source
+        targetLanguage = preferences.target
+        if let sourceLanguage { Self.remember(sourceLanguage, in: &recentSources) }
+        Self.remember(targetLanguage, in: &recentTargets)
+    }
+
+    public var preferences: TranslatePreferences { TranslatePreferences(source: sourceLanguage, target: targetLanguage) }
 
     /// Нажатие ⌃⌥T. Возвращает текст, который пора переводить.
     /// `editable` — выделение стоит в поле, его можно заменить; текст на странице заменить нельзя.

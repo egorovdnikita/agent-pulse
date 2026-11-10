@@ -15,4 +15,13 @@ import Testing
         try Data(#"{"source":"../file","target":"ru"}"#.utf8).write(to: url)
         #expect(TranslatePreferences.load(from: url) == TranslatePreferences())
     }
+    @Test func moduleRestoresLanguagesWithoutRestoringContent() {
+        let chosen = TranslatePreferences(source: nil, target: "fr")
+        let module = TranslateModule(preferences: chosen)
+        #expect(module.preferences == chosen)
+        #expect(module.recentTargets.contains("fr"))
+        #expect(module.state == .idle)
+        #expect(!module.replaceable)
+    }
+
 }

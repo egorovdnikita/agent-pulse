@@ -11,6 +11,7 @@ final class ConsoleModel {
 
     init(promo: Bool = false) {
         promoMode = promo
+        translate = TranslateModule(preferences: promo ? TranslatePreferences() : TranslatePreferences.load())
         limits = LimitsModule(book: promo ? LimitsBook() : LimitsBook.load())
         prompterLibrary = promo ? PrompterLibrary() : PrompterLibrary.load()
         shelf = promo ? ShelfModule() : ShelfModule.load()
@@ -26,7 +27,7 @@ final class ConsoleModel {
     private(set) var limits: LimitsModule
     private(set) var prompter = PrompterModule()
     private(set) var dictation = DictationModule()
-    private(set) var translate = TranslateModule()
+    private(set) var translate: TranslateModule
     var translationLanguages = ["en", "ru", "de"]
     private(set) var shelf = ShelfModule()
     private(set) var director = ConsoleDirector()
@@ -713,13 +714,20 @@ final class ConsoleModel {
 
     func flipTranslation() {
         let newInput = translate.flip(sourceText: translateInput)
+        saveTranslationLanguages()
         typeTranslation(newInput ?? translateInput)
     }
 
     func selectTranslationLanguage(_ code: String?, source: Bool) {
         if source { translate.selectSource(code) }
         else if let code { translate.selectTarget(code) }
+        saveTranslationLanguages()
         typeTranslation(translateInput, preservingSelection: true)
+    }
+
+    private func saveTranslationLanguages() {
+        guard !promoMode else { return }
+        try? translate.preferences.save()
     }
 
     func clearTranslation() {
