@@ -154,6 +154,7 @@ public struct PrompterModule: ConsoleModule {
     private var lastTick: Date?
     private var finishedAt: Date?
     private var lastHeard: Date?
+    private var voicePace = PrompterVoicePace()
 
     public init() {}
 
@@ -192,6 +193,7 @@ public struct PrompterModule: ConsoleModule {
         let fresh = PrompterScript(text: text)
         guard !fresh.isEmpty else { return false }
         script = fresh
+        voicePace = PrompterVoicePace()
         position = 0
         mode = .running
         lastTick = now
@@ -209,6 +211,7 @@ public struct PrompterModule: ConsoleModule {
     }
 
     public mutating func togglePause(now: Date) {
+        voicePace.reset()
         switch mode {
         case .running: mode = .paused
         case .paused:
@@ -257,6 +260,7 @@ public struct PrompterModule: ConsoleModule {
 
     private mutating func move(to place: Double, now: Date) {
         position = place
+        voicePace.reset()
         lastTick = now
         lastHeard = now
         finishedAt = nil
@@ -270,7 +274,9 @@ public struct PrompterModule: ConsoleModule {
         // Тире и прочие знаки не произносятся: перешагиваем, иначе текст не дойдёт до конца.
         var next = found
         while next < script.normalized.count, script.normalized[next].isEmpty { next += 1 }
-        position = max(position, Double(next))
+        let moved = max(position, Double(next))
+        if moved > position, let measured = voicePace.observe(word: Int(moved), now: now) { speed = measured }
+        position = moved
     }
 
     /// Двигает текст. Возвращает true, когда суфлёр дочитан и закрылся сам.

@@ -21,4 +21,19 @@ import Testing
         pace.reset()
         #expect(pace.observe(word: 36, now: start.addingTimeInterval(10)) == nil)
     }
+    @Test func voiceModeAdaptsReadingEstimateAndPauseResetsSample() {
+        let words = ["один", "два", "три", "четыре", "пять", "шесть", "семь", "восемь", "девять", "десять"]
+        var module = PrompterModule()
+        module.followsVoice = true
+        _ = module.start(text: words.joined(separator: " "), now: start)
+        module.hear(Array(words.prefix(4)), now: start.addingTimeInterval(2))
+        module.hear(Array(words.prefix(8)), now: start.addingTimeInterval(4))
+        #expect(module.speed == 120)
+        module.togglePause(now: start.addingTimeInterval(4))
+        module.togglePause(now: start.addingTimeInterval(60))
+        module.hear(words, now: start.addingTimeInterval(62))
+        #expect(module.speed == 120)
+        #expect(module.position == 10)
+    }
+
 }
