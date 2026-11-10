@@ -191,6 +191,9 @@ private struct ShelfTile: View {
             Button("Быстрый просмотр") { model.previewShelfFiles(from: item.url) }
             Button("Открыть") { model.openShelfFiles(from: item.url) }
             Button("Показать в Finder") { model.revealShelfFiles(from: item.url) }
+            if PrompterTextFile.supports(item.url), model.prompterEnabled {
+                Button("Открыть в Докладчике") { model.importPrompterFile(item.url) }.disabled(model.prompter.isActive)
+            }
             Button("Скопировать путь") { model.copyShelfPaths(from: item.url) }
             Button(item.isPinned ? "Открепить" : "Закрепить") { model.pinShelfFiles(from: item.url) }
             Button("Найти файл…") { model.findShelfFile(item.url) }

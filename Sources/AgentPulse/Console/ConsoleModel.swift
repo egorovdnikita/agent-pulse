@@ -702,9 +702,23 @@ final class ConsoleModel {
             addToShelf(urls)
             return
         }
-        guard let url = urls.first(where: { ["txt", "md"].contains($0.pathExtension.lowercased()) }),
-              let text = try? String(contentsOf: url, encoding: .utf8) else { return }
-        prompterDraft = text
+        guard let url = urls.first(where: PrompterTextFile.supports) else { return }
+        importPrompterFile(url)
+    }
+
+    func importPrompterFile(_ url: URL) {
+        guard prompterEnabled, !prompter.isActive else { return }
+        do {
+            let text = try PrompterTextFile.read(url)
+            prompterDraft = text
+            prompterRecentOpen = false
+            openPage(.prompter)
+        } catch {
+            let alert = NSAlert()
+            alert.messageText = "Не удалось открыть текст"
+            alert.informativeText = "Нужен доступный файл .txt или .md в UTF-8 размером до 2 МБ."
+            alert.runModal()
+        }
     }
 
     // MARK: - Диктовка
