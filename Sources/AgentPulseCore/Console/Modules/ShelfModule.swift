@@ -17,6 +17,7 @@ public struct ShelfItem: Codable, Sendable, Equatable, Identifiable {
         var stale = false
         guard let resolved = try? URL(resolvingBookmarkData: bookmark, options: .withoutUI, relativeTo: nil, bookmarkDataIsStale: &stale),
               resolved.isFileURL, FileManager.default.fileExists(atPath: resolved.path) else { return self }
+        if !stale, resolved.resolvingSymlinksInPath() == url.resolvingSymlinksInPath() { return self }
         if resolved != url || stale { return ShelfItem(url: resolved) }
         return self
     }
@@ -37,15 +38,19 @@ public struct ShelfModule: ConsoleModule {
 
     public static func load(from url: URL = storageURL) -> ShelfModule {
         var shelf = ShelfModule()
-        guard let data = try? Data(contentsOf: url), let urls = try? JSONDecoder().decode([URL].self, from: data) else { return shelf }
-        // Внешний диск может быть временно отключён: такие ссылки не удаляем.
-        _ = shelf.add(urls.filter(\.isFileURL))
+        guard let data = try? Data(contentsOf: url) else { return shelf }
+        if let items = try? JSONDecoder().decode([ShelfItem].self, from: data) {
+            shelf.restore(items.map { $0.resolvingReference() })
+        } else if let urls = try? JSONDecoder().decode([URL].self, from: data) {
+            // Совместимость с первой версией полки; внешний диск может быть отключён.
+            _ = shelf.add(urls.filter(\.isFileURL))
+        }
         return shelf
     }
 
     public func save(to url: URL = storageURL) throws {
         try FileManager.default.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
-        let data = try JSONEncoder().encode(items.map(\.url))
+        let data = try JSONEncoder().encode(items)
         try data.write(to: url, options: .atomic)
         try FileManager.default.setAttributes([.posixPermissions: 0o600], ofItemAtPath: url.path)
     }
