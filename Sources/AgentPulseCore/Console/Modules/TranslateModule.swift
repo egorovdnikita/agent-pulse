@@ -171,6 +171,13 @@ public struct TranslateModule: ConsoleModule {
         state = .failed(problem)
     }
 
+    /// Возврат к сохранённому переводу не возвращает старые номера запросов.
+    public mutating func restore(_ saved: TranslateModule) {
+        let next = max(requestVersion, saved.requestVersion) + 1
+        self = saved
+        requestVersion = next
+    }
+
     public mutating func reset() { invalidate() }
 
     private static func cleaned(_ text: String?) -> String? {
