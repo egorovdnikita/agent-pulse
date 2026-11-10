@@ -539,7 +539,7 @@ private struct ConsoleSettings: View {
                     ModuleOption { ShortcutRow(title: "Старт и стоп", keys: "⌃⌥P", busy: model.console.busyKeys.contains("p")) }
                     ModuleOption { ShortcutRow(title: "Скорость", keys: "⌃⌥↑ ⌃⌥↓") }
                     ModuleOption { ShortcutRow(title: "Строка назад и вперёд", keys: "⌃⌥← ⌃⌥→") }
-                    ModuleOption { ShortcutRow(title: "К началу предложения", keys: "⌃⌥⌫") }
+                    ModuleOption { ShortcutRow(title: "К началу предложения", keys: "⌃⌥⌫", busy: model.console.busyKeys.contains("sentence")) }
                 }
                 card("Файлы", "Полка для файлов под рукой", icon: "folder", tint: Color(nsColor: .systemBlue), isOn: settings.shelf, toggle: { app.setShelfEnabled($0) }) {
                     ModuleOption {

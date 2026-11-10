@@ -498,7 +498,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
             // Стрелки заняты только на время суфлёра: они нужны и другим приложениям.
             self.prompterFaster.set(code: on ? kVK_UpArrow : nil) { [weak console] in console?.changePrompterSpeed(faster: true) }
             self.prompterSlower.set(code: on ? kVK_DownArrow : nil) { [weak console] in console?.changePrompterSpeed(faster: false) }
-            self.prompterSentence.set(code: on ? kVK_Delete : nil) { [weak console] in console?.restartPrompterSentence() }
+            let sentenceRegistered = self.prompterSentence.set(code: on ? kVK_Delete : nil) { [weak console] in console?.restartPrompterSentence() }
+            self.model.console.busyKeys = sentenceRegistered ? self.model.console.busyKeys.subtracting(["sentence"]) : self.model.console.busyKeys.union(["sentence"])
             self.prompterBack.set(code: on ? kVK_LeftArrow : nil) { [weak console] in console?.jumpPrompter(lines: -1) }
             self.prompterForward.set(code: on ? kVK_RightArrow : nil) { [weak console] in console?.jumpPrompter(lines: 1) }
             if on {
