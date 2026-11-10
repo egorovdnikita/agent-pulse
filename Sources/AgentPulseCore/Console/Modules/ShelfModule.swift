@@ -6,11 +6,14 @@ public struct ShelfItem: Codable, Sendable, Equatable, Identifiable {
     public var name: String { url.lastPathComponent }
     private var bookmark: Data?
     private var pinned: Bool?
+    private var added: Date?
+    public var addedAt: Date { added ?? .distantPast }
     public var isPinned: Bool { pinned == true }
     public mutating func setPinned(_ value: Bool) { pinned = value ? true : nil }
 
     public init(url: URL) {
         self.url = url
+        added = Date()
         bookmark = try? url.bookmarkData(options: .minimalBookmark, includingResourceValuesForKeys: nil, relativeTo: nil)
     }
 
@@ -23,6 +26,7 @@ public struct ShelfItem: Codable, Sendable, Equatable, Identifiable {
         if !stale, resolved.resolvingSymlinksInPath() == url.resolvingSymlinksInPath() { return self }
         if resolved != url || stale {
             var item = ShelfItem(url: resolved)
+            item.added = added
             item.setPinned(isPinned)
             return item
         }
@@ -98,8 +102,10 @@ public struct ShelfModule: ConsoleModule {
     public mutating func replace(_ old: URL, with new: URL) -> Bool {
         guard new.isFileURL, let index = items.firstIndex(where: { $0.url == old }), old != new else { return false }
         let pinned = items[index].isPinned
+        let added = items[index].added
         items[index] = ShelfItem(url: new)
         items[index].setPinned(pinned)
+        items[index].added = added
         var seen: Set<URL> = []
         items = items.filter { seen.insert($0.url).inserted }
         return true
