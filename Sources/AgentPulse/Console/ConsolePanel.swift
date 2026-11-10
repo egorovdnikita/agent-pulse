@@ -193,6 +193,10 @@ final class ConsolePanel: NSPanel {
             model.openShelfFiles()
             return true
         }
+        if flags == .command, event.charactersIgnoringModifiers?.lowercased() == "c", !model.shelfSelection.isEmpty {
+            model.copyShelfFiles()
+            return true
+        }
         if flags == [.command, .shift], event.charactersIgnoringModifiers?.lowercased() == "z", model.shelfHistory.canRedo {
             model.redoShelf()
             return true

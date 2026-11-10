@@ -169,6 +169,7 @@ private struct ShelfTile: View {
         .contextMenu {
             Button("Открыть") { model.openShelfFiles(from: item.url) }
             Button("Показать в Finder") { model.revealShelfFiles(from: item.url) }
+            Button("Скопировать путь") { model.copyShelfPaths(from: item.url) }
             Divider()
             Button("Убрать из Библиотеки") { model.removeFromShelf(model.shelfTargets(from: item.url)) }
         }
