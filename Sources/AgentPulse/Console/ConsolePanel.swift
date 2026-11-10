@@ -362,6 +362,11 @@ final class ConsolePanel: NSPanel {
 
     /// ← → и цифры листают страницы, если ты не пишешь в поле.
     private func handlePageKey(_ event: NSEvent) -> Bool {
+        let flags = event.modifierFlags.intersection(.deviceIndependentFlagsMask).subtracting(.capsLock)
+        if flags == .command, let number = [18: 1, 19: 2, 20: 3, 21: 4][Int(event.keyCode)] {
+            model.selectPage(number: number)
+            return true
+        }
         guard !(firstResponder is NSTextView),
               event.modifierFlags.intersection(.deviceIndependentFlagsMask).subtracting([.function, .numericPad, .capsLock]).isEmpty else { return false }
         switch event.keyCode {
