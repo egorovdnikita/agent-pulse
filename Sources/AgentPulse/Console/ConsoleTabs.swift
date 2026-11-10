@@ -11,16 +11,14 @@ private let noteFont = ConsoleStyle.font(12, .medium).monospacedDigit()
 
 // MARK: - Полка
 
-/// Файл вытаскивается наружу как из Finder, и после этого его на полке нет.
+/// Файл копируется наружу, ссылка остаётся на полке для повторного использования.
 /// Вид лежит поверх плитки и сам ловит нажатие: снизу до него мышь не доходит.
 private final class ShelfDragView: NSView, NSDraggingSource {
     var url: URL?
     /// Что уносит перетаскивание: выбранное или один файл.
     var payload: (() -> [URL])?
     var onClick: ((NSEvent.ModifierFlags) -> Void)?
-    var onDropped: (([URL]) -> Void)?
     private var pressedAt: NSPoint?
-    private var carried: [URL] = []
 
     override func acceptsFirstMouse(for event: NSEvent?) -> Bool { true }
 
@@ -33,7 +31,7 @@ private final class ShelfDragView: NSView, NSDraggingSource {
         let point = convert(event.locationInWindow, from: nil)
         guard hypot(point.x - start.x, point.y - start.y) > 3 else { return }
         pressedAt = nil
-        carried = payload?() ?? []
+        let carried = payload?() ?? []
         let side = 48.0
         let items = carried.enumerated().map { index, file in
             let item = NSDraggingItem(pasteboardWriter: file as NSURL)
@@ -55,12 +53,7 @@ private final class ShelfDragView: NSView, NSDraggingSource {
     }
 
     func draggingSession(_ session: NSDraggingSession, sourceOperationMaskFor context: NSDraggingContext) -> NSDragOperation {
-        context == .outsideApplication ? [.move, .copy, .generic, .link] : []
-    }
-
-    func draggingSession(_ session: NSDraggingSession, endedAt screenPoint: NSPoint, operation: NSDragOperation) {
-        if operation != [] { onDropped?(carried) }
-        carried = []
+        context == .outsideApplication ? .copy : []
     }
 }
 
@@ -68,7 +61,6 @@ private struct ShelfDragArea: NSViewRepresentable {
     let url: URL
     let payload: () -> [URL]
     let onClick: (NSEvent.ModifierFlags) -> Void
-    let onDropped: ([URL]) -> Void
 
     func makeNSView(context: Context) -> ShelfDragView { ShelfDragView() }
 
@@ -76,7 +68,6 @@ private struct ShelfDragArea: NSViewRepresentable {
         view.url = url
         view.payload = payload
         view.onClick = onClick
-        view.onDropped = onDropped
     }
 }
 
@@ -148,8 +139,7 @@ private struct ShelfTile: View {
                     ShelfDragArea(
                         url: item.url,
                         payload: { model.shelfSelection.dragged(from: item.url, order: model.shelfOrder) },
-                        onClick: { model.clickShelf(item.url, flags: $0) },
-                        onDropped: { model.removeFromShelf($0) }
+                        onClick: { model.clickShelf(item.url, flags: $0) }
                     )
                 }
                 .overlay(alignment: .topTrailing) {
@@ -228,7 +218,7 @@ struct ShelfTab: View {
                     VStack(spacing: 8) {
                         Text("Перетащите сюда файлы, чтобы держать их под рукой")
                             .font(ConsoleStyle.font(14, .medium)).foregroundStyle(ConsoleStyle.text)
-                        Text("До 20 файлов. Полка очищается при выходе из приложения")
+                        Text("До 20 файлов. Хранятся до удаления из Библиотеки")
                             .font(ConsoleStyle.font(12, .medium)).foregroundStyle(ConsoleStyle.caption)
                     }
                 }

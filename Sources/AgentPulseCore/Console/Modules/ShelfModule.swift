@@ -10,7 +10,7 @@ public struct ShelfItem: Sendable, Equatable, Identifiable {
     }
 }
 
-/// Полка: ссылки на файлы, только в памяти. Выход из приложения очищает полку, сами файлы никто не трогает.
+/// Полка хранит ссылки до ручного удаления; оригиналы файлов остаются на месте.
 public struct ShelfModule: ConsoleModule {
     public let id = ConsoleModuleID.shelf
     public let title = "Библиотека"
@@ -20,6 +20,23 @@ public struct ShelfModule: ConsoleModule {
     public static let capacity = 20
 
     public init() {}
+
+    public static var storageURL: URL { PulsePaths.supportDirectory.appending(path: "shelf.json") }
+
+    public static func load(from url: URL = storageURL) -> ShelfModule {
+        var shelf = ShelfModule()
+        guard let data = try? Data(contentsOf: url), let urls = try? JSONDecoder().decode([URL].self, from: data) else { return shelf }
+        // Внешний диск может быть временно отключён: такие ссылки не удаляем.
+        _ = shelf.add(urls.filter(\.isFileURL))
+        return shelf
+    }
+
+    public func save(to url: URL = storageURL) throws {
+        try FileManager.default.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
+        let data = try JSONEncoder().encode(items.map(\.url))
+        try data.write(to: url, options: .atomic)
+        try FileManager.default.setAttributes([.posixPermissions: 0o600], ofItemAtPath: url.path)
+    }
 
     public func priority(now: Date) -> ConsolePriority? {
         items.isEmpty ? nil : .shelf

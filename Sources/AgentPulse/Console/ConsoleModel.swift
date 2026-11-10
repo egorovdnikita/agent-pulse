@@ -13,6 +13,14 @@ final class ConsoleModel {
         promoMode = promo
         limits = LimitsModule(book: promo ? LimitsBook() : LimitsBook.load())
         prompterLibrary = promo ? PrompterLibrary() : PrompterLibrary.load()
+        shelf = promo ? ShelfModule() : ShelfModule.load()
+        if !promo {
+            Task { [weak self] in
+                guard let self else { return }
+                if let last = self.shelf.items.last { self.loadThumbnail(last.url) }
+                self.shelf.items.filter { ShelfFileKind(name: $0.name) == .image }.forEach { self.loadPreview($0.url) }
+            }
+        }
     }
 
     private(set) var limits: LimitsModule
@@ -194,6 +202,7 @@ final class ConsoleModel {
         guard shelfEnabled else { return }
         now = Date()
         apply(shelf.add(urls))
+        saveShelf()
         onSound?(.shelf)
         if let last = shelf.items.last { loadThumbnail(last.url) }
         urls.filter { ShelfFileKind(name: $0.lastPathComponent) == .image }.forEach(loadPreview)
@@ -213,6 +222,8 @@ final class ConsoleModel {
 
     func removeFromShelf(_ urls: [URL]) {
         shelf.remove(urls)
+        saveShelf()
+        for url in urls { shelfPreviews[url] = nil }
         shelfSelection.keep(only: shelfOrder)
         if shelf.items.isEmpty { shelfThumbnail = nil } else if let last = shelf.items.last { loadThumbnail(last.url) }
         refresh(agentWaiting: false)
@@ -259,10 +270,16 @@ final class ConsoleModel {
 
     func clearShelf() {
         shelf.clear()
+        saveShelf()
         shelfThumbnail = nil
         shelfPreviews = [:]
         shelfSelection.clear()
         refresh(agentWaiting: false)
+    }
+
+    private func saveShelf() {
+        guard !promoMode else { return }
+        try? shelf.save()
     }
 
     private func loadThumbnail(_ url: URL) {

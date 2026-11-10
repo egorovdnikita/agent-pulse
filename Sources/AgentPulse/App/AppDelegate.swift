@@ -633,7 +633,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         model.config.console.shelf = on
         try? model.config.save()
         model.console.shelfEnabled = on
-        if !on { model.console.clearShelf() }
+        if !on { model.console.clearShelfSelection() }
         startScreenshots()
     }
 

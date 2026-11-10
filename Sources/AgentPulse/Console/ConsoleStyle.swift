@@ -430,7 +430,7 @@ enum ConsoleSheet {
     }
 
     static func checkPrompterValidation(to folder: URL) async {
-        let model = ConsoleModel()
+        let model = ConsoleModel(promo: true)
         model.showPanelNow()
         model.tab = .prompter
         model.prompterDraft = "   \n"
