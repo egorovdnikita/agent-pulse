@@ -87,24 +87,40 @@ public enum PrompterVoiceMatch {
         let spoken = heard.map(PrompterScript.normalize).filter { !$0.isEmpty }.suffix(tail)
         guard !spoken.isEmpty, !script.isEmpty else { return nil }
         let window = max(0, current - lookBack)..<min(script.count, current + lookAhead)
-        var best: (end: Int, score: Int)?
+        var best: (end: Int, score: Int, matches: Int, gaps: Int)?
         for end in window {
             var score = 0
             var scriptIndex = end
             var spokenIndex = spoken.endIndex - 1
-            while spokenIndex >= spoken.startIndex, scriptIndex >= 0, same(spoken[spokenIndex], script[scriptIndex]) {
-                score += 1
-                scriptIndex -= 1
-                spokenIndex -= 1
+            var gaps = 0
+            while spokenIndex >= spoken.startIndex, scriptIndex >= 0 {
+                if script[scriptIndex].isEmpty { scriptIndex -= 1; continue }
+                if same(spoken[spokenIndex], script[scriptIndex]) {
+                    score += 1
+                    scriptIndex -= 1
+                    spokenIndex -= 1
+                } else if gaps < 2, score > 0 {
+                    if scriptIndex > 0, same(spoken[spokenIndex], script[scriptIndex - 1]) {
+                        scriptIndex -= 1
+                    } else if spokenIndex > spoken.startIndex, same(spoken[spokenIndex - 1], script[scriptIndex]) {
+                        spokenIndex -= 1
+                    } else if scriptIndex > 1, same(spoken[spokenIndex], script[scriptIndex - 2]), gaps == 0 {
+                        scriptIndex -= 2
+                        gaps += 1
+                    } else { break }
+                    gaps += 1
+                } else { break }
             }
             guard score > 0 else { continue }
             // При равном счёте — ближе к текущему месту: фразы в тексте повторяются.
             let isCloser = best.map { abs(end + 1 - current) < abs($0.end + 1 - current) } ?? true
-            if score > (best?.score ?? 0) || (score == best?.score && isCloser) { best = (end, score) }
+            let weighted = score * 3 - gaps
+            if weighted > (best?.score ?? 0) || (weighted == best?.score && isCloser) { best = (end, weighted, score, gaps) }
         }
         guard let best else { return nil }
         // Одно короткое слово («и», «в») ничего не доказывает: нужно длинное или хотя бы два подряд.
-        let enough = best.score >= 2 || (script[best.end].count >= 5 && best.end >= current - 1)
+        let enough = (best.gaps == 0 && best.matches >= 2) || best.matches >= 3
+            || (best.gaps == 0 && script[best.end].count >= 5 && (current - 1...current + 3).contains(best.end))
         return enough ? best.end + 1 : nil
     }
 }
