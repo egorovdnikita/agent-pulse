@@ -561,7 +561,7 @@ final class ConsoleModel {
         guard !promoMode, prompter.isActive else { return }
         prompterCheckpointSavedAt = Date()
         let saved = PrompterCheckpoint(text: prompter.script.text, position: prompter.position)
-        guard saved.fraction(for: saved.text) != nil else { clearPrompterCheckpoint(); return }
+        guard saved.fraction(for: prompter.script.text) != nil else { clearPrompterCheckpoint(); return }
         prompterCheckpoint = saved
         try? saved.save()
     }

@@ -17,6 +17,8 @@ import Testing
         let url = root.appending(path: "position.json")
         try PrompterCheckpoint(text: "Один два три", position: 1, now: now).save(to: url)
         #expect(PrompterCheckpoint.load(from: url, now: now)?.position == 1)
+        let json = String(decoding: try Data(contentsOf: url), as: UTF8.self)
+        #expect(!json.contains("Один два три"))
         #expect(PrompterCheckpoint.load(from: url, now: now.addingTimeInterval(31 * 24 * 3600)) == nil)
         PrompterCheckpoint.erase(at: url)
         #expect(!FileManager.default.fileExists(atPath: url.path))
