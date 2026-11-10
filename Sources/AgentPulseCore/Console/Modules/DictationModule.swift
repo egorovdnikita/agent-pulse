@@ -146,19 +146,19 @@ public enum DictationRules {
         let rules = expanded
             .filter { !$0.spoken.trimmingCharacters(in: .whitespaces).isEmpty && seen.insert($0.spoken.lowercased()).inserted }
             .sorted { $0.spoken.count > $1.spoken.count }
-        return rules.reduce(text) { result, rule in
-            let spoken = rule.spoken.trimmingCharacters(in: .whitespaces)
-            let pattern = "(?<![\\p{L}\\p{N}])" + NSRegularExpression.escapedPattern(for: spoken) + "(?![\\p{L}\\p{N}])"
-            guard let regex = try? NSRegularExpression(pattern: pattern, options: [.caseInsensitive]) else { return result }
-            var output = result
-            for match in regex.matches(in: result, range: NSRange(result.startIndex..., in: result)).reversed() {
-                guard let range = Range(match.range, in: output) else { continue }
-                // Модель пишет начало предложения с большой буквы: замена его сохраняет.
-                let capitalized = rule.exactSpelling != true && output[range].first?.isUppercase == true
-                output.replaceSubrange(range, with: capitalized ? rule.written.prefix(1).uppercased() + rule.written.dropFirst() : rule.written)
-            }
-            return output
+        let alternatives = rules.map { NSRegularExpression.escapedPattern(for: $0.spoken.trimmingCharacters(in: .whitespaces)) }.joined(separator: "|")
+        guard !alternatives.isEmpty else { return text }
+        let pattern = "(?<![\\p{L}\\p{N}])(?:" + alternatives + ")(?![\\p{L}\\p{N}])"
+        guard let regex = try? NSRegularExpression(pattern: pattern, options: [.caseInsensitive]) else { return text }
+        var output = text
+        for match in regex.matches(in: text, range: NSRange(text.startIndex..., in: text)).reversed() {
+            guard let originalRange = Range(match.range, in: text), let range = Range(match.range, in: output) else { continue }
+            let spoken = String(text[originalRange])
+            guard let rule = rules.first(where: { $0.spoken.trimmingCharacters(in: .whitespaces).caseInsensitiveCompare(spoken) == .orderedSame }) else { continue }
+            let capitalized = rule.exactSpelling != true && spoken.first?.isUppercase == true
+            output.replaceSubrange(range, with: capitalized ? rule.written.prefix(1).uppercased() + rule.written.dropFirst() : rule.written)
         }
+        return output
     }
 }
 
