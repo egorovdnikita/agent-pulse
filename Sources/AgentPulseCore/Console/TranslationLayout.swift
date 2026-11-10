@@ -10,6 +10,7 @@ public struct TranslationLayout: Sendable {
         let input = source as NSString
         let lines = try! NSRegularExpression(pattern: #"([^\r\n]*)(\r\n|\r|\n|$)"#)
         let prefix = try! NSRegularExpression(pattern: #"^[ \t]*(?:(?:#{1,6}|[-*+]|\d+[.)]|>)[ \t]+)?"#)
+        let protection = Self.protectedExpression(terms: protectedTerms)
         var result: [Segment] = []
         var fence: (Character, Int)?
         for match in lines.matches(in: source, range: NSRange(location: 0, length: input.length)) where match.range.length > 0 {
@@ -31,15 +32,18 @@ public struct TranslationLayout: Sendable {
             let nsLine = line as NSString
             let start = prefix.firstMatch(in: line, range: NSRange(location: 0, length: nsLine.length))?.range.length ?? 0
             if start > 0 { result.append(.literal(nsLine.substring(to: start))) }
-            Self.appendProtectedText(nsLine.substring(from: start), terms: protectedTerms, to: &result)
+            Self.appendProtectedText(nsLine.substring(from: start), regex: protection, to: &result)
             if !newline.isEmpty { result.append(.literal(newline)) }
         }
         segments = result
     }
 
-    private static func appendProtectedText(_ raw: String, terms: [String], to result: inout [Segment]) {
+    private static func protectedExpression(terms: [String]) -> NSRegularExpression {
         let termPattern = terms.filter { !$0.isEmpty }.sorted { $0.count > $1.count }.map { "(?<![\\p{L}\\p{N}_])" + NSRegularExpression.escapedPattern(for: $0) + "(?![\\p{L}\\p{N}_])" }.joined(separator: "|")
-        let regex = try! NSRegularExpression(pattern: (termPattern.isEmpty ? "" : termPattern + "|") + #"`+[^`\r\n]*`+|https?://[^\s<>()]+|\[[^\]\r\n]*\]\([^\)\r\n]*\)"#)
+        return try! NSRegularExpression(pattern: (termPattern.isEmpty ? "" : termPattern + "|") + #"`+[^`\r\n]*`+|https?://[^\s<>()]+|\[[^\]\r\n]*\]\([^\)\r\n]*\)"#)
+    }
+
+    private static func appendProtectedText(_ raw: String, regex: NSRegularExpression, to result: inout [Segment]) {
         let input = raw as NSString
         var cursor = 0
         for match in regex.matches(in: raw, range: NSRange(location: 0, length: input.length)) {
