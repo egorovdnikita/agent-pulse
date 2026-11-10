@@ -29,19 +29,7 @@ struct TranslateTab: View {
                 VStack(alignment: .leading, spacing: 8) {
                     languageRow(source: false)
                     output
-                        .contextMenu {
-                            if model.canRestoreTranslationReview {
-                                Button("Вернуть исходный перевод") { model.restoreTranslationReview() }
-                            }
-                            if case .done(_, let result) = model.translate.state {
-                                if model.translate.replaceable {
-                                    Button("Заменить выделенное") { model.onTranslateReplace?(result) }
-                                }
-                                if !model.canRestoreTranslationReview {
-                                    Button("Проверить обратным переводом") { model.reviewReverseTranslation() }
-                                }
-                            }
-                        }
+                        .overlay { TranslationResultMenu(model: model).frame(maxWidth: .infinity, maxHeight: .infinity) }
                     if case .done(_, let result) = model.translate.state {
                         action(model.translateCopied ? "Скопировано" : "Скопировать", color: ConsoleStyle.green) { model.copyTranslation(result) }
                     }
