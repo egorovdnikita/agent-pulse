@@ -101,13 +101,12 @@ public struct ShelfModule: ConsoleModule {
     @discardableResult
     public mutating func replace(_ old: URL, with new: URL) -> Bool {
         guard new.isFileURL, let index = items.firstIndex(where: { $0.url == old }), old != new else { return false }
-        let pinned = items[index].isPinned
+        let pinned = items[index].isPinned || items.contains { $0.url == new && $0.isPinned }
         let added = items[index].added
         items[index] = ShelfItem(url: new)
         items[index].setPinned(pinned)
         items[index].added = added
-        var seen: Set<URL> = []
-        items = items.filter { seen.insert($0.url).inserted }
+        items = items.enumerated().filter { $0.offset == index || $0.element.url != new }.map(\.element)
         return true
     }
 

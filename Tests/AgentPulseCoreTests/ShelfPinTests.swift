@@ -15,6 +15,15 @@ import Testing
         shelf.pin([a], value: false)
         #expect(shelf.displayItems.map(\.url) == [b, a])
     }
+    @Test func relinkToExistingKeepsReplacedPositionAndPin() {
+        let urls = ["existing", "middle", "old"].map { URL(fileURLWithPath: "/tmp/" + $0) }
+        var shelf = ShelfModule(); _ = shelf.add(urls)
+        shelf.pin([urls[0]], value: true)
+        let result = shelf.replace(urls[2], with: urls[0])
+        #expect(result)
+        #expect(shelf.items.map(\.url) == [urls[1], urls[0]])
+        #expect(shelf.items.last?.isPinned == true)
+    }
     @Test func legacyAndRelinking() throws {
         let old = URL(fileURLWithPath: "/tmp/old.txt"), new = URL(fileURLWithPath: "/tmp/new.txt")
         let data = Data("[{\"url\":\"file:///tmp/old.txt\"}]".utf8)
