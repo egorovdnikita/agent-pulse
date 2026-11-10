@@ -19,6 +19,7 @@ final class DictationController {
     @ObservationIgnored private var recorder: DictationRecorder?
     @ObservationIgnored private var unloadTask: Task<Void, Never>?
     @ObservationIgnored private var selection: TextInsertion.Selection?
+    @ObservationIgnored private var replayVersion = 0
     @ObservationIgnored private var replay: RecentDictation?
     @ObservationIgnored private var correctionMode = false
     @ObservationIgnored private var lastInsertion: (context: RecentDictation, selection: TextInsertion.Selection)?
@@ -118,17 +119,21 @@ final class DictationController {
     }
 
     private func setReplay(_ text: String) {
+        replayVersion += 1
         replay = RecentDictation(text: text, now: Date())
         console.dictationReplayUntil = Date().addingTimeInterval(RecentDictation.lifetime)
     }
 
     func replayLastDictation() {
-        guard console.dictationEnabled, console.dictation.phase == .idle, !console.prompter.isActive,
+        guard console.dictationEnabled, !console.dictationReplaying, console.dictation.phase == .idle, !console.prompter.isActive,
               let replay, replay.isCurrent(now: Date()) else { return }
+        let version = replayVersion
+        console.dictationReplaying = true
         console.setExpanded(false)
         Task {
+            defer { console.dictationReplaying = false }
             try? await Task.sleep(for: .milliseconds(150))
-            guard self.console.dictation.phase == .idle else { return }
+            guard self.console.dictation.phase == .idle, settings().enabled, settings().dictation, replayVersion == version, replay.isCurrent(now: Date()) else { return }
             let outcome = await TextInsertion.insert(replay.text, accessibility: settings().accessibility)
             captureInsertion(text: replay.text, outcome: outcome)
             console.finishDictation(notice: outcome == .inClipboard ? .inClipboard : .inserted)
@@ -172,6 +177,7 @@ final class DictationController {
     }
 
     func clearHistory() {
+        replayVersion += 1
         replay = nil
         console.dictationReplayUntil = .distantPast
         lastInsertion = nil

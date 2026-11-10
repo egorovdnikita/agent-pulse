@@ -142,8 +142,9 @@ final class ConsoleModel {
     /// Галочка «За голосом» во вкладке: настройки сохраняет приложение.
     @ObservationIgnored var onPrompterVoiceToggle: ((Bool) -> Void)?
     /// Диктовка: записать, закончить запись, открыть настройки модели.
+    var dictationReplaying = false
     var dictationReplayUntil = Date.distantPast
-    var canReplayDictation: Bool { dictationEnabled && dictation.phase == .idle && now < dictationReplayUntil }
+    var canReplayDictation: Bool { dictationEnabled && !dictationReplaying && dictation.phase == .idle && now < dictationReplayUntil }
     @ObservationIgnored var onReplayDictation: (() -> Void)?
     @ObservationIgnored var onDictationStart: (() -> Void)?
     @ObservationIgnored var onDictationStop: ((_ keep: Bool) -> Void)?
@@ -787,7 +788,7 @@ final class ConsoleModel {
     // MARK: - Диктовка
 
     func pressDictation(correcting: Bool = false) {
-        guard dictationEnabled, !prompter.isActive else { return }
+        guard dictationEnabled, !dictationReplaying, !prompter.isActive else { return }
         now = Date()
         let recording = dictation.press(now: now, modelReady: dictationModelReady(), correcting: correcting)
         settleDictation()
