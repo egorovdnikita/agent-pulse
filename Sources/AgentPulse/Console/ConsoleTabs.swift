@@ -696,7 +696,8 @@ struct TranslateTab: View {
         Button { model.selectTranslationLanguage(code == "auto" ? nil : code, source: source) } label: {
             Text(code == "auto" ? "Определить язык" : TranslateDirection.languageTitle(code))
                 .font(ConsoleStyle.font(12, .semibold)).foregroundStyle(ConsoleStyle.text)
-                .fixedSize().padding(.horizontal, 8).frame(height: 26)
+                // В Figma обводка входит в hug-размер: 8 pt поля + 1 pt рамки.
+                .fixedSize().padding(.horizontal, selected ? 8 : 9).frame(height: 26)
                 .background(selected ? Color(hex: 0x737373).opacity(61.0 / 255) : .clear, in: RoundedRectangle(cornerRadius: 12))
                 .overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(selected ? .clear : Color(hex: 0x737373).opacity(41.0 / 255), lineWidth: 1))
         }.buttonStyle(ConsolePressStyle())
