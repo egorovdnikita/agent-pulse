@@ -76,6 +76,7 @@ final class ConsoleModel {
     @ObservationIgnored private var shelfThumbnailTask: Task<Void, Never>?
     private(set) var shelfSelection = ShelfSelection()
     private(set) var shelfHistory = ShelfHistory()
+    private var shelfTypeSearch = ShelfTypeSearch()
     /// Рамка выделения, пока ведут мышью.
     var shelfRubber: CGRect?
     /// Где стоят плитки: по ним рамка понимает, что задела.
@@ -315,6 +316,14 @@ final class ConsoleModel {
 
     func moveShelfSelection(by step: Int, extending: Bool) {
         shelfSelection.move(by: step, order: shelfOrder, extending: extending)
+    }
+
+    @discardableResult
+    func searchShelf(_ input: String) -> Bool {
+        let order = shelfOrder
+        guard let index = shelfTypeSearch.match(input, names: order.map(\.lastPathComponent), now: Date()) else { return false }
+        shelfSelection.click(order[index], order: order)
+        return true
     }
 
     func selectAllShelf() {
@@ -898,7 +907,7 @@ final class ConsoleModel {
 
     func setExpanded(_ on: Bool) {
         guard on != expanded else { return }
-        if !on { shelfSelection.clear() }
+        if !on { shelfSelection.clear(); shelfTypeSearch.reset() }
         if on {
             // Открываем то, что занимает капсулу.
             let ids = tabs.map(\.id)

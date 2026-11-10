@@ -248,6 +248,11 @@ final class ConsolePanel: NSPanel {
             model.selectAllShelf()
             return true
         }
+        if navigationFlags.isEmpty, let input = event.characters,
+           input.unicodeScalars.allSatisfy({ $0.value >= 32 && $0.value < 0xF700 && $0.value != 127 }) {
+            _ = model.searchShelf(input)
+            return true
+        }
         if event.keyCode == 51, !model.shelfSelection.isEmpty {
             model.removeSelectedFiles()
             return true
