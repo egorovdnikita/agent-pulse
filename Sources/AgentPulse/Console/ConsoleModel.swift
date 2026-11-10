@@ -102,6 +102,7 @@ final class ConsoleModel {
     /// Текст в поле суфлёра.
     var prompterDraft = "" { didSet { schedulePrompterDraftSave() } }
     @ObservationIgnored private var prompterDraftSaveTask: Task<Void, Never>?
+    private(set) var prompterRehearsing = false
     private var prompterCheckpoint: PrompterCheckpoint?
     @ObservationIgnored private var prompterCheckpointSavedAt = Date.distantPast
     var canResumePrompter: Bool { prompterCheckpoint?.fraction(for: prompterDraft) != nil }
@@ -536,13 +537,21 @@ final class ConsoleModel {
         refresh(agentWaiting: false)
     }
 
-    func startPrompter() {
-        guard !prompter.isActive, let text = prompterText else { return }
+    func rehearsePrompter(_ fragment: TextFragment) {
+        guard fragment.source == prompterDraft else { return }
+        startPrompter(text: fragment.text)
+    }
+
+    func startPrompter(text override: String? = nil) {
+        guard !prompter.isActive, let text = override ?? prompterText else { return }
+        prompterRehearsing = override != nil
         now = Date()
-        let resume = prompterCheckpoint?.fraction(for: text)
+        let resume = prompterRehearsing ? nil : prompterCheckpoint?.fraction(for: text)
         guard prompter.start(text: text, now: now) else { return }
-        prompterLibrary.remember(text)
-        prompterLibrary.save()
+        if !prompterRehearsing, !promoMode {
+            prompterLibrary.remember(text)
+            prompterLibrary.save()
+        }
         let points = prompterTextSize.points
         prompterLines = prompter.script.lines { PrompterLook.fits($0, points: points) }
         prompterLine = 0
@@ -587,7 +596,8 @@ final class ConsoleModel {
     }
 
     private func finishPrompter(completed: Bool = false) {
-        if completed { clearPrompterCheckpoint() }
+        if completed && !prompterRehearsing { clearPrompterCheckpoint() }
+        prompterRehearsing = false
         prompterTimer?.invalidate()
         prompterTimer = nil
         now = Date()
@@ -608,7 +618,7 @@ final class ConsoleModel {
     }
 
     func savePrompterCheckpoint() {
-        guard !promoMode, prompter.isActive else { return }
+        guard !promoMode, !prompterRehearsing, prompter.isActive else { return }
         prompterCheckpointSavedAt = Date()
         let saved = PrompterCheckpoint(text: prompter.script.text, position: prompter.position)
         guard saved.fraction(for: prompter.script.text) != nil else { clearPrompterCheckpoint(); return }

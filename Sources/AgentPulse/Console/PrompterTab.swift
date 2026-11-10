@@ -31,7 +31,10 @@ struct PrompterTab: View {
         // Счётчик и «Очистить» под текстом, а не поверх него: длинный текст иначе на них наезжает.
         VStack(spacing: 0) {
             ZStack(alignment: .topLeading) {
-                PrompterEditor(text: $model.prompterDraft)
+                PrompterEditor(text: $model.prompterDraft, selectionActions: { source, range in
+                    guard let fragment = TextFragment(source: source, range: range) else { return [] }
+                    return [("Репетировать фрагмент", { model.rehearsePrompter(fragment) })]
+                })
                     .promoTarget("prompter-editor")
                 if model.prompterDraft.isEmpty {
                     Text("Вставь текст или перетащи .txt и .md")
@@ -99,7 +102,7 @@ struct PrompterTab: View {
     private var running: some View {
         ConsoleCard {
             VStack(alignment: .leading, spacing: 8) {
-                Text(model.prompter.mode == .paused ? "Пауза" : model.prompter.followsVoice ? "Идёт за голосом" : "Идёт текст")
+                Text(model.prompter.mode == .paused ? "Пауза" : model.prompterRehearsing ? "Репетиция фрагмента" : model.prompter.followsVoice ? "Идёт за голосом" : "Идёт текст")
                     .font(ConsoleStyle.font(12, .semibold))
                     .foregroundStyle(model.prompter.mode == .paused ? ConsoleStyle.yellow : ConsoleStyle.green)
                 // Что сейчас и что дальше: панель у камеры видна не всегда.
