@@ -91,6 +91,21 @@ struct TranslatorOptions: View {
     var body: some View {
         ModuleOption { ShortcutRow(title: "Перевести выделенное", keys: "⌃⌥T", busy: model.console.busyKeys.contains("t")) }
         ModuleOption { TranslatorLanguagesRow(direction: model.console.translate.direction(of: model.console.translateInput)) }
+        ModuleOption {
+            DisclosureGroup("Не переводить: \(model.console.translationTerms.terms.count)") {
+                if model.console.translationTerms.terms.isEmpty {
+                    Text("Выдели термин в исходном тексте Переводчика и выбери «Не переводить этот термин».")
+                        .font(SettingsStyle.caption).foregroundStyle(SettingsStyle.muted)
+                }
+                ForEach(model.console.translationTerms.terms, id: \.self) { term in
+                    HStack {
+                        Text(term).textSelection(.enabled)
+                        Spacer()
+                        Button("Удалить") { model.console.removeTranslationTerm(term) }
+                    }
+                }
+            }
+        }
         AccessibilityOption(model: model, app: app)
     }
 }
