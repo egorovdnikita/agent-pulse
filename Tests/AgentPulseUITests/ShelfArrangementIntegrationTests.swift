@@ -28,7 +28,8 @@ import Testing
         model.addToShelf(urls); model.pinShelfFiles(from: urls[0]); model.selectAllShelf()
         #expect(model.shelfPinActionTitle(from: urls[0]) == "Закрепить")
         model.pinShelfFiles(from: urls[0])
-        #expect(model.shelf.items.allSatisfy(\.isPinned))
+        let allPinned = model.shelf.items.allSatisfy { $0.isPinned }
+        #expect(allPinned)
         #expect(model.shelfPinActionTitle(from: urls[1]) == "Открепить")
     }
     @Test func searchingFollowsVisibleOrderAndResetsAfterArrow() {
