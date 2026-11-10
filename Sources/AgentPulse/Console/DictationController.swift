@@ -155,7 +155,12 @@ final class DictationController {
         Task {
             // Пульт отдаёт фокус не мгновенно, а ⌘V должна уйти в твоё приложение.
             try? await Task.sleep(for: .milliseconds(150))
-            _ = await TextInsertion.replace(selection, with: text)
+            let outcome = await TextInsertion.replace(selection, with: text)
+            if outcome == .inClipboard {
+                self.console.translateCopied = true
+                self.console.setExpanded(true)
+                self.console.tab = .translate
+            }
         }
     }
 

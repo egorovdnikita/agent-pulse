@@ -19,6 +19,7 @@ enum TextInsertion {
         let element: AXUIElement?
         /// Текст стоит в поле: его можно заменить. Текст на странице — нет.
         let editable: Bool
+        let replacement: TextReplacement?
     }
 
     static func focusedElement() -> AXUIElement? {
@@ -38,7 +39,8 @@ enum TextInsertion {
     static func selection(pasteboard: NSPasteboard = .general) async -> Selection? {
         let element = focusedElement()
         if let element, let text = string(element, kAXSelectedTextAttribute), !text.isEmpty {
-            return Selection(text: text, element: element, editable: isEditable(element))
+            return Selection(text: text, element: element, editable: isEditable(element),
+                             replacement: selectedRange(element).map { TextReplacement(original: text, range: $0) })
         }
         let saved = ClipboardSnapshot(pasteboard)
         let before = pasteboard.changeCount
@@ -51,7 +53,17 @@ enum TextInsertion {
         let text = pasteboard.string(forType: .string)
         saved.restore(to: pasteboard)
         guard let text, !text.isEmpty else { return nil }
-        return Selection(text: text, element: element, editable: element.map(isEditable) ?? false)
+        return Selection(text: text, element: element, editable: element.map(isEditable) ?? false,
+                         replacement: element.flatMap(selectedRange).map { TextReplacement(original: text, range: $0) })
+    }
+
+    private static func selectedRange(_ element: AXUIElement) -> NSRange? {
+        var value: CFTypeRef?
+        guard AXUIElementCopyAttributeValue(element, kAXSelectedTextRangeAttribute as CFString, &value) == .success,
+              let value, CFGetTypeID(value) == AXValueGetTypeID() else { return nil }
+        var range = CFRange(location: 0, length: 0)
+        guard AXValueGetValue(unsafeDowncast(value, to: AXValue.self), .cfRange, &range), range.location >= 0, range.length >= 0 else { return nil }
+        return NSRange(location: range.location, length: range.length)
     }
 
     private static func isEditable(_ element: AXUIElement) -> Bool {
@@ -98,10 +110,50 @@ enum TextInsertion {
         }
     }
 
-    /// Заменить выделение там, откуда оно взято.
+    /// Обычная вставка даёт целевому редактору собственную запись Undo.
+    /// Если прежний фрагмент изменился, перевод остаётся в буфере.
     static func replace(_ selection: Selection, with text: String, pasteboard: NSPasteboard = .general) async -> Outcome {
-        if let element = selection.element, await write(text, into: element) { return .inserted }
-        return await insert(text, accessibility: true, pasteboard: pasteboard)
+        guard AXIsProcessTrusted(), selection.editable, let element = selection.element,
+              let expected = selection.replacement, let before = string(element, kAXValueAttribute), expected.matches(before) else {
+            _ = put(text, on: pasteboard)
+            return .inClipboard
+        }
+        if text == selection.text { return .inserted }
+        var pid: pid_t = 0
+        guard AXUIElementGetPid(element, &pid) == .success else { _ = put(text, on: pasteboard); return .inClipboard }
+        NSRunningApplication(processIdentifier: pid)?.activate()
+        _ = AXUIElementSetAttributeValue(element, kAXFocusedAttribute as CFString, kCFBooleanTrue)
+        try? await Task.sleep(for: .milliseconds(150))
+        guard let focused = focusedElement(), CFEqual(focused, element),
+              let current = string(element, kAXValueAttribute), expected.matches(current) else {
+            _ = put(text, on: pasteboard)
+            return .inClipboard
+        }
+        var range = CFRange(location: expected.range.location, length: expected.range.length)
+        guard let value = AXValueCreate(.cfRange, &range),
+              AXUIElementSetAttributeValue(element, kAXSelectedTextRangeAttribute as CFString, value) == .success else {
+            _ = put(text, on: pasteboard)
+            return .inClipboard
+        }
+        let saved = ClipboardSnapshot(pasteboard)
+        let change = put(text, on: pasteboard)
+        await pressPaste()
+        let inserted = TextReplacement(original: text, range: NSRange(location: range.location, length: text.utf16.count))
+        for _ in 0..<15 {
+            try? await Task.sleep(for: .milliseconds(40))
+            if let after = string(element, kAXValueAttribute), after != current, inserted.matches(after) {
+                if pasteboard.changeCount == change { saved.restore(to: pasteboard) }
+                return .inserted
+            }
+        }
+        return .inClipboard
+    }
+
+    /// Квитанция последней явной вставки: только пока текст действительно стоит у курсора.
+    static func insertedSelection(text: String, accessibility: Bool) -> Selection? {
+        guard accessibility, AXIsProcessTrusted(), let element = focusedElement(), let range = selectedRange(element), range.length == 0,
+              let value = string(element, kAXValueAttribute), let replacement = TextReplacement.inserted(text, endingAt: range.location, in: value) else { return nil }
+        return Selection(text: text, element: element, editable: true, replacement: replacement)
     }
 
     private static func put(_ text: String, on pasteboard: NSPasteboard) -> Int {
