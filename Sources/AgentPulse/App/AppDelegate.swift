@@ -515,6 +515,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
             self?.model.config.console.prompterSpeed = speed
             try? self?.model.config.save()
         }
+        console.onPrompterMarkupChange = { [weak self] value in
+            self?.model.config.console.prompterMarkup = value
+            try? self?.model.config.save()
+        }
         console.onPrompterVoiceToggle = { [weak self] on in self?.setPrompterVoice(on) }
         prompterVoice.onWords = { [weak console] in console?.prompterHeard($0) }
         prompterVoice.onFailure = { [weak console, weak self] failure in

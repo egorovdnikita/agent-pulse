@@ -34,6 +34,7 @@ public struct PulseConfig: Codable, Sendable, Equatable {
         public var prompterHidden = true
         /// Текст идёт за голосом. Просит микрофон и распознавание речи при включении.
         public var prompterVoice = false
+        public var prompterMarkup = false
         /// Слова в минуту.
         public var prompterSpeed = PrompterModule.defaultSpeed
         public var prompterTextSize = PrompterTextSize.medium

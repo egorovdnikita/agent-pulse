@@ -165,6 +165,7 @@ final class PulseModel {
         console.setPrompterSpeed(config.console.prompterSpeed)
         console.setPrompterFollowsVoice(config.console.prompterVoice)
         console.prompterTextSize = config.console.prompterTextSize
+        console.prompterMarkup = config.console.prompterMarkup
         console.dictationEnabled = config.console.dictation
         console.dictationRules = config.console.dictationRules
         console.translatorEnabled = config.console.translator && ConsoleTranslator.isAvailable

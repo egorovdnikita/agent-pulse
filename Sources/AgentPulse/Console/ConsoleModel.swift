@@ -102,7 +102,8 @@ final class ConsoleModel {
     /// Текст в поле суфлёра.
     var prompterDraft = "" { didSet { schedulePrompterDraftSave() } }
     @ObservationIgnored private var prompterDraftSaveTask: Task<Void, Never>?
-    var prompterMarkup = false
+    var prompterMarkup = false { didSet { if oldValue != prompterMarkup { onPrompterMarkupChange?(prompterMarkup) } } }
+    @ObservationIgnored var onPrompterMarkupChange: ((Bool) -> Void)?
     private(set) var prompterRehearsing = false
     private var prompterCheckpoint: PrompterCheckpoint?
     @ObservationIgnored private var prompterCheckpointSavedAt = Date.distantPast
