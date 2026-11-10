@@ -58,11 +58,13 @@ public struct LimitWindow: Codable, Sendable, Equatable {
     public var kind: LimitWindowKind
     public var usedPercent: Double
     public var resetsAt: Date?
+    public var observedAt: Date?
 
-    public init(kind: LimitWindowKind, usedPercent: Double, resetsAt: Date?) {
+    public init(kind: LimitWindowKind, usedPercent: Double, resetsAt: Date?, observedAt: Date? = nil) {
         self.kind = kind
         self.usedPercent = usedPercent
         self.resetsAt = resetsAt
+        self.observedAt = observedAt
     }
 }
 
@@ -145,7 +147,9 @@ public struct LimitsBook: Sendable, Equatable {
         var windows = merged?.windows ?? []
         for window in snapshot.windows {
             windows.removeAll { $0.kind == window.kind }
-            windows.append(window)
+            var received = window
+            received.observedAt = min(window.observedAt ?? snapshot.at, snapshot.at)
+            windows.append(received)
         }
         merged = LimitSnapshot(service: snapshot.service, windows: windows, at: snapshot.at)
         snapshots[snapshot.service] = merged
@@ -206,7 +210,7 @@ public struct LimitsBook: Sendable, Equatable {
         return LimitReading(
             service: service, kind: kind, usedPercent: Int(Self.used(window, now: now).rounded()),
             resetsAt: expired ? nil : window.resetsAt, zone: expired ? .normal : zones[Key(service: service, kind: kind)] ?? .normal,
-            stale: now.timeIntervalSince(snapshot.at) > Self.staleAfter
+            stale: now.timeIntervalSince(window.observedAt ?? snapshot.at) > Self.staleAfter
         )
     }
 

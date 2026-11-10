@@ -13,7 +13,8 @@ public enum LimitExplanation {
         let date = DateFormatter()
         date.locale = Locale(identifier: "ru_RU")
         date.dateStyle = .medium; date.timeStyle = .medium
-        lines.append("Снимок получен: " + date.string(from: snapshot.at))
+        let received = snapshot.windows.first { $0.kind == kind }?.observedAt ?? snapshot.at
+        lines.append("Снимок получен: " + date.string(from: received))
         lines.append(reading.stale ? "Данные устарели." : "Данные не старше 30 минут.")
         if let reset = reading.resetsAt { lines.append("Сброс: " + date.string(from: reset)) }
         else { lines.append("Источник не сообщил время следующего сброса.") }
