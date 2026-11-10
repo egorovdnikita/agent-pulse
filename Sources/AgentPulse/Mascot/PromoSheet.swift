@@ -92,6 +92,37 @@ enum PromoSheet {
                  to: folder.appending(path: "neighbor-shelf-hover.png"), hoverShelfFiles: true)
         model.preparePromoUnavailableFiles()
         page("neighbor-shelf-unavailable")
+        if let first = model.shelf.items.first?.url {
+            model.pinShelfFiles(from: first)
+            model.sortShelf(.name)
+            page("upgrade-shelf-pinned-sorted")
+        }
+        model.tab = .translate
+        model.typeTranslation("Before Hello after")
+        if let fragment = TextFragment(source: model.translateInput, range: NSRange(location: 7, length: 5)) {
+            model.translateFragment(fragment)
+            model.finishTranslate(source: fragment.text, result: .success("Привет"))
+            page("upgrade-translation-fragment")
+            model.comparingTranslation = true
+            page("upgrade-translation-original")
+            model.comparingTranslation = false
+        }
+        model.clearTranslation()
+        model.recoverTranslation()
+        page("upgrade-translation-recovered")
+        model.tab = .prompter
+        model.prompterDraft = "Полный текст доклада. Репетируем только эту фразу. Затем продолжаем доклад."
+        let range = (model.prompterDraft as NSString).range(of: "Репетируем только эту фразу.")
+        if let fragment = TextFragment(source: model.prompterDraft, range: range) {
+            model.rehearsePrompter(fragment)
+            model.showPanelNow(); model.tab = .prompter
+            page("upgrade-prompter-rehearsal")
+            model.stopPrompter()
+        }
+        model.prompterDraft = "Текст перед паузой.\n[пауза 2]\nПродолжение после паузы."
+        model.prompterMarkup = true
+        model.setPrompterSpeed(130)
+        page("upgrade-prompter-markup")
     }
 
     struct Script: Decodable {
