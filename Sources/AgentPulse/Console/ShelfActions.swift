@@ -18,7 +18,7 @@ extension ConsoleModel {
         let urls = shelfOrder.filter { FileManager.default.isReadableFile(atPath: $0.path) }
         guard !urls.isEmpty else { return }
         let index = selected.flatMap { urls.firstIndex(of: $0) } ?? 0
-        onShelfPreview?(urls, index)
+        onShelfPreview?(urls, index, url == nil)
     }
 
     func copyShelfPaths(from url: URL? = nil) {

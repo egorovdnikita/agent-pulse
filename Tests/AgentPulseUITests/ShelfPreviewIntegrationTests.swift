@@ -13,12 +13,14 @@ import Testing
         try Data("Пример".utf8).write(to: urls[0]); try Data("Пример".utf8).write(to: urls[2])
         let model = ConsoleModel(promo: true)
         model.addToShelf(urls); model.clickShelf(urls[0], flags: [])
-        var captured: [URL] = []; var index = -1
-        model.onShelfPreview = { captured = $0; index = $1 }
+        var captured: [URL] = []; var index = -1; var toggle = false
+        model.onShelfPreview = { captured = $0; index = $1; toggle = $2 }
         model.previewShelfFiles()
         #expect(captured == [urls[2], urls[0]])
         #expect(index == 1)
+        #expect(toggle)
         model.previewShelfFiles(from: urls[2])
         #expect(index == 0)
+        #expect(!toggle)
     }
 }

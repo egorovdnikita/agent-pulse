@@ -76,7 +76,7 @@ final class ConsolePanel: NSPanel {
         host.onDropTarget = { [weak model] on in model?.dropTargeted = on }
         host.onDrop = { [weak model] urls in model?.dropped(urls) }
         contentView = host
-        model.onShelfPreview = { [weak self] urls, index in self?.showShelfPreview(urls, index: index) }
+        model.onShelfPreview = { [weak self] urls, index, toggle in self?.showShelfPreview(urls, index: index, toggle: toggle) }
         // Изменили размер Dock или скрыли его: система сдвинула видимую область, Пульт идёт за ней.
         model.placementChanged = { [weak self] in
             guard let self, let screen = self.placedScreen else { return false }
@@ -208,9 +208,9 @@ final class ConsolePanel: NSPanel {
     }
     override func endPreviewPanelControl(_ panel: QLPreviewPanel!) { panel.dataSource = nil }
 
-    private func showShelfPreview(_ urls: [URL], index: Int) {
+    private func showShelfPreview(_ urls: [URL], index: Int, toggle: Bool) {
         guard let preview = QLPreviewPanel.shared() else { return }
-        if preview.isVisible, (preview.currentController as AnyObject?) === self {
+        if toggle, preview.isVisible, (preview.currentController as AnyObject?) === self {
             preview.orderOut(nil)
             return
         }
