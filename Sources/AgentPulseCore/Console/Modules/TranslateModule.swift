@@ -178,6 +178,11 @@ public struct TranslateModule: ConsoleModule {
         requestVersion = next
     }
 
+    public mutating func discardReplacement() {
+        replaceable = false
+        replacementSource = nil
+    }
+
     public mutating func reset() { invalidate() }
 
     private static func cleaned(_ text: String?) -> String? {

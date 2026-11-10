@@ -17,6 +17,19 @@ import Testing
         #expect(!model.canRecoverTranslation)
         model.clearTranslation()
     }
+    @Test func recoveredTextCannotUseAnotherExternalSelectionReceipt() {
+        let model = ConsoleModel(promo: true)
+        model.translatorEnabled = true
+        _ = model.pressTranslate(selection: "First", clipboard: nil)
+        model.finishTranslate(source: "First", result: .success("Первый"))
+        model.clearTranslation()
+        _ = model.pressTranslate(selection: "Second", clipboard: nil)
+        model.clearTranslation()
+        model.recoverTranslation()
+        #expect(model.translateInput == "First")
+        #expect(!model.translate.replaceable)
+        model.clearTranslation()
+    }
     @Test func newInputBlocksRecovery() {
         let model = ConsoleModel(promo: true)
         model.typeTranslation("Hello"); model.finishTranslate(source: "Hello", result: .success("Привет"))

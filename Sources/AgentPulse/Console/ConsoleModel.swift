@@ -997,6 +997,7 @@ final class ConsoleModel {
         guard canRecoverTranslation, let saved = clearedTranslation else { return }
         translateTask?.cancel()
         translate.restore(saved.module)
+        translate.discardReplacement()
         translateInput = saved.input
         translationFragment = nil
         translationReview = nil
