@@ -40,7 +40,8 @@ public struct TranslationLayout: Sendable {
 
     private static func protectedExpression(terms: [String]) -> NSRegularExpression {
         let termPattern = terms.filter { !$0.isEmpty }.sorted { $0.count > $1.count }.map { "(?<![\\p{L}\\p{N}_])" + NSRegularExpression.escapedPattern(for: $0) + "(?![\\p{L}\\p{N}_])" }.joined(separator: "|")
-        return try! NSRegularExpression(pattern: (termPattern.isEmpty ? "" : termPattern + "|") + #"`+[^`\r\n]*`+|https?://[^\s<>()]+|\[[^\]\r\n]*\]\([^\)\r\n]*\)"#)
+        let syntax = #"`+[^`\r\n]*`+|https?://[^\s<>()]+|\[[^\]\r\n]*\]\([^\)\r\n]*\)"#
+        return try! NSRegularExpression(pattern: syntax + (termPattern.isEmpty ? "" : "|" + termPattern))
     }
 
     private static func appendProtectedText(_ raw: String, regex: NSRegularExpression, to result: inout [Segment]) {

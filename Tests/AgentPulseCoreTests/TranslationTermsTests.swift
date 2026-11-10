@@ -9,6 +9,12 @@ import Testing
         #expect(layout.texts.contains(where: { $0.contains("Boxer") && $0.contains("box") }))
         #expect(layout.assembling(layout.texts) == "Use Box UI and Box, not Boxer or box.")
     }
+    @Test func termCannotSplitProtectedURLOrCode() {
+        let source = "See https://example.com and `Box UI`"
+        let layout = TranslationLayout(source, protectedTerms: ["https", "Box"])
+        #expect(layout.texts == ["See", "and"])
+        #expect(layout.assembling(["См.", "и"]) == "См. https://example.com и `Box UI`")
+    }
     @Test func boundsAndRegexCharacters() {
         var terms = TranslationTerms()
         terms.add(" C++ "); terms.add("C++"); terms.add("\n"); terms.add(String(repeating: "a", count: 121))
