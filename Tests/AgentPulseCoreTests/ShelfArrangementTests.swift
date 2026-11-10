@@ -29,6 +29,12 @@ import Testing
         shelf.move([urls[0], urls[1]], before: urls[2])
         #expect(shelf.items == before)
     }
+    @Test func bringToFrontPreservesBothGroups() {
+        var shelf = ShelfModule(); _ = shelf.add(urls)
+        shelf.pin([urls[1]], value: true)
+        shelf.bringToFront([urls[0], urls[1]])
+        #expect(shelf.displayItems.map(\.url) == [urls[1], urls[0], urls[2]])
+    }
     @Test func reorderWithinPinGroup() {
         var shelf = ShelfModule(); _ = shelf.add(urls)
         shelf.move([urls[0]], before: urls[2])

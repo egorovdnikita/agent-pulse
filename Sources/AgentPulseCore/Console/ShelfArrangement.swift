@@ -33,6 +33,17 @@ extension ShelfModule {
         restore(Array(order.reversed()))
     }
 
+    /// Альтернатива перетаскиванию для клавиатуры и VoiceOver.
+    public mutating func bringToFront(_ urls: [URL]) {
+        let selected = Set(urls)
+        let order = displayItems
+        let arranged = [true, false].flatMap { pinned in
+            let group = order.filter { $0.isPinned == pinned }
+            return group.filter { selected.contains($0.url) } + group.filter { !selected.contains($0.url) }
+        }
+        restore(Array(arranged.reversed()))
+    }
+
     /// Внутреннее перемещение сохраняет относительный порядок выбранных файлов и закрепление.
     public mutating func move(_ urls: [URL], before target: URL) {
         let selected = Set(urls)

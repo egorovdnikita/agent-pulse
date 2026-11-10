@@ -339,6 +339,14 @@ final class ConsoleModel {
         saveShelf()
     }
 
+    func bringShelfToFront(from url: URL) {
+        let old = shelf.items
+        shelf.bringToFront(shelfTargets(from: url))
+        guard old != shelf.items else { return }
+        shelfHistory.record(old)
+        saveShelf()
+    }
+
     func shelfPinActionTitle(from url: URL) -> String {
         let targets = shelfTargets(from: url)
         return shelf.items.filter { targets.contains($0.url) }.allSatisfy(\.isPinned) ? "Открепить" : "Закрепить"
