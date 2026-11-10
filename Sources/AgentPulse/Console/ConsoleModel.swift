@@ -355,8 +355,10 @@ final class ConsoleModel {
     func pinShelfFiles(from url: URL) {
         let targets = shelfTargets(from: url)
         let pin = !shelf.items.filter { targets.contains($0.url) }.allSatisfy(\.isPinned)
-        shelfHistory.record(shelf.items)
+        let old = shelf.items
         shelf.pin(targets, value: pin)
+        guard old != shelf.items else { return }
+        shelfHistory.record(old)
         saveShelf()
     }
 

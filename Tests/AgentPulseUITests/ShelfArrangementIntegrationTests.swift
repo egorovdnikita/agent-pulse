@@ -22,6 +22,13 @@ import Testing
         #expect(model.shelfOrder.first == urls[0])
         #expect(model.shelfSelection.contains(urls[0]))
     }
+    @Test func staleMenuDoesNotAddEmptyUndoStep() {
+        let model = ConsoleModel(promo: true)
+        model.addToShelf([URL(fileURLWithPath: "/tmp/pulse-example/existing.txt")])
+        model.pinShelfFiles(from: URL(fileURLWithPath: "/tmp/pulse-example/missing.txt"))
+        model.undoShelf()
+        #expect(model.shelf.items.isEmpty)
+    }
     @Test func mixedPinActionMatchesActualChange() {
         let model = ConsoleModel(promo: true)
         let urls = ["a", "b"].map { URL(fileURLWithPath: "/tmp/pulse-example/" + $0) }
