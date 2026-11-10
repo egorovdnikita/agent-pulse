@@ -16,7 +16,7 @@ import Testing
         try shelf.save(to: store)
         try FileManager.default.moveItem(at: first, to: renamed)
         let loaded = ShelfModule.load(from: store)
-        #expect(loaded.displayItems.map(\.url) == [renamed, second])
+        #expect(loaded.displayItems.map { $0.url.resolvingSymlinksInPath() } == [renamed, second].map { $0.resolvingSymlinksInPath() })
         #expect(loaded.displayItems.first?.isPinned == true)
         #expect(loaded.displayItems.first?.addedAt == date)
     }
