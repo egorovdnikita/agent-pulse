@@ -97,6 +97,8 @@ final class ConsoleModel {
     var shelfEnabled = true
     var librarySkin: PalSkin?
     @ObservationIgnored var onShelfPreview: (([URL], Int, Bool) -> Void)?
+    var refreshingLimits: Set<LimitService> = []
+    var limitRefreshProblems: [LimitService: String] = [:]
     @ObservationIgnored var onRefreshLimits: ((LimitService) -> Void)?
 
     /// Текст в поле суфлёра.

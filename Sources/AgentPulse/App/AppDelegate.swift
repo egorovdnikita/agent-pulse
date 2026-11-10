@@ -26,6 +26,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     private(set) var dictation: DictationController?
     let trackpadGesture = TrackpadGesture()
     private var prompterPanel: PrompterPanel?
+    private var claudeTimer: Timer?
+    private var claudeFetchedAt = Date.distantPast
+    private var claudeFetching = false
     private var codexTimer: Timer?
     private var codexFetchedAt = Date.distantPast
     private var networkRecovery = NetworkRecovery()
@@ -301,25 +304,32 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
             if console.expanded != wasExpanded {
                 wasExpanded = console.expanded
                 panel.expandedChanged(overFullScreen: self.fullScreenHidden)
+                if console.expanded { self.refreshClaude(frequent: true) }
                 self.updateConsoleVisibility()
             }
         }
         placeConsole()
         updateConsoleVisibility()
         applyConsoleHotKey()
+        model.onClaudeActivity = { [weak self] in self?.refreshClaude(frequent: true) }
         model.onCodexActivity = { [weak self] in self?.refreshCodex(force: false) }
         model.onNetworkState = { [weak self] kind, date in self?.handleNetworkState(kind, now: date) }
         model.console.onRefreshLimits = { [weak self] service in
             guard let self else { return }
             if service == .codex { self.refreshCodex(force: true) }
-            else if let snapshot = LimitsBook.load().snapshots[.claude] {
-                self.model.console.ingest(snapshot)
-            }
+            else { self.refreshClaude(frequent: true) }
         }
         // Раз в 5 мин: процесс живёт только на время запроса.
         codexTimer = Timer.scheduledTimer(withTimeInterval: 5 * 60, repeats: true) { [weak self] _ in
             MainActor.assumeIsolated { self?.refreshCodex(force: true) }
         }
+        claudeTimer = Timer.scheduledTimer(withTimeInterval: 60, repeats: true) { [weak self] _ in
+            MainActor.assumeIsolated {
+                guard let self else { return }
+                self.refreshClaude(frequent: self.model.console.expanded)
+            }
+        }
+        refreshClaude(frequent: true)
         refreshCodex(force: true)
         startPrompter()
         startDictation()
@@ -636,6 +646,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         applyPrompterHotKey()
         if !on { model.console.releaseDictation(); dictation?.forgetRecentDictation() }
         applyDictationHotKeys()
+        if on { refreshClaude(frequent: true) }
     }
 
     func applyTrackpadGesture() {
@@ -658,7 +669,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         model.config.console.limits = on
         try? model.config.save()
         model.console.limitsEnabled = on
-        if on { refreshCodex(force: true) }
+        if on { refreshCodex(force: true); refreshClaude(frequent: true) }
     }
 
     // MARK: - Файлы и снимки
@@ -719,11 +730,34 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
             defer { self.networkRefreshTask = nil }
             guard self.model.config.console.enabled, self.model.config.console.limits else { return }
             self.refreshCodex(force: false)
-            // Claude отдаёт новые снимки только во время работы; старый кеш не становится свежим.
-            if let cached = LimitsBook.load().snapshots[.claude],
-               cached.at > (self.model.console.limits.book.snapshots[.claude]?.at ?? .distantPast) {
-                self.model.console.ingest(cached)
-            }
+            self.refreshClaude(frequent: true)
+        }
+    }
+
+    /// Новый снимок приходит из служебного запроса CLI, даже когда пользователь не ведёт чат.
+    private func refreshClaude(frequent: Bool) {
+        let settings = model.config.console
+        guard settings.enabled, settings.limits, model.statuslineInstalled, !claudeFetching else { return }
+        guard ClaudeUsage.shouldRefresh(lastAttempt: claudeFetchedAt, now: Date(), frequent: frequent, inFlight: claudeFetching) else { return }
+        guard let executable = ClaudeUsage.locate() else {
+            model.claudeStatus = "Claude Code не найден на этом Mac"
+            model.console.limitRefreshProblems[.claude] = model.claudeStatus
+            return
+        }
+        claudeFetching = true
+        model.console.refreshingLimits.insert(.claude)
+        model.console.limitRefreshProblems[.claude] = nil
+        claudeFetchedAt = Date()
+        let inbox = model.inbox
+        Task { [weak self] in
+            let snapshot = await ClaudeUsage.fetch(executable: executable)
+            if let snapshot { inbox.yield(.limits(snapshot)) }
+            guard let self else { return }
+            self.claudeFetching = false
+            self.model.console.refreshingLimits.remove(.claude)
+            let problem = "Не удалось обновить: проверь вход в Claude Code или обнови CLI"
+            self.model.console.limitRefreshProblems[.claude] = snapshot == nil ? problem : nil
+            self.model.claudeStatus = snapshot == nil ? problem : "Обновляется автоматически"
         }
     }
 
@@ -764,7 +798,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
             Agent Pulse добавит одну запись в настройки Claude Code и сохранит их копию. \
             Строка состояния Claude Code будет работать как раньше, отключить можно в любой момент.
 
-            Берутся только проценты и время сброса. Ничего не уходит с этого Mac.
+            Берутся только проценты и время сброса. Claude Code запрашивает свежие лимиты у Claude через свой вход; тексты и файлы не передаются.
             """
         alert.addButton(withTitle: "Подключить")
         alert.addButton(withTitle: "Отмена")
@@ -773,6 +807,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         do {
             try StatuslineInstaller.install(wrapperPath: path)
             model.statuslineInstalled = true
+            refreshClaude(frequent: true)
         } catch {
             showAlert("Не удалось подключить лимиты", "Попробуй ещё раз. Настройки Claude Code не изменились.")
         }

@@ -22,7 +22,7 @@ import Testing
         let text = LimitExplanation.text(service: .claude, kind: .fiveHour, book: book, now: now)
         #expect(text.contains("42%"))
         #expect(text.contains("устарели"))
-        #expect(text.contains("перечитывает кеш"))
+        #expect(text.contains("Свежие лимиты запрашиваются"))
         #expect(!text.contains("Сброс:"))
     }
 }

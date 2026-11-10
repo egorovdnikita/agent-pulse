@@ -615,14 +615,14 @@ private struct SourcesSettings: View {
                     Button("Показать плагин") { app.revealFigmaPlugin() }
                 }
             }
-            SettingsBlock("Лимиты", footnote: "Claude отдаёт данные только с подпиской Pro или Max и после первого ответа в сессии.") {
-                row("Claude", model.statuslineBroken ? "Подключение сломалось. Отключи и подключи снова" : model.statuslineInstalled ? "Подключено" : "Не подключено") {
+            SettingsBlock("Лимиты", footnote: "Используется вход в Claude Code. Автообновление раз в 5 минут, при открытом Пульте — раз в минуту.") {
+                row("Claude", model.statuslineInstalled ? (model.claudeStatus ?? "Проверяю лимиты…") : "Не подключено") {
                     if model.statuslineInstalled {
                         Button("Отключить") { app.uninstallStatusline() }
                     } else {
                         Button("Подключить") { app.installStatusline() }
                     }
-                }
+                }.help(model.statuslineBroken ? "Исходная строка состояния требует переподключения. Автопроверка лимитов через CLI работает независимо от неё." : "Лимиты запрашивает Claude Code через свой вход")
                 row("Codex", model.codexStatus ?? "Ещё не проверялось") { EmptyView() }
                 let homes = CodexAppServer.accountHomes()
                 if !homes.isEmpty {

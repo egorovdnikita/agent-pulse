@@ -52,6 +52,7 @@ final class PulseModel {
     /// Исходная команда в обёртке ссылается на скрипт, которого больше нет.
     var statuslineBroken = false
     /// Что с лимитами Codex: для настроек.
+    var claudeStatus: String?
     var codexStatus: String?
     /// Следим ли за журналами Cowork (nil — выключено в настройках).
     var coworkWatching: Bool?
@@ -109,6 +110,7 @@ final class PulseModel {
 
     @ObservationIgnored let console = ConsoleModel()
     /// Агент Codex что-то закончил — лимиты могли измениться.
+    @ObservationIgnored var onClaudeActivity: (() -> Void)?
     @ObservationIgnored var onCodexActivity: (() -> Void)?
     @ObservationIgnored let animator = MascotAnimator()
     @ObservationIgnored var wardrobe = PalWardrobe()
@@ -337,6 +339,7 @@ final class PulseModel {
         lastTask = LastTask.updated(lastTask, event: event, session: sessions.first { $0.id == event.sessionId })
         feedAgentSignals(event)
         if event.kind == .rateLimited, let service = LimitService(source: event.source) { console.markResting(service) }
+        if event.kind == .stopped, event.source == .claudeCode || event.agent == "Claude Code" { onClaudeActivity?() }
         if event.kind == .stopped, event.source == .codex || event.agent == "Codex" { onCodexActivity?() }
 
         if (event.kind != .stopped || event.isError), let reaction = MascotStateMapper.reaction(for: event), MascotStateMapper.dominant(sessions)?.id == event.sessionId {
