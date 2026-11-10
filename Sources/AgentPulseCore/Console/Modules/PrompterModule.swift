@@ -250,6 +250,10 @@ public struct PrompterModule: ConsoleModule {
         setMultiplier(multiplier)
     }
 
+    public mutating func setExactSpeed(_ value: Int) {
+        speed = min(Self.speedRange.upperBound, max(Self.speedRange.lowerBound, value))
+    }
+
     private mutating func setMultiplier(_ value: Double) {
         let wanted = Int((value * Double(Self.defaultSpeed)).rounded())
         speed = min(Self.speedRange.upperBound, max(Self.speedRange.lowerBound, wanted))
