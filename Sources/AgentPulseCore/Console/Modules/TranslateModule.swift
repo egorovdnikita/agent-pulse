@@ -102,6 +102,12 @@ public struct TranslateModule: ConsoleModule {
         return text
     }
 
+    /// Повтор разрешён только для той ошибки, которую пользователь всё ещё видит.
+    public mutating func retryFailed(source: String, version: Int) -> String? {
+        guard version == requestVersion, case .failed = state else { return nil }
+        return type(source, preservingSelection: true)
+    }
+
     public func direction(of text: String) -> TranslateDirection {
         TranslateDirection(source: sourceLanguage ?? TranslateDirection.detectLanguage(text), target: targetLanguage)
     }
