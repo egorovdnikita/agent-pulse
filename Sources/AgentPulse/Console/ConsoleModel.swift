@@ -356,7 +356,7 @@ final class ConsoleModel {
     @discardableResult
     func searchShelf(_ input: String) -> Bool {
         let order = shelfOrder
-        guard let index = shelfTypeSearch.match(input, names: order.map(\.lastPathComponent), now: Date()) else { return false }
+        guard let index = shelfTypeSearch.match(input, names: order.map(\.lastPathComponent), now: Date(), from: shelfSelection.focused.flatMap { order.firstIndex(of: $0) }) else { return false }
         shelfSelection.click(order[index], order: order)
         return true
     }
