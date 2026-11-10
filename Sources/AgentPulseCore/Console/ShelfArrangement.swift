@@ -38,7 +38,7 @@ extension ShelfModule {
         let selected = Set(urls)
         guard !selected.contains(target), let targetItem = items.first(where: { $0.url == target }) else { return }
         let moving = displayItems.filter { selected.contains($0.url) && $0.isPinned == targetItem.isPinned }
-        guard !moving.isEmpty else { return }
+        guard !moving.isEmpty, moving.count == selected.count else { return }
         let moved = Set(moving.map(\.url))
         var order = displayItems.filter { !moved.contains($0.url) }
         guard let index = order.firstIndex(where: { $0.url == target }) else { return }

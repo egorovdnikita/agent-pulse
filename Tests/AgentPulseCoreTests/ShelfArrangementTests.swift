@@ -22,6 +22,13 @@ import Testing
         shelf.pin([urls[0]], value: false)
         #expect(shelf.displayItems.map(\.name) == ["cover.png", "file2.txt", "file10.txt"])
     }
+    @Test func mixedSelectionNeverMovesOnlyPartOfPayload() {
+        var shelf = ShelfModule(); _ = shelf.add(urls)
+        shelf.pin([urls[0]], value: true)
+        let before = shelf.items
+        shelf.move([urls[0], urls[1]], before: urls[2])
+        #expect(shelf.items == before)
+    }
     @Test func reorderWithinPinGroup() {
         var shelf = ShelfModule(); _ = shelf.add(urls)
         shelf.move([urls[0]], before: urls[2])
