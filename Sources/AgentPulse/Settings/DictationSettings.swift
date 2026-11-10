@@ -136,14 +136,25 @@ private struct DictationRulesEditor: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
-            Text("Правила замены")
+            Text("Словарь и правила замены")
             Text("Уже есть: диплой → deploy, пул реквест → pull request, коммит → commit, гитхаб → GitHub")
+                .font(SettingsStyle.caption).foregroundStyle(SettingsStyle.muted)
+            Text("Варианты произношения разделяй |. Точное написание сохраняет регистр, например iPhone.")
                 .font(SettingsStyle.caption).foregroundStyle(SettingsStyle.muted)
             ForEach(rules.indices, id: \.self) { index in
                 HStack {
                     TextField("Произнесённое", text: field(index, \.spoken))
                     Text("→").foregroundStyle(SettingsStyle.muted)
                     TextField("Записанное", text: field(index, \.written))
+                    Toggle("Точно", isOn: Binding(
+                        get: { index < rules.count && rules[index].exactSpelling == true },
+                        set: { value in
+                            guard index < rules.count else { return }
+                            var list = rules
+                            list[index].exactSpelling = value ? true : nil
+                            app.setDictationRules(list)
+                        }
+                    )).help("Сохранять регистр написанного слова")
                     Button("Удалить") {
                         var list = rules
                         list.remove(at: index)
