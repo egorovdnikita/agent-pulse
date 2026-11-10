@@ -1,26 +1,30 @@
 import Foundation
+import NaturalLanguage
 
-/// Направление перевода определяется по тексту: кириллицы больше — с русского.
-public enum TranslateDirection: Sendable, Equatable {
-    case ruToEn, enToRu
-
-    public static func detect(_ text: String) -> TranslateDirection {
-        var cyrillic = 0
-        var latin = 0
-        for scalar in text.unicodeScalars {
-            if (0x0400...0x04FF).contains(scalar.value) {
-                cyrillic += 1
-            } else if scalar.isASCII, CharacterSet.letters.contains(scalar) {
-                latin += 1
-            }
-        }
+/// Явная пара языков, в том числе после автоматического определения исходного.
+public struct TranslateDirection: Sendable, Equatable, Hashable {
+    public let source: String
+    public let target: String
+    public init(source: String, target: String) { self.source = source; self.target = target }
+    public static let ruToEn = Self(source: "ru", target: "en")
+    public static let enToRu = Self(source: "en", target: "ru")
+    public var opposite: Self { Self(source: target, target: source) }
+    public var title: String { Self.languageTitle(source) + " → " + Self.languageTitle(target).lowercased() }
+    public static func languageTitle(_ code: String) -> String {
+        let name = Locale(identifier: "ru").localizedString(forIdentifier: code) ?? code
+        return name.prefix(1).uppercased() + name.dropFirst()
+    }
+    /// Совместимость с прежним автоматическим направлением RU ↔ EN.
+    public static func detect(_ text: String) -> Self {
+        let cyrillic = text.unicodeScalars.filter { (0x0400...0x04FF).contains($0.value) }.count
+        let latin = text.unicodeScalars.filter { $0.isASCII && CharacterSet.letters.contains($0) }.count
         return cyrillic >= latin ? .ruToEn : .enToRu
     }
-
-    public var source: String { self == .ruToEn ? "ru" : "en" }
-    public var target: String { self == .ruToEn ? "en" : "ru" }
-    public var title: String { self == .ruToEn ? "Русский → английский" : "Английский → русский" }
-    public var opposite: TranslateDirection { self == .ruToEn ? .enToRu : .ruToEn }
+    public static func detectLanguage(_ text: String) -> String {
+        let recognizer = NLLanguageRecognizer()
+        recognizer.processString(text)
+        return recognizer.dominantLanguage?.rawValue ?? "en"
+    }
 }
 
 /// Переводчик: выделил, ⌃⌥T — Пульт раскрывается с переводом. Видит только то, что ты дал нажатием.
@@ -45,8 +49,12 @@ public struct TranslateModule: ConsoleModule {
     public private(set) var state = State.idle
     /// Текст пришёл из выделения: его можно заменить.
     public private(set) var replaceable = false
-    /// Направление развёрнуто вручную.
-    public private(set) var flipped = false
+    /// nil — определить язык по введённому тексту.
+    public private(set) var sourceLanguage: String? = "en"
+    public private(set) var targetLanguage = "ru"
+    public private(set) var recentSources = ["en", "ru", "de"]
+    public private(set) var recentTargets = ["en", "ru", "de"]
+    public private(set) var requestVersion = 0
     private var askedAt = Date.distantPast
 
     public init() {}
@@ -54,10 +62,10 @@ public struct TranslateModule: ConsoleModule {
     /// Нажатие ⌃⌥T. Возвращает текст, который пора переводить.
     /// `editable` — выделение стоит в поле, его можно заменить; текст на странице заменить нельзя.
     public mutating func press(selection: String?, clipboard: String?, now: Date, editable: Bool = true) -> String? {
+        requestVersion += 1
         if let text = Self.cleaned(selection) {
             state = .working(source: text)
             replaceable = editable
-            flipped = false
             return text
         }
         if state == .askToCopy, now.timeIntervalSince(askedAt) < Self.askToCopyLength, let text = Self.cleaned(clipboard) {
@@ -73,6 +81,7 @@ public struct TranslateModule: ConsoleModule {
 
     /// Текст введён на странице. Возвращает то, что пора переводить.
     public mutating func type(_ text: String) -> String? {
+        requestVersion += 1
         replaceable = false
         guard let text = Self.cleaned(text) else {
             state = .idle
@@ -83,28 +92,65 @@ public struct TranslateModule: ConsoleModule {
     }
 
     public func direction(of text: String) -> TranslateDirection {
-        let found = TranslateDirection.detect(text)
-        return flipped ? found.opposite : found
+        TranslateDirection(source: sourceLanguage ?? TranslateDirection.detectLanguage(text), target: targetLanguage)
     }
 
-    public mutating func flip() {
-        flipped.toggle()
+    public mutating func selectSource(_ code: String?) {
+        if let code, code == targetLanguage {
+            targetLanguage = sourceLanguage ?? (code == "en" ? "ru" : "en")
+            Self.remember(targetLanguage, in: &recentTargets)
+        }
+        sourceLanguage = code
+        if let code { Self.remember(code, in: &recentSources) }
+        invalidate()
     }
 
-    public mutating func finish(source: String, result: String) {
+    public mutating func selectTarget(_ code: String) {
+        if code == sourceLanguage {
+            sourceLanguage = targetLanguage
+            Self.remember(targetLanguage, in: &recentSources)
+        }
+        targetLanguage = code
+        Self.remember(code, in: &recentTargets)
+        invalidate()
+    }
+
+    @discardableResult
+    public mutating func flip(sourceText: String = "") -> String? {
+        let newInput: String?
+        if case .done(_, let result) = state { newInput = result } else { newInput = nil }
+        let previous = direction(of: sourceText)
+        sourceLanguage = previous.target
+        targetLanguage = previous.source
+        Self.remember(previous.target, in: &recentSources)
+        Self.remember(previous.source, in: &recentTargets)
+        invalidate()
+        return newInput
+    }
+
+    private mutating func invalidate() { requestVersion += 1; state = .idle; replaceable = false }
+    private static func remember(_ code: String, in list: inout [String]) {
+        guard !list.contains(code) else { return }
+        list.insert(code, at: 0)
+        list = Array(list.prefix(3))
+    }
+
+    public mutating func finish(source: String, result: String, request: Int? = nil) {
+        guard request == nil || request == requestVersion else { return }
         guard state == .working(source: source) else { return }
         state = .done(source: source, result: result)
     }
 
-    public mutating func fail(source: String, problem: String) {
+    public mutating func fail(source: String, problem: String, request: Int? = nil) {
+        guard request == nil || request == requestVersion else { return }
         guard state == .working(source: source) else { return }
         state = .failed(problem)
     }
 
     public mutating func reset() {
+        requestVersion += 1
         state = .idle
         replaceable = false
-        flipped = false
     }
 
     private static func cleaned(_ text: String?) -> String? {

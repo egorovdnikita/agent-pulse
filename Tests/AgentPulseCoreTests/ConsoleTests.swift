@@ -890,13 +890,87 @@ private func snapshot(_ used: Double, at: Date = t0, service: LimitService = .cl
         #expect(module.state == .idle)
     }
 
-    @Test func flipTurnsDirectionUntilNewSelection() {
+    @Test func explicitLanguagesSurviveNewSelectionAndClear() {
         var module = TranslateModule()
+        module.selectSource("ru")
+        module.selectTarget("en")
         #expect(module.direction(of: "привет") == .ruToEn)
         module.flip()
         #expect(module.direction(of: "привет") == .enToRu)
-        _ = module.press(selection: "привет", clipboard: nil, now: Date())
-        #expect(module.direction(of: "привет") == .ruToEn)
+        _ = module.press(selection: "hello", clipboard: nil, now: Date())
+        #expect(module.direction(of: "hello") == .enToRu)
+        module.reset()
+        #expect(module.sourceLanguage == "en")
+        #expect(module.targetLanguage == "ru")
+    }
+
+    @Test func supportsArbitraryLanguagePairsAndSwap() {
+        var module = TranslateModule()
+        module.selectSource("de")
+        module.selectTarget("fr")
+        #expect(module.direction(of: "Guten Morgen") == TranslateDirection(source: "de", target: "fr"))
+        module.flip()
+        #expect(module.direction(of: "Bonjour") == TranslateDirection(source: "fr", target: "de"))
+    }
+
+    @Test func automaticSourceDetectsGermanAndSwapResolvesIt() {
+        var module = TranslateModule()
+        module.selectSource(nil)
+        let text = "Guten Morgen! Heute ist das Wetter sehr schön und wir gehen gemeinsam spazieren."
+        #expect(module.direction(of: text).source == "de")
+        module.flip(sourceText: text)
+        #expect(module.sourceLanguage == "ru")
+        #expect(module.targetLanguage == "de")
+    }
+
+    @Test func choosingSameLanguageSwapsTheOtherSide() {
+        var module = TranslateModule()
+        module.selectTarget("en")
+        #expect(module.direction(of: "") == .ruToEn)
+        module.selectSource("en")
+        #expect(module.direction(of: "") == .enToRu)
+    }
+
+    @Test func sameTextOldLanguageResultCannotOverwriteNewTranslation() {
+        var module = TranslateModule()
+        _ = module.type("Hello")
+        let old = module.requestVersion
+        module.selectTarget("de")
+        _ = module.type("Hello")
+        module.finish(source: "Hello", result: "Привет", request: old)
+        #expect(module.state == .working(source: "Hello"))
+        module.fail(source: "Hello", problem: "Старая ошибка", request: old)
+        #expect(module.state == .working(source: "Hello"))
+        module.finish(source: "Hello", result: "Hallo", request: module.requestVersion)
+        #expect(module.state == .done(source: "Hello", result: "Hallo"))
+    }
+
+    @Test func selectedLanguagesRemainInQuickListWithoutDuplicates() {
+        var module = TranslateModule()
+        module.selectTarget("fr")
+        module.selectTarget("fr")
+        #expect(module.recentTargets == ["fr", "en", "ru"])
+    }
+
+    @Test func automaticSwapKeepsBothSelectedLanguagesInQuickLists() {
+        var module = TranslateModule()
+        module.selectSource("de")
+        module.selectTarget("fr")
+        module.selectTarget("de")
+        #expect(module.sourceLanguage == "fr")
+        #expect(module.recentSources.contains("fr"))
+        module.selectSource("de")
+        #expect(module.targetLanguage == "fr")
+        #expect(module.recentTargets.contains("fr"))
+    }
+
+    @Test func swappingCompletedTranslationUsesResultAsNewInput() {
+        var module = TranslateModule()
+        _ = module.type("Hello")
+        module.finish(source: "Hello", result: "Привет")
+        #expect(module.flip(sourceText: "Hello") == "Привет")
+        #expect(module.direction(of: "Привет") == .ruToEn)
+        #expect(module.state == .idle)
     }
 }
 

@@ -14,11 +14,22 @@ enum ConsoleTranslator {
 
     static let needsLanguages = "Нужны языки перевода: они скачиваются один раз и работают без сети"
 
-    static func languagesReady() async -> Bool {
+    static func supportedLanguages() async -> [String] {
         #if canImport(Translation)
         if #available(macOS 26, *) {
-            let russian = Locale.Language(identifier: "ru")
-            let english = Locale.Language(identifier: "en")
+            return await LanguageAvailability().supportedLanguages.map(\.minimalIdentifier)
+                .sorted { TranslateDirection.languageTitle($0) < TranslateDirection.languageTitle($1) }
+        }
+        #endif
+        return ["en", "ru", "de"]
+    }
+
+    static func languagesReady(direction: TranslateDirection = .ruToEn) async -> Bool {
+        if direction.source == direction.target { return true }
+        #if canImport(Translation)
+        if #available(macOS 26, *) {
+            let russian = Locale.Language(identifier: direction.source)
+            let english = Locale.Language(identifier: direction.target)
             return await LanguageAvailability().status(from: russian, to: english) == .installed
         }
         #endif
@@ -27,11 +38,14 @@ enum ConsoleTranslator {
 
     /// Возвращает перевод. Ошибка — текст для вкладки.
     static func translate(_ text: String, direction: TranslateDirection) async -> Result<String, TranslateProblem> {
+        if direction.source == direction.target { return .success(text) }
         #if canImport(Translation)
         if #available(macOS 26, *) {
             let source = Locale.Language(identifier: direction.source)
             let target = Locale.Language(identifier: direction.target)
-            guard await LanguageAvailability().status(from: source, to: target) == .installed else {
+            let status = await LanguageAvailability().status(from: source, to: target)
+            guard status != .unsupported else { return .failure(TranslateProblem(text: "Эта пара языков пока не поддерживается macOS")) }
+            guard status == .installed else {
                 return .failure(TranslateProblem(text: needsLanguages))
             }
             do {
@@ -48,6 +62,7 @@ enum ConsoleTranslator {
 
 /// Статус языков в настройках и загрузка через системное окно.
 struct TranslatorLanguagesRow: View {
+    var direction: TranslateDirection = .ruToEn
     private let ready = State<Bool?>(initialValue: nil)
     private let asking = State(initialValue: false)
 
@@ -55,15 +70,17 @@ struct TranslatorLanguagesRow: View {
         if #available(macOS 26, *) {
             LabeledContent("Языки") {
                 switch ready.wrappedValue {
-                case .some(true): Text("Русский и английский готовы")
-                case .some(false): TranslatorDownload(finished: { refresh() })
+                case .some(true): Text(direction.title + " · готовы")
+                case .some(false): TranslatorDownload(direction: direction, finished: { refresh() })
                 case nil: Text("Проверяю…")
                 }
             }
             // Система качает языки в фоне и не сообщает о конце: пока их нет, статус перечитывается сам.
-            .task {
+            .task(id: direction) {
+                ready.wrappedValue = nil
                 while !Task.isCancelled {
-                    let found = await ConsoleTranslator.languagesReady()
+                    let found = await ConsoleTranslator.languagesReady(direction: direction)
+                    guard !Task.isCancelled else { return }
                     ready.wrappedValue = found
                     if found { return }
                     try? await Task.sleep(for: .seconds(5))
@@ -73,19 +90,20 @@ struct TranslatorLanguagesRow: View {
     }
 
     private func refresh() {
-        Task { ready.wrappedValue = await ConsoleTranslator.languagesReady() }
+        Task { ready.wrappedValue = await ConsoleTranslator.languagesReady(direction: direction) }
     }
 }
 
 @available(macOS 26, *)
-private struct TranslatorDownload: View {
+struct TranslatorDownload: View {
+    var direction: TranslateDirection = .ruToEn
     let finished: @MainActor () -> Void
     private let request = State<TranslationSession.Configuration?>(initialValue: nil)
 
     var body: some View {
         Button("Скачать") {
             request.wrappedValue = TranslationSession.Configuration(
-                source: Locale.Language(identifier: "ru"), target: Locale.Language(identifier: "en")
+                source: Locale.Language(identifier: direction.source), target: Locale.Language(identifier: direction.target)
             )
         }
         .translationTask(request.wrappedValue) { session in

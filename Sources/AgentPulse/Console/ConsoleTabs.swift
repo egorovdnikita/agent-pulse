@@ -590,13 +590,12 @@ struct PrompterTab: View {
 struct TranslateTab: View {
     let model: ConsoleModel
     private var direction: TranslateDirection { model.translate.direction(of: model.translateInput) }
-    private var russianSource: Bool { direction.title.hasPrefix("Русский") }
 
     var body: some View {
         HStack(spacing: ConsoleStyle.splitGap) {
             ConsoleCard {
-                VStack(alignment: .leading, spacing: 12) {
-                    header(russianSource ? "Русский" : "Английский", flag: russianSource ? "flag-russia" : "flag-united-kingdom", action: "Очистить", color: ConsoleStyle.red) { model.clearTranslation() }
+                VStack(alignment: .leading, spacing: 8) {
+                    languageRow(source: true)
                     ZStack(alignment: .topLeading) {
                         PrompterEditor(text: Binding(get: { model.translateInput }, set: { model.typeTranslation($0) }))
                             .promoTarget("translate-editor")
@@ -605,14 +604,18 @@ struct TranslateTab: View {
                                 .font(ConsoleStyle.font(14, .medium)).foregroundStyle(ConsoleStyle.caption).allowsHitTesting(false)
                         }
                     }.consoleScrollFade()
+                    if !model.translateInput.isEmpty {
+                        action("Очистить", color: ConsoleStyle.red) { model.clearTranslation() }
+                    }
                 }
             }
             ConsoleCard {
-                VStack(alignment: .leading, spacing: 12) {
-                    header(russianSource ? "Английский" : "Русский", flag: russianSource ? "flag-united-kingdom" : "flag-russia", action: model.translateCopied ? "Скопировано" : "Скопировать", color: ConsoleStyle.green) {
-                        if case .done(_, let result) = model.translate.state { model.copyTranslation(result) }
-                    }
+                VStack(alignment: .leading, spacing: 8) {
+                    languageRow(source: false)
                     output
+                    if case .done(_, let result) = model.translate.state {
+                        action(model.translateCopied ? "Скопировано" : "Скопировать", color: ConsoleStyle.green) { model.copyTranslation(result) }
+                    }
                 }
             }
         }
@@ -635,24 +638,70 @@ struct TranslateTab: View {
         }
     }
 
-    private func header(_ language: String, flag: String, action: String, color: Color, perform: @escaping () -> Void) -> some View {
+    private func action(_ title: String, color: Color, perform: @escaping () -> Void) -> some View {
         HStack {
-            HStack(spacing: 8) {
-                ConsoleAsset(name: flag, width: 16, height: 12)
-                    .frame(width: 16, height: 16)
-                    .promoTarget("translate-" + flag)
-                Text(language)
-                    .font(ConsoleStyle.font(12, .semibold))
-                    .foregroundStyle(ConsoleStyle.text)
-                    .frame(height: 16)
-            }
-            .accessibilityElement(children: .combine)
-            .accessibilityLabel(language)
-            .promoTarget("translate-language-" + language)
             Spacer(minLength: 0)
-            Button(action, action: perform).foregroundStyle(color).font(ConsoleStyle.font(12, .medium))
-                .promoTarget("translate-\(action)")
-        }.buttonStyle(ConsolePressStyle()).frame(height: 20)
+            Button(title, action: perform).buttonStyle(ConsolePressStyle())
+                .foregroundStyle(color).font(ConsoleStyle.font(12, .medium))
+                .promoTarget("translate-" + title)
+        }.frame(height: 16)
+    }
+
+    private func languageRow(source: Bool) -> some View {
+        let selected = source ? model.translate.sourceLanguage : model.translate.targetLanguage
+        let recent = source ? model.translate.recentSources : model.translate.recentTargets
+        let codes: [String] = source && selected == nil ? ["auto"] + Array(recent.prefix(2)) : recent
+        return HStack(spacing: 8) {
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 4) {
+                    ForEach(codes, id: \.self) { code in
+                        languageButton(code, source: source, selected: selected == code || (selected == nil && code == "auto"))
+                    }
+                }
+            }
+            .overlay(alignment: .trailing) {
+                LinearGradient(colors: [.clear, ConsoleStyle.card], startPoint: .leading, endPoint: .trailing)
+                    .frame(width: 40).allowsHitTesting(false)
+            }
+            Menu {
+                if source {
+                    Button { model.selectTranslationLanguage(nil, source: true) } label: {
+                        if selected == nil { Label("Определить язык", systemImage: "checkmark") }
+                        else { Text("Определить язык") }
+                    }
+                    Divider()
+                }
+                ForEach(model.translationLanguages, id: \.self) { code in
+                    Button { model.selectTranslationLanguage(code, source: source) } label: {
+                        if selected == code { Label(TranslateDirection.languageTitle(code), systemImage: "checkmark") }
+                        else { Text(TranslateDirection.languageTitle(code)) }
+                    }
+                }
+            } label: {
+                ConsoleAsset(name: "language-chevron", width: 16, height: 16, tint: ConsoleStyle.text)
+            }
+            .menuStyle(.borderlessButton).menuIndicator(.hidden)
+            .frame(width: 26, height: 26)
+            .overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(Color(hex: 0x737373).opacity(41.0 / 255), lineWidth: 1).allowsHitTesting(false))
+            .accessibilityLabel(source ? "Исходный язык" : "Язык перевода")
+            .promoTarget(source ? "translate-source-menu" : "translate-target-menu")
+        }.frame(height: 26)
+        .task {
+            let languages = await ConsoleTranslator.supportedLanguages()
+            if !languages.isEmpty { model.translationLanguages = languages }
+        }
+    }
+
+    private func languageButton(_ code: String, source: Bool, selected: Bool) -> some View {
+        Button { model.selectTranslationLanguage(code == "auto" ? nil : code, source: source) } label: {
+            Text(code == "auto" ? "Определить язык" : TranslateDirection.languageTitle(code))
+                .font(ConsoleStyle.font(12, .semibold)).foregroundStyle(ConsoleStyle.text)
+                .fixedSize().padding(.horizontal, 8).frame(height: 26)
+                .background(selected ? Color(hex: 0x737373).opacity(61.0 / 255) : .clear, in: RoundedRectangle(cornerRadius: 12))
+                .overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(selected ? .clear : Color(hex: 0x737373).opacity(41.0 / 255), lineWidth: 1))
+        }.buttonStyle(ConsolePressStyle())
+        .accessibilityAddTraits(selected ? .isSelected : [])
+        .promoTarget("translate-" + (source ? "source-" : "target-") + code)
     }
 
     @ViewBuilder private var output: some View {

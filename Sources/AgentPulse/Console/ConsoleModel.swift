@@ -19,6 +19,7 @@ final class ConsoleModel {
     private(set) var prompter = PrompterModule()
     private(set) var dictation = DictationModule()
     private(set) var translate = TranslateModule()
+    var translationLanguages = ["en", "ru", "de"]
     private(set) var shelf = ShelfModule()
     private(set) var director = ConsoleDirector()
     private(set) var now = Date()
@@ -539,6 +540,8 @@ final class ConsoleModel {
 
     func pressTranslate(selection: String?, clipboard: String?, editable: Bool = true) -> String? {
         guard translatorEnabled else { return nil }
+        translateTask?.cancel()
+        translateCopied = false
         now = Date()
         let text = translate.press(selection: selection, clipboard: clipboard, now: now, editable: editable)
         if let text { translateInput = text }
@@ -550,6 +553,7 @@ final class ConsoleModel {
 
     /// Текст на странице: перевод идёт, когда набор затихает.
     func typeTranslation(_ text: String) {
+        translateCopied = false
         translateInput = text
         translateTask?.cancel()
         guard let source = translate.type(text) else { return }
@@ -561,12 +565,21 @@ final class ConsoleModel {
     }
 
     func runTranslation(_ text: String) async {
-        let result = await ConsoleTranslator.translate(text, direction: translate.direction(of: text))
-        finishTranslate(source: text, result: result)
+        let version = translate.requestVersion
+        let direction = translate.direction(of: text)
+        let result = await ConsoleTranslator.translate(text, direction: direction)
+        guard !Task.isCancelled else { return }
+        finishTranslate(source: text, result: result, request: version)
     }
 
     func flipTranslation() {
-        translate.flip()
+        let newInput = translate.flip(sourceText: translateInput)
+        typeTranslation(newInput ?? translateInput)
+    }
+
+    func selectTranslationLanguage(_ code: String?, source: Bool) {
+        if source { translate.selectSource(code) }
+        else if let code { translate.selectTarget(code) }
         typeTranslation(translateInput)
     }
 
@@ -574,12 +587,13 @@ final class ConsoleModel {
         translateTask?.cancel()
         translateInput = ""
         translate.reset()
+        translateCopied = false
     }
 
-    func finishTranslate(source: String, result: Result<String, TranslateProblem>) {
+    func finishTranslate(source: String, result: Result<String, TranslateProblem>, request: Int? = nil) {
         switch result {
-        case .success(let text): translate.finish(source: source, result: text)
-        case .failure(let problem): translate.fail(source: source, problem: problem.text)
+        case .success(let text): translate.finish(source: source, result: text, request: request)
+        case .failure(let problem): translate.fail(source: source, problem: problem.text, request: request)
         }
     }
 

@@ -22,6 +22,7 @@ enum PromoSheet {
                      to: folder.appending(path: name + ".png"))
         }
         page("empty")
+        model.selectTranslationLanguage("ru", source: true)
         let source = "Привет, это проверка перевода"
         _ = model.pressTranslate(selection: source, clipboard: nil)
         model.showPanelNow()
@@ -37,6 +38,13 @@ enum PromoSheet {
         page("cleared")
         model.flipTranslation()
         page("empty-reversed")
+        model.selectTranslationLanguage("de", source: true)
+        model.selectTranslationLanguage("fr", source: false)
+        page("languages-de-fr")
+        model.selectTranslationLanguage(nil, source: true)
+        page("languages-auto")
+        model.selectTranslationLanguage("ru", source: true)
+        model.selectTranslationLanguage("en", source: false)
         model.clearTranslation()
         let long = Array(repeating: source + ".", count: 12).joined(separator: " ")
         _ = model.pressTranslate(selection: long, clipboard: nil)
@@ -251,6 +259,7 @@ enum PromoSheet {
         page("prompter-speed", .prompter)
         model.prompterDraft = ""
         page("prompter-cleared", .prompter)
+        model.selectTranslationLanguage("ru", source: true)
         page("translate-empty", .translate)
         let source = "Маскот показывает, что агент ждёт тебя."
         for count in 1...source.count {

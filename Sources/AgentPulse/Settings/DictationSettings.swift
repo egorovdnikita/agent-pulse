@@ -83,7 +83,7 @@ struct TranslatorOptions: View {
 
     var body: some View {
         ModuleOption { ShortcutRow(title: "Перевести выделенное", keys: "⌃⌥T", busy: model.console.busyKeys.contains("t")) }
-        ModuleOption { TranslatorLanguagesRow() }
+        ModuleOption { TranslatorLanguagesRow(direction: model.console.translate.direction(of: model.console.translateInput)) }
         AccessibilityOption(model: model, app: app)
     }
 }

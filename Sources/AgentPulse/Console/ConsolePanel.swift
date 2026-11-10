@@ -41,6 +41,8 @@ final class ConsolePanel: NSPanel {
     private var shrinkTask: Task<Void, Never>?
     private var outsideMonitor: Any?
     private var localMonitor: Any?
+    private var menuObservers: [NSObjectProtocol] = []
+    private var menuTracking = false
     private var swipe = PageSwipe()
     private weak var placedScreen: NSScreen?
     private var placedVisible = NSRect.zero
@@ -133,13 +135,20 @@ final class ConsolePanel: NSPanel {
     /// Раскрыт: становится key, ловит Esc и клик мимо. Закрыт: отдаёт всё обратно.
     func expandedChanged(overFullScreen: Bool) {
         if model.expanded {
+            let center = NotificationCenter.default
+            for name in [NSMenu.didBeginTrackingNotification, NSMenu.didEndTrackingNotification] {
+                menuObservers.append(center.addObserver(forName: name, object: nil, queue: .main) { [weak self] _ in
+                    MainActor.assumeIsolated { self?.menuTracking = name == NSMenu.didBeginTrackingNotification }
+                })
+            }
             if overFullScreen { collectionBehavior = OverlayPanel.spaceBehavior.union(.fullScreenAuxiliary) }
             orderFrontRegardless()
             makeKey()
             outsideMonitor = NSEvent.addGlobalMonitorForEvents(matching: [.leftMouseDown, .rightMouseDown]) { [weak self] _ in
-                MainActor.assumeIsolated { self?.model.setExpanded(false) }
+                MainActor.assumeIsolated { if self?.menuTracking == false { self?.model.setExpanded(false) } }
             }
             localMonitor = NSEvent.addLocalMonitorForEvents(matching: [.keyDown, .leftMouseDown]) { [weak self] event in
+                if MainActor.assumeIsolated({ self?.menuTracking == true }) { return event }
                 if event.type == .keyDown, MainActor.assumeIsolated({ self?.handlePageKey(event) == true }) { return nil }
                 if event.type == .keyDown, MainActor.assumeIsolated({ self?.handleShelfKey(event) == true }) { return nil }
                 // У приложения без меню ⌘V и остальные некому обработать: поле суфлёра осталось бы без вставки.
@@ -158,6 +167,9 @@ final class ConsolePanel: NSPanel {
                 return escape ? nil : event
             }
         } else {
+            menuObservers.forEach(NotificationCenter.default.removeObserver)
+            menuObservers.removeAll()
+            menuTracking = false
             collectionBehavior = OverlayPanel.spaceBehavior
             [outsideMonitor, localMonitor].compactMap(\.self).forEach(NSEvent.removeMonitor)
             outsideMonitor = nil
