@@ -2,7 +2,7 @@ import AgentPulseCore
 import AppKit
 import SwiftUI
 
-/// Переводчик: две равные карточки, действия в заголовках.
+/// Переводчик: две равные карточки, языки сверху, действия снизу.
 struct TranslateTab: View {
     let model: ConsoleModel
     private var direction: TranslateDirection { model.translate.direction(of: model.translateInput) }

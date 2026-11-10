@@ -20,7 +20,7 @@ struct PrompterEditor: NSViewRepresentable {
         view.textColor = .white
         view.insertionPointColor = .white
         view.font = ConsoleStyle.nsFont(14, .medium)
-        // Текст стоит по тому же полю, что и в остальных карточках: 14 с учётом внутреннего поля строки.
+        // Отступ задаёт карточка: редактор не добавляет свои внутренние поля.
         view.textContainerInset = .zero
         view.textContainer?.lineFragmentPadding = 0
         let paragraph = NSMutableParagraphStyle()

@@ -38,7 +38,6 @@ final class ConsoleModel {
     var dropTargeted = false
     /// Миниатюра последнего файла на полке.
     private(set) var shelfThumbnail: NSImage?
-    /// Сколько места оставляет Dock.
     /// Пульт на левом краю экрана: растёт вправо. Зеркально — влево.
     var onLeft = true
     var enabled = true
@@ -63,7 +62,6 @@ final class ConsoleModel {
     /// Содержимое проявляется на такт позже формы: она открывает его, а не пустоту.
     private(set) var contentShown = false
     @ObservationIgnored private var closeTask: Task<Void, Never>?
-    /// Тот же маскот, что в углу: сидит у карточки сервиса, который сейчас работает.
     /// Система сдвинула видимую область экрана.
     @ObservationIgnored var placementChanged: () -> Bool = { false }
     /// Превью картинок на полке.
@@ -312,7 +310,6 @@ final class ConsoleModel {
         }
     }
 
-    /// Клик по динамику: тишина и обратно, к той же громкости.
     // MARK: - Суфлёр
 
     var prompterTabOpen: Bool { expanded && tab == .prompter }
@@ -683,7 +680,7 @@ final class ConsoleModel {
         if on {
             // Открываем то, что занимает капсулу.
             let ids = tabs.map(\.id)
-            // По умолчанию «Файлы»; на другой раздел — только если он сейчас важнее: запись.
+            // По умолчанию «Библиотека»; на другой раздел — только если он сейчас важнее: запись.
             if let leader = director.leader, leader.priority < .limitsNormal, ids.contains(leader.module) {
                 tab = leader.module
             } else if ids.contains(.shelf) {

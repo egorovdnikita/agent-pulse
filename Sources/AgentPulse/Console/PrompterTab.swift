@@ -6,7 +6,7 @@ private let tabFont = ConsoleStyle.font(13, .medium)
 
 // MARK: - Суфлёр
 
-/// Вкладка «Суфлёр»: слева текст, справа управление. Тексты хранятся только на этом Mac.
+/// Вкладка «Докладчик»: слева текст, справа управление. Тексты хранятся только на этом Mac.
 struct PrompterTab: View {
     @Bindable var model: ConsoleModel
 

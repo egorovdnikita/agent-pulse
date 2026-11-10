@@ -105,7 +105,7 @@ private extension ShelfFileKind {
     }
 }
 
-/// Плитка файла: превью картинки или лист с меткой формата, имя в две строки.
+/// Плитка файла: превью картинки или лист с меткой формата, имя в одну строку.
 private struct ShelfTile: View {
     let model: ConsoleModel
     let item: ShelfItem
