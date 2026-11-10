@@ -641,10 +641,10 @@ private func snapshot(_ used: Double, at: Date = t0, service: LimitService = .cl
     @Test func selectionIsTranslatedAndReplaceable() {
         var module = TranslateModule()
         let text = module.press(selection: "  привет\n", clipboard: "буфер", now: start)
-        #expect(text == "привет")
+        #expect(text == "  привет\n")
         #expect(module.replaceable)
-        module.finish(source: "привет", result: "hello")
-        #expect(module.state == .done(source: "привет", result: "hello"))
+        module.finish(source: "  привет\n", result: "hello")
+        #expect(module.state == .done(source: "  привет\n", result: "hello"))
     }
 
     @Test func withoutSelectionSecondPressTakesClipboardOnly() {
@@ -883,8 +883,8 @@ private func snapshot(_ used: Double, at: Date = t0, service: LimitService = .cl
 @Suite struct TranslatePageTests {
     @Test func typedTextIsTranslatedAndEmptyClears() {
         var module = TranslateModule()
-        #expect(module.type("  привет ") == "привет")
-        #expect(module.state == .working(source: "привет"))
+        #expect(module.type("  привет ") == "  привет ")
+        #expect(module.state == .working(source: "  привет "))
         #expect(!module.replaceable)
         #expect(module.type("   ") == nil)
         #expect(module.state == .idle)

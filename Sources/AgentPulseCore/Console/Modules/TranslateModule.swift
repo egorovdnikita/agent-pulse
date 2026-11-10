@@ -181,7 +181,7 @@ public struct TranslateModule: ConsoleModule {
     public mutating func reset() { invalidate() }
 
     private static func cleaned(_ text: String?) -> String? {
-        guard let text = text?.trimmingCharacters(in: .whitespacesAndNewlines), !text.isEmpty else { return nil }
+        guard let text, !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return nil }
         return text
     }
 
