@@ -17,7 +17,12 @@ struct TranslateTab: View {
                             guard let fragment = TextFragment(source: source, range: range) else { return [] }
                             var actions: [(String, () -> Void)] = [("Перевести выделенный фрагмент", { model.translateFragment(fragment) })]
                             if fragment.text.count <= 120, !fragment.text.contains(where: \.isNewline) {
-                                actions.append(("Не переводить этот термин", { model.protectTranslationTerm(fragment.text) }))
+                                let term = fragment.text.trimmingCharacters(in: .whitespacesAndNewlines)
+                                if model.translationTerms.terms.contains(term) {
+                                    actions.append(("Снова переводить этот термин", { model.removeTranslationTerm(term) }))
+                                } else if model.translationTerms.terms.count < TranslationTerms.capacity {
+                                    actions.append(("Не переводить этот термин", { model.protectTranslationTerm(term) }))
+                                }
                             }
                             return actions
                         })
