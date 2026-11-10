@@ -211,7 +211,8 @@ final class ConsolePanel: NSPanel {
                 super.sendEvent(event)
                 return
             }
-            turnPage(event, phase: .wheel)
+            if isOverHorizontalScroll(event) { super.sendEvent(event) }
+            else { turnPage(event, phase: .wheel) }
             return
         }
         if !event.momentumPhase.isEmpty {
@@ -219,7 +220,12 @@ final class ConsolePanel: NSPanel {
             return
         }
         if event.phase.contains(.mayBegin) || event.phase.contains(.began) {
-            axis.begin()
+            axis.begin(overHorizontalList: isOverHorizontalScroll(event))
+            if axis.owner == .list {
+                heldEvents = []
+                super.sendEvent(event)
+                return
+            }
             heldEvents = [event]
             turnPage(event, phase: .began)
             return
@@ -247,6 +253,18 @@ final class ConsolePanel: NSPanel {
             heldEvents = []
             super.sendEvent(event)
         }
+    }
+
+    /// Метка задаёт только область жеста, не участвуя в кликах и выборе языка.
+    private func isOverHorizontalScroll(_ event: NSEvent) -> Bool {
+        func containsRegion(_ view: NSView) -> Bool {
+            guard !view.isHidden else { return false }
+            if view is ConsoleHorizontalScrollMarker {
+                return view.bounds.contains(view.convert(event.locationInWindow, from: nil))
+            }
+            return view.subviews.contains(where: containsRegion)
+        }
+        return contentView.map(containsRegion) ?? false
     }
 
     private func turnPage(_ event: NSEvent, phase: PageSwipe.Phase) {

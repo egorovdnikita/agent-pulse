@@ -78,8 +78,9 @@ public struct ScrollAxis: Sendable, Equatable {
 
     public init() {}
 
-    public mutating func begin() {
+    public mutating func begin(overHorizontalList: Bool = false) {
         self = ScrollAxis()
+        if overHorizontalList { owner = .list }
     }
 
     public mutating func feed(dx: Double, dy: Double) -> Owner? {

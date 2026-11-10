@@ -643,6 +643,7 @@ struct TranslateTab: View {
                     }
                 }
             }
+            .background(ConsoleHorizontalScrollRegion())
             .overlay(alignment: .trailing) {
                 LinearGradient(colors: [.clear, ConsoleStyle.card], startPoint: .leading, endPoint: .trailing)
                     .frame(width: 40).allowsHitTesting(false)
