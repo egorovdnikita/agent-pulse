@@ -353,6 +353,23 @@ final class ConsoleModel {
         refresh(agentWaiting: false)
     }
 
+    func findShelfFile(_ old: URL) {
+        let chooser = NSOpenPanel()
+        chooser.allowsMultipleSelection = false
+        chooser.canChooseDirectories = true
+        chooser.canChooseFiles = true
+        chooser.message = "Выбери файл для этой ссылки в Библиотеке"
+        chooser.prompt = "Выбрать"
+        NSApp.activate()
+        let response = chooser.runModal()
+        setExpanded(true)
+        guard response == .OK, let url = chooser.url else { return }
+        var updated = shelf
+        guard updated.replace(old, with: url) else { return }
+        shelfHistory.record(shelf.items)
+        restoreShelf(updated.items)
+    }
+
     func undoShelf() {
         guard let items = shelfHistory.undo(current: shelf.items) else { return }
         restoreShelf(items)
@@ -370,6 +387,8 @@ final class ConsoleModel {
         shelfPreviews = [:]
         shelfThumbnail = nil
         shelf.restore(items)
+        shelfFileStates = [:]
+        shelfRefreshedAt = .distantPast
         shelfSelection.keep(only: shelfOrder)
         saveShelf()
         if let last = shelf.items.last { loadThumbnail(last.url) }
