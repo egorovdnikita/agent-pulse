@@ -187,6 +187,7 @@ struct PrompterTab: View {
                 }
                 PrompterSmallButton(title: model.prompterStartTitle, strong: true, wide: true) { model.startPrompterDraft() }
                     .contextMenu {
+                        Button("Длительность выступления…") { model.askPrompterDuration() }.disabled(!hasText || model.prompter.followsVoice)
                         Toggle("Паузы по разметке", isOn: $model.prompterMarkup)
                         if model.canResumePrompter { Button("Начать сначала") { model.restartPrompterFromBeginning() } }
                     }

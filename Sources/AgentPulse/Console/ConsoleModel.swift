@@ -676,6 +676,35 @@ final class ConsoleModel {
         }
     }
 
+    func fitPrompterDuration(_ seconds: TimeInterval) {
+        let score = prompterMarkup ? PrompterScore(prompterDraft) : nil
+        let words = (score?.text ?? prompterDraft).split(whereSeparator: \.isWhitespace).count
+        guard let timing = PrompterTiming(words: words, target: seconds, pauses: score?.duration ?? 0) else { return }
+        prompter.setExactSpeed(timing.speed)
+        if timing.limited {
+            let alert = NSAlert()
+            alert.messageText = "Темп ограничен для удобного чтения"
+            alert.informativeText = "При \(timing.speed) словах в минуту доклад займёт \(PrompterModule.clock(timing.seconds))."
+            alert.runModal()
+        }
+    }
+
+    func askPrompterDuration() {
+        let alert = NSAlert()
+        alert.messageText = "Длительность выступления"
+        alert.informativeText = "Введи минуты или время м:с. Темп останется в диапазоне 65–260 слов в минуту."
+        let field = NSTextField(string: "5:00")
+        field.frame = NSRect(x: 0, y: 0, width: 240, height: 24)
+        alert.accessoryView = field
+        alert.addButton(withTitle: "Применить")
+        alert.addButton(withTitle: "Отмена")
+        NSApp.activate()
+        alert.window.initialFirstResponder = field
+        guard alert.runModal() == .alertFirstButtonReturn else { return }
+        if let seconds = PrompterTiming.parse(field.stringValue) { fitPrompterDuration(seconds) }
+        else { NSSound.beep() }
+    }
+
     func setPrompterSpeed(_ value: Int) {
         prompter.setSpeed(value)
     }
