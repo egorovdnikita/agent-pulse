@@ -139,10 +139,16 @@ final class ConsolePanel: NSPanel {
     /// Раскрыт: становится key, ловит Esc и клик мимо. Закрыт: отдаёт всё обратно.
     func expandedChanged(overFullScreen: Bool) {
         if model.expanded {
+            model.comparingTranslation = NSEvent.modifierFlags.intersection([.option, .command, .control]) == .option
             let center = NotificationCenter.default
             for name in [NSMenu.didBeginTrackingNotification, NSMenu.didEndTrackingNotification] {
                 menuObservers.append(center.addObserver(forName: name, object: nil, queue: .main) { [weak self] _ in
-                    MainActor.assumeIsolated { self?.menuTracking = name == NSMenu.didBeginTrackingNotification }
+                    MainActor.assumeIsolated {
+                        self?.menuTracking = name == NSMenu.didBeginTrackingNotification
+                        if name == NSMenu.didEndTrackingNotification {
+                            self?.model.comparingTranslation = NSEvent.modifierFlags.intersection([.option, .command, .control]) == .option
+                        }
+                    }
                 })
             }
             if overFullScreen { collectionBehavior = OverlayPanel.spaceBehavior.union(.fullScreenAuxiliary) }
