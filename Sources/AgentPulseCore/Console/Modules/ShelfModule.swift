@@ -101,19 +101,30 @@ public struct ShelfModule: ConsoleModule {
     @discardableResult
     public mutating func replace(_ old: URL, with new: URL) -> Bool {
         guard new.isFileURL, let index = items.firstIndex(where: { $0.url == old }), old != new else { return false }
-        let pinned = items[index].isPinned || items.contains { $0.url == new && $0.isPinned }
+        let canonical = new.resolvingSymlinksInPath()
+        let pinned = items[index].isPinned || items.contains { $0.url.resolvingSymlinksInPath() == canonical && $0.isPinned }
         let added = items[index].added
         items[index] = ShelfItem(url: new)
         items[index].setPinned(pinned)
         items[index].added = added
-        items = items.enumerated().filter { $0.offset == index || $0.element.url != new }.map(\.element)
+        items = items.enumerated().filter { $0.offset == index || $0.element.url.resolvingSymlinksInPath() != canonical }.map(\.element)
         return true
     }
 
     /// Восстановление истории: порядок и метаданные сохраняются, оригиналы не меняются.
     public mutating func restore(_ saved: [ShelfItem]) {
-        var seen: Set<URL> = []
-        items = Array(saved.filter { $0.url.isFileURL && seen.insert($0.url.resolvingSymlinksInPath()).inserted }.prefix(Self.capacity))
+        var restored: [ShelfItem] = []
+        var indices: [URL: Int] = [:]
+        for item in saved where item.url.isFileURL {
+            let key = item.url.resolvingSymlinksInPath()
+            if let index = indices[key] {
+                if item.isPinned { restored[index].setPinned(true) }
+            } else if restored.count < Self.capacity {
+                indices[key] = restored.count
+                restored.append(item)
+            }
+        }
+        items = restored
     }
 
     /// Закреплённые первыми, остальная часть сохраняет ручной порядок.
