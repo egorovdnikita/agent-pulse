@@ -27,6 +27,7 @@ final class PulseModel {
     @ObservationIgnored private var completions = CompletionBatch()
     @ObservationIgnored private var completionTarget: CompletionBatch.Entry?
     /// Ожидания, которые ты уже видел (`MascotStateMapper.waitKey`): маскот им больше не служит.
+    private var waitReminders = WaitReminder()
     private var seenWaits: [String: Date] = [:]
     /// Последний полный тик мозга: спрятанным тикает реже.
     private var lastTickAt: Date = .distantPast
@@ -412,7 +413,31 @@ final class PulseModel {
 
     // MARK: - Тик
 
+    func postponeWait(_ session: SessionInfo) {
+        guard let key = MascotStateMapper.waitKey(session) else { return }
+        let now = Date()
+        waitReminders.postpone(session, now: now)
+        seenWaits[key] = now
+        notifier?.remove(id: "await-" + session.id)
+        update(now: now)
+    }
+
+    func waitReminderDate(_ session: SessionInfo) -> Date? {
+        MascotStateMapper.waitKey(session).flatMap { waitReminders.deadlines[$0] }
+    }
+
+    func cancelWaitReminder(_ session: SessionInfo) {
+        waitReminders.cancel(session)
+    }
+
     private func update(now: Date) {
+        for session in waitReminders.due(sessions: sessions, now: now) {
+            if let key = MascotStateMapper.waitKey(session) { seenWaits[key] = nil }
+            if overlayOccluded, config.events.awaitingUser.notification {
+                notifier?.post(id: "await-" + session.id, title: BubbleCategory.sessionTitle(session), body: "Агент всё ещё ждёт тебя",
+                               sound: config.events.awaitingUser.sound != "none", host: session.hostBundleId, source: session.source, sessionID: session.id)
+            }
+        }
         animator.reduceMotion = labReduceMotion || NSWorkspace.shared.accessibilityDisplayShouldReduceMotion
 
         // Увиденные ожидания забываются, когда сессия перестала ждать.
