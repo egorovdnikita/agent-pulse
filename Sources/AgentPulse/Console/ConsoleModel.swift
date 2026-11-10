@@ -346,10 +346,12 @@ final class ConsoleModel {
     }
 
     func clickShelf(_ url: URL, flags: NSEvent.ModifierFlags) {
+        shelfTypeSearch.reset()
         shelfSelection.click(url, order: shelfOrder, command: flags.contains(.command), shift: flags.contains(.shift))
     }
 
     func moveShelfSelection(by step: Int, extending: Bool) {
+        shelfTypeSearch.reset()
         shelfSelection.move(by: step, order: shelfOrder, extending: extending)
     }
 
@@ -366,6 +368,7 @@ final class ConsoleModel {
     }
 
     func clearShelfSelection() {
+        shelfTypeSearch.reset()
         shelfSelection.clear()
     }
 
@@ -1108,6 +1111,7 @@ final class ConsoleModel {
 
     /// Открыть страницу: следующая появляется справа, предыдущая слева, откуда бы ни пришла команда.
     func openPage(_ id: ConsoleModuleID) {
+        if id != tab { shelfTypeSearch.reset() }
         let ids = tabs.map(\.id)
         guard id != tab, let old = ids.firstIndex(of: tab), let new = ids.firstIndex(of: id) else {
             tab = id
