@@ -308,7 +308,15 @@ final class ConsoleModel {
     }
 
     /// В том порядке, в каком плитки стоят на странице: новые первыми.
-    var shelfOrder: [URL] { shelf.items.reversed().map(\.url) }
+    var shelfOrder: [URL] { shelf.displayItems.map(\.url) }
+
+    func pinShelfFiles(from url: URL) {
+        let targets = shelfTargets(from: url)
+        let pin = !shelf.items.filter { targets.contains($0.url) }.allSatisfy(\.isPinned)
+        shelfHistory.record(shelf.items)
+        shelf.pin(targets, value: pin)
+        saveShelf()
+    }
 
     func clickShelf(_ url: URL, flags: NSEvent.ModifierFlags) {
         shelfSelection.click(url, order: shelfOrder, command: flags.contains(.command), shift: flags.contains(.shift))

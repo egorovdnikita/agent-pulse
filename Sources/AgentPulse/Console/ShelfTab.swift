@@ -171,6 +171,7 @@ private struct ShelfTile: View {
             Button("Открыть") { model.openShelfFiles(from: item.url) }
             Button("Показать в Finder") { model.revealShelfFiles(from: item.url) }
             Button("Скопировать путь") { model.copyShelfPaths(from: item.url) }
+            Button(item.isPinned ? "Открепить" : "Закрепить") { model.pinShelfFiles(from: item.url) }
             Button("Найти файл…") { model.findShelfFile(item.url) }
             Divider()
             Button("Убрать из Библиотеки") { model.removeFromShelf(model.shelfTargets(from: item.url)) }
@@ -263,7 +264,7 @@ struct ShelfTab: View {
             ScrollViewReader { proxy in
             ScrollView {
                 LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: Self.fileGap), count: 7), alignment: .leading, spacing: 8) {
-                    ForEach(model.shelf.items.reversed()) { ShelfTile(model: model, item: $0) }
+                    ForEach(model.shelf.displayItems) { ShelfTile(model: model, item: $0) }
                 }
                 // Пустое место тоже страница: клик снимает выделение, тянешь — рамка.
                 .frame(maxWidth: .infinity, minHeight: 146, alignment: .topLeading)
