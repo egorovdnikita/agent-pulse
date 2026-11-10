@@ -70,9 +70,9 @@ struct PrompterSmallButton: View {
     var body: some View {
         Button(action: action) {
             HStack(spacing: 4) {
-                if let icon = ["−": "minus", "+": "plus", "Старт": "play", "Пауза": "pause", "Стоп": "stop"][title] {
+                if let icon = ["−": "minus", "+": "plus", "Старт": "play", "Продолжить": "play", "Пауза": "pause", "Стоп": "stop"][title] {
                     ConsoleAsset(name: icon, width: 16, height: 16,
-                                 tint: title == "Старт" ? Color(hex: 0xF35B5B) : (strong ? .black : ConsoleStyle.text))
+                                 tint: (title == "Старт" || title == "Продолжить") ? Color(hex: 0xF35B5B) : (strong ? .black : ConsoleStyle.text))
                 }
                 if title.count != 1 { Text(title).font(ConsoleStyle.font(12, .medium)).lineLimit(1) }
             }

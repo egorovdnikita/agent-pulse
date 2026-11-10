@@ -181,7 +181,10 @@ struct PrompterTab: View {
                         .disabled(model.prompterLibrary.texts.isEmpty)
                         .opacity(model.prompterLibrary.texts.isEmpty ? 0.4 : 1)
                 }
-                PrompterSmallButton(title: "Старт", strong: true, wide: true) { model.startPrompterDraft() }
+                PrompterSmallButton(title: model.prompterStartTitle, strong: true, wide: true) { model.startPrompterDraft() }
+                    .contextMenu {
+                        if model.canResumePrompter { Button("Начать сначала") { model.restartPrompterFromBeginning() } }
+                    }
             }
         }
     }

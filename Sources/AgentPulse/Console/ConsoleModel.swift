@@ -15,6 +15,7 @@ final class ConsoleModel {
         limits = LimitsModule(book: promo ? LimitsBook() : LimitsBook.load())
         prompterLibrary = promo ? PrompterLibrary() : PrompterLibrary.load()
         shelf = promo ? ShelfModule() : ShelfModule.load()
+        prompterCheckpoint = promo ? nil : PrompterCheckpoint.load()
         prompterDraft = promo ? "" : PrompterDraft.load().text
         if !promo {
             Task { [weak self] in
@@ -94,6 +95,10 @@ final class ConsoleModel {
     /// Текст в поле суфлёра.
     var prompterDraft = "" { didSet { schedulePrompterDraftSave() } }
     @ObservationIgnored private var prompterDraftSaveTask: Task<Void, Never>?
+    private var prompterCheckpoint: PrompterCheckpoint?
+    @ObservationIgnored private var prompterCheckpointSavedAt = Date.distantPast
+    var canResumePrompter: Bool { prompterCheckpoint?.fraction(for: prompterDraft) != nil }
+    var prompterStartTitle: String { canResumePrompter ? "Продолжить" : "Старт" }
     private(set) var prompterInputInvalid = false
     @ObservationIgnored private var prompterValidationTask: Task<Void, Never>?
     /// Вместо поля открыт список недавних текстов.
@@ -423,6 +428,7 @@ final class ConsoleModel {
 
     private func schedulePrompterDraftSave() {
         guard !promoMode else { return }
+        if prompterDraft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty { clearPrompterCheckpoint() }
         prompterDraftSaveTask?.cancel()
         prompterDraftSaveTask = Task { [weak self] in
             try? await Task.sleep(for: .milliseconds(500))
@@ -483,6 +489,7 @@ final class ConsoleModel {
     func startPrompter() {
         guard !prompter.isActive, let text = prompterText else { return }
         now = Date()
+        let resume = prompterCheckpoint?.fraction(for: text)
         guard prompter.start(text: text, now: now) else { return }
         prompterLibrary.remember(text)
         prompterLibrary.save()
@@ -490,6 +497,10 @@ final class ConsoleModel {
         prompterLines = prompter.script.lines { PrompterLook.fits($0, points: points) }
         prompterLine = 0
         prompterScroll = 0
+        if let resume {
+            prompter.seek(toFraction: resume, now: now)
+            updatePrompterPlace()
+        }
         setExpanded(false)
         // Тишина — сразу, а не на следующем тике.
         tickModules()
@@ -520,11 +531,13 @@ final class ConsoleModel {
 
     func stopPrompter() {
         guard prompter.isActive else { return }
+        savePrompterCheckpoint()
         prompter.stop()
         finishPrompter()
     }
 
-    private func finishPrompter() {
+    private func finishPrompter(completed: Bool = false) {
+        if completed { clearPrompterCheckpoint() }
         prompterTimer?.invalidate()
         prompterTimer = nil
         now = Date()
@@ -537,10 +550,30 @@ final class ConsoleModel {
     private func advancePrompter() {
         let finished = prompter.advance(now: Date())
         if finished {
-            finishPrompter()
+            finishPrompter(completed: true)
         } else {
             updatePrompterPlace()
+            if Date().timeIntervalSince(prompterCheckpointSavedAt) >= 1 { savePrompterCheckpoint() }
         }
+    }
+
+    func savePrompterCheckpoint() {
+        guard !promoMode, prompter.isActive else { return }
+        prompterCheckpointSavedAt = Date()
+        let saved = PrompterCheckpoint(text: prompter.script.text, position: prompter.position)
+        guard saved.fraction(for: saved.text) != nil else { clearPrompterCheckpoint(); return }
+        prompterCheckpoint = saved
+        try? saved.save()
+    }
+
+    private func clearPrompterCheckpoint() {
+        prompterCheckpoint = nil
+        if !promoMode { PrompterCheckpoint.erase() }
+    }
+
+    func restartPrompterFromBeginning() {
+        clearPrompterCheckpoint()
+        startPrompterDraft()
     }
 
     func seekPrompter(toFraction fraction: Double) {
