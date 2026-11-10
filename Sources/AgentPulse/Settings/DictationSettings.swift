@@ -20,6 +20,7 @@ struct DictationOptions: View {
                     .font(SettingsStyle.caption).foregroundStyle(SettingsStyle.muted)
             }
         }
+        ModuleOption { ShortcutRow(title: "Повторить последнюю диктовку", keys: "⌃⌥V", busy: model.console.busyKeys.contains("replay")) }
         if ConsoleTranslator.isAvailable {
             ModuleOption {
                 SettingsPicker("Язык", selection: Binding(get: { settings.dictationLanguage }, set: { app.setDictationLanguage($0) })) {

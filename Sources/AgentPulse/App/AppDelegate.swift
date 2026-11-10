@@ -21,6 +21,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     private let prompterVoice = PrompterVoice()
     private let dictationHotKey = ConsoleHotKey(id: 5)
     private let translateHotKey = ConsoleHotKey(id: 6)
+    private let replayDictationHotKey = ConsoleHotKey(id: 11)
     private let correctionHotKey = ConsoleHotKey(id: 9)
     private(set) var dictation: DictationController?
     let trackpadGesture = TrackpadGesture()
@@ -430,10 +431,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
             released: { [weak console] in console?.releaseDictation() },
             action: { [weak self] in self?.dictation?.pressCorrection() }
         )
-        var busy = model.console.busyKeys.subtracting(["dictation", "translate", "correction"])
+        let replaying = replayDictationHotKey.set(code: config.enabled && config.dictation ? kVK_ANSI_V : nil) { [weak self] in
+            self?.dictation?.replayLastDictation()
+        }
+        var busy = model.console.busyKeys.subtracting(["dictation", "translate", "correction", "replay"])
         if !dictating { busy.insert("dictation") }
         if !translating { busy.insert("translate") }
         if !correcting { busy.insert("correction") }
+        if !replaying { busy.insert("replay") }
         model.console.busyKeys = busy
     }
 

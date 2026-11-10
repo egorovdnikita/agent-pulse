@@ -133,6 +133,11 @@ private struct CapsuleBody: View {
         .accessibilityElement(children: .contain)
         .accessibilityLabel(model.capsule?.label ?? "Пульт")
         .onTapGesture { model.toggle() }
+        .contextMenu {
+            if model.dictationEnabled {
+                Button("Повторить последнюю диктовку · ⌃⌥V") { model.onReplayDictation?() }.disabled(!model.canReplayDictation)
+            }
+        }
         .promoTarget("capsule")
     }
 }
