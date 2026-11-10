@@ -392,7 +392,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
             self.model.animator.watchesConsole = on ? (self.model.config.display.anchor.isRight ? -1 : 1) : nil
             self.updateConsoleVisibility()
         }
-        console.onOpenSettings = { [weak self] anchor in self?.showSettings(anchor == nil ? .console : .sources, anchor: anchor) }
+        console.onOpenSettings = { [weak self] anchor in
+            self?.showSettings(anchor == "Лимиты" ? .sources : .console,
+                               anchor: anchor == "Переводчик" ? "Перевод" : anchor)
+        }
         applyDictationHotKeys()
         // Отладка: `--dictation-model` — скачать модель, `--dictation-demo файл.wav [секунд]` — весь путь без микрофона.
         if CommandLine.arguments.contains("--dictation-model") { controller.models.download() }

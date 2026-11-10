@@ -552,7 +552,7 @@ private struct ConsoleSettings: View {
                     DictationOptions(model: model, app: app, controller: app.dictation)
                 }
                 if ConsoleTranslator.isAvailable {
-                    card("Перевод", "Русский и английский на этом Mac", icon: "character.bubble", tint: Color(nsColor: .systemTeal), isOn: settings.translator, toggle: { app.setTranslatorEnabled($0) }) {
+                    card("Перевод", "Выбранные языки на этом Mac", icon: "character.bubble", tint: Color(nsColor: .systemTeal), isOn: settings.translator, toggle: { app.setTranslatorEnabled($0) }) {
                         TranslatorOptions(model: model, app: app)
                     }
                 }
