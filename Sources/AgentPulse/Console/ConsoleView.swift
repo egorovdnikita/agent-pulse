@@ -136,6 +136,7 @@ private struct CapsuleBody: View {
         .contextMenu {
             if model.dictationEnabled {
                 Button("Повторить последнюю диктовку · ⌃⌥V") { model.onReplayDictation?() }.disabled(!model.canReplayDictation)
+                if model.canReplayDictation { Button("Забыть последнюю диктовку") { model.onForgetRecentDictation?() } }
             }
         }
         .promoTarget("capsule")

@@ -34,6 +34,7 @@ final class DictationController {
             guard let self else { return false }
             return self.russian ? self.models.isReady : true
         }
+        console.onForgetRecentDictation = { [weak self] in self?.forgetRecentDictation() }
         console.onReplayDictation = { [weak self] in self?.replayLastDictation() }
         console.onDictationNeedsModel = showSettings
         console.onDictationStart = { [weak self] in self?.startRecording() }
@@ -176,11 +177,15 @@ final class DictationController {
         history.save()
     }
 
-    func clearHistory() {
+    func forgetRecentDictation() {
         replayVersion += 1
         replay = nil
         console.dictationReplayUntil = .distantPast
         lastInsertion = nil
+    }
+
+    func clearHistory() {
+        forgetRecentDictation()
         history = DictationHistory()
         DictationHistory.erase()
     }

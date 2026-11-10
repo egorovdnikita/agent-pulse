@@ -146,6 +146,7 @@ final class ConsoleModel {
     var dictationReplaying = false
     var dictationReplayUntil = Date.distantPast
     var canReplayDictation: Bool { dictationEnabled && !dictationReplaying && !prompter.isActive && dictation.phase == .idle && now < dictationReplayUntil }
+    @ObservationIgnored var onForgetRecentDictation: (() -> Void)?
     @ObservationIgnored var onReplayDictation: (() -> Void)?
     @ObservationIgnored var onDictationStart: (() -> Void)?
     @ObservationIgnored var onDictationStop: ((_ keep: Bool) -> Void)?
