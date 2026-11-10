@@ -119,7 +119,7 @@ struct PrompterTab: View {
                 Spacer(minLength: 0)
                 VStack(spacing: 4) {
                 ThinSlider(
-                    value: model.prompter.total > 0 ? model.prompter.elapsed / model.prompter.total : 0, range: 0...1, label: "Перемотка",
+                    value: model.prompter.position / Double(max(1, model.prompter.script.words.count)), range: 0...1, label: "Перемотка",
                     commitsOnEnd: true
                 ) { model.seekPrompter(toFraction: $0) }
                 HStack {
@@ -187,6 +187,7 @@ struct PrompterTab: View {
                 }
                 PrompterSmallButton(title: model.prompterStartTitle, strong: true, wide: true) { model.startPrompterDraft() }
                     .contextMenu {
+                        Toggle("Паузы по разметке", isOn: $model.prompterMarkup)
                         if model.canResumePrompter { Button("Начать сначала") { model.restartPrompterFromBeginning() } }
                     }
             }

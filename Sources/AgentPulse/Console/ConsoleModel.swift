@@ -102,6 +102,7 @@ final class ConsoleModel {
     /// Текст в поле суфлёра.
     var prompterDraft = "" { didSet { schedulePrompterDraftSave() } }
     @ObservationIgnored private var prompterDraftSaveTask: Task<Void, Never>?
+    var prompterMarkup = false
     private(set) var prompterRehearsing = false
     private var prompterCheckpoint: PrompterCheckpoint?
     @ObservationIgnored private var prompterCheckpointSavedAt = Date.distantPast
@@ -547,7 +548,7 @@ final class ConsoleModel {
         prompterRehearsing = override != nil
         now = Date()
         let resume = prompterRehearsing ? nil : prompterCheckpoint?.fraction(for: text)
-        guard prompter.start(text: text, now: now) else { return }
+        guard prompter.start(text: text, now: now, markup: prompterMarkup) else { return }
         if !prompterRehearsing, !promoMode {
             prompterLibrary.remember(text)
             prompterLibrary.save()
@@ -620,8 +621,12 @@ final class ConsoleModel {
     func savePrompterCheckpoint() {
         guard !promoMode, !prompterRehearsing, prompter.isActive else { return }
         prompterCheckpointSavedAt = Date()
-        let saved = PrompterCheckpoint(text: prompter.script.text, position: prompter.position)
-        guard saved.fraction(for: prompter.script.text) != nil else { clearPrompterCheckpoint(); return }
+        let original = prompterDraft.trimmingCharacters(in: .whitespacesAndNewlines)
+        let text = original.isEmpty ? prompter.script.text : original
+        let rawWords = text.split(whereSeparator: \.isWhitespace).count
+        let scaled = prompter.position / Double(max(1, prompter.script.words.count)) * Double(rawWords)
+        let saved = PrompterCheckpoint(text: text, position: scaled)
+        guard saved.fraction(for: text) != nil else { clearPrompterCheckpoint(); return }
         prompterCheckpoint = saved
         try? saved.save()
     }
@@ -694,6 +699,7 @@ final class ConsoleModel {
     var prompterStatus: String? {
         if Date() < prompterSpeedShownUntil { return prompter.multiplierText }
         if prompter.mode == .paused { return "Пауза" }
+        if prompter.holdsForMarkup { return "Пауза по тексту" }
         if prompter.voiceHolds(now: Date()) { return "Жду голос" }
         return nil
     }
@@ -706,9 +712,10 @@ final class ConsoleModel {
 
     /// Сколько займёт текст при нынешней скорости.
     var prompterEstimate: String? {
-        let words = prompterDraft.split(whereSeparator: \.isWhitespace).count
+        let score = prompterMarkup ? PrompterScore(prompterDraft) : nil
+        let words = (score?.text ?? prompterDraft).split(whereSeparator: \.isWhitespace).count
         guard words > 0 else { return nil }
-        let time = PrompterModule.clock(Double(words) / Double(prompter.speed) * 60)
+        let time = PrompterModule.clock(Double(words) / Double(prompter.speed) * 60 + (prompter.followsVoice ? 0 : score?.duration ?? 0))
         return "\(words) \(HumanTime.plural(words, "слово", "слова", "слов")) · \(time)"
     }
 
