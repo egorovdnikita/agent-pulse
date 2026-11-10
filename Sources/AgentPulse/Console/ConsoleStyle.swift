@@ -5,6 +5,13 @@ import SwiftUI
 
 /// Токены обновлённого макета Пульта.
 enum ConsoleStyle {
+    static var noteFont: Font { font(12, .medium).monospacedDigit() }
+
+    @MainActor static func symbol(_ name: String, _ size: Double) -> some View {
+        Image(nsImage: SolarIcons.image(name) ?? NSImage())
+            .resizable().frame(width: size, height: size).foregroundStyle(.white)
+    }
+
     static let green = Color(hex: 0x22C55E)
     static let yellow = Color(hex: 0xF59E0B)
     static let red = Color(hex: 0xEF4444)
