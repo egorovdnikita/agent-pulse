@@ -463,6 +463,17 @@ final class ConsoleModel {
         }
     }
 
+    func preparePromoResume(text: String, position: Double) {
+        precondition(promoMode)
+        prompterDraft = text
+        prompterCheckpoint = PrompterCheckpoint(text: text, position: position)
+    }
+
+    func preparePromoUnavailableFiles() {
+        precondition(promoMode)
+        shelfFileStates = Dictionary(uniqueKeysWithValues: shelf.items.map { ($0.url, ShelfFileState.read($0.url)) })
+    }
+
     /// Виртуальные часы промо: без таймера, записи «Недавних» и показа окна.
     func preparePromoPrompter(_ text: String) {
         precondition(promoMode)

@@ -78,6 +78,8 @@ enum PromoSheet {
         model.tab = .prompter
         page("neighbor-prompter-running")
         model.stopPrompter()
+        model.preparePromoResume(text: long, position: 12)
+        page("neighbor-prompter-resume")
         model.tab = .shelf
         page("neighbor-shelf")
         model.addToShelf(["Доклад.pdf", "Заметки.md", "Бюджет.xlsx", "Презентация.key"].map { URL(filePath: "/tmp/pulse-layout16-fiction/\($0)") })
@@ -88,6 +90,8 @@ enum PromoSheet {
         model.addToShelf(["План.docx", "Архив.zip", "Идеи.txt", "Пример.png"].map { URL(filePath: "/tmp/pulse-layout16-fiction/\($0)") })
         snapshot(PanelPreview(model: model).padding(8), scale: 4,
                  to: folder.appending(path: "neighbor-shelf-hover.png"), hoverShelfFiles: true)
+        model.preparePromoUnavailableFiles()
+        page("neighbor-shelf-unavailable")
     }
 
     struct Script: Decodable {
