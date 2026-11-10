@@ -1,12 +1,24 @@
 import Foundation
 
-public struct ShelfItem: Sendable, Equatable, Identifiable {
+public struct ShelfItem: Codable, Sendable, Equatable, Identifiable {
     public var id: URL { url }
     public var url: URL
     public var name: String { url.lastPathComponent }
+    private var bookmark: Data?
 
     public init(url: URL) {
         self.url = url
+        bookmark = try? url.bookmarkData(options: .minimalBookmark, includingResourceValuesForKeys: nil, relativeTo: nil)
+    }
+
+    /// Закладка macOS следит за самим файлом; исчезновение диска не удаляет ссылку.
+    public func resolvingReference() -> ShelfItem {
+        guard let bookmark else { return self }
+        var stale = false
+        guard let resolved = try? URL(resolvingBookmarkData: bookmark, options: .withoutUI, relativeTo: nil, bookmarkDataIsStale: &stale),
+              resolved.isFileURL, FileManager.default.fileExists(atPath: resolved.path) else { return self }
+        if resolved != url || stale { return ShelfItem(url: resolved) }
+        return self
     }
 }
 
