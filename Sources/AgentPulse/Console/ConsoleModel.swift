@@ -641,6 +641,11 @@ final class ConsoleModel {
         updatePrompterPlace()
     }
 
+    func restartPrompterSentence() {
+        prompter.restartSentence(now: Date())
+        updatePrompterPlace()
+    }
+
     func jumpPrompter(lines step: Int) {
         prompter.jump(lines: step, in: prompterLines, now: Date())
         updatePrompterPlace()

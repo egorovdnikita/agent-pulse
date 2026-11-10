@@ -172,6 +172,7 @@ struct PrompterTab: View {
             HStack(spacing: 4) {
                 PrompterSmallButton(title: model.prompter.mode == .paused ? "Дальше" : "Пауза", strong: true, wide: true) { model.togglePrompterPause() }
                 PrompterSmallButton(title: "Стоп", wide: true) { model.stopPrompter() }
+                    .contextMenu { Button("К началу предложения · ⌃⌥⌫") { model.restartPrompterSentence() } }
             }
         } else if model.prompterRecentOpen {
             PrompterSmallButton(title: "Назад", wide: true) { model.prompterRecentOpen = false }
