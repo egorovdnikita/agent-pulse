@@ -146,6 +146,7 @@ private struct CapsuleBody: View {
 private struct LimitCard: View {
     let model: ConsoleModel
     let service: LimitService
+    private let explained = State<LimitWindowKind?>(initialValue: nil)
 
     var body: some View {
         let readings = LimitWindowKind.allCases.map { (kind: $0, reading: model.limits.book.reading(service, $0, now: model.now)) }
@@ -176,6 +177,20 @@ private struct LimitCard: View {
                 HStack(spacing: 12) {
                     ForEach(readings, id: \.kind) { item in
                         LimitGauge(reading: item.reading, kind: item.kind, now: model.now).frame(maxWidth: .infinity)
+                            .contentShape(Rectangle())
+                            .onTapGesture { explained.wrappedValue = item.kind }
+                            .help("Источник, время снимка и сброс лимита")
+                            .accessibilityAction(named: "Подробнее о лимите") { explained.wrappedValue = item.kind }
+                            .popover(isPresented: Binding(get: { explained.wrappedValue == item.kind }, set: { if !$0 { explained.wrappedValue = nil } })) {
+                                VStack(alignment: .leading, spacing: 12) {
+                                    Text(LimitExplanation.text(service: service, kind: item.kind, book: model.limits.book, now: model.now))
+                                        .textSelection(.enabled).font(.system(size: 13))
+                                    Button("Скопировать сведения") {
+                                        NSPasteboard.general.clearContents()
+                                        NSPasteboard.general.setString(LimitExplanation.text(service: service, kind: item.kind, book: model.limits.book, now: model.now), forType: .string)
+                                    }
+                                }.padding(16).frame(width: 320)
+                            }
                     }
                 }
             }
