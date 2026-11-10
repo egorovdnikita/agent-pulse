@@ -337,6 +337,7 @@ final class ConsoleModel {
         NSApp.activate()
         let answer = chooser.runModal()
         setExpanded(true)
+        tab = .shelf
         if answer == .OK { addToShelf(chooser.urls) }
     }
 
@@ -365,6 +366,7 @@ final class ConsoleModel {
         NSApp.activate()
         let response = chooser.runModal()
         setExpanded(true)
+        tab = .shelf
         guard response == .OK, let url = chooser.url else { return }
         var updated = shelf
         guard updated.replace(old, with: url) else { return }
