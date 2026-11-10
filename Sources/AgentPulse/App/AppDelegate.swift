@@ -437,6 +437,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         model.console.busyKeys = busy
     }
 
+    func setDictationFormatting(_ on: Bool) {
+        model.config.console.dictationFormatting = on
+        try? model.config.save()
+    }
+
     func setDictationEnabled(_ on: Bool) {
         model.config.console.dictation = on
         try? model.config.save()

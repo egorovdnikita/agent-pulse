@@ -11,7 +11,7 @@ public enum DictationFormatting {
         ]
         var text = source
         for (words, replacement) in commands {
-            let pattern = "(?<![\\p{L}\\p{N}])(?:" + words + ")(?![\\p{L}\\p{N}])[.,!?]?"
+            let pattern = "(?<![\\p{L}\\p{N}])(?:" + words + ")(?![\\p{L}\\p{N}])[.,!?]?[ \t]*"
             guard let regex = try? NSRegularExpression(pattern: pattern, options: .caseInsensitive) else { continue }
             for match in regex.matches(in: text, range: NSRange(text.startIndex..., in: text)).reversed() {
                 guard let range = Range(match.range, in: text) else { continue }

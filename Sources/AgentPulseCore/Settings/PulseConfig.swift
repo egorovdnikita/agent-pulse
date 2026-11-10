@@ -41,6 +41,7 @@ public struct PulseConfig: Codable, Sendable, Equatable {
         public var dictation = false
         /// Язык диктовки: `ru` (GigaAM) или `en` (системный распознаватель, macOS 26+).
         public var dictationLanguage = "ru"
+        public var dictationFormatting = false
         /// Свои правила замены, поверх встроенных.
         public var dictationRules: [DictationRule] = []
         /// История текста: выключена по умолчанию.

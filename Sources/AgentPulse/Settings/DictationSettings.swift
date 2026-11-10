@@ -32,6 +32,11 @@ struct DictationOptions: View {
         AccessibilityOption(model: model, app: app)
         ModuleOption { DictationRulesEditor(model: model, app: app) }
         ModuleOption {
+            Toggle("Голосовая разметка", isOn: Binding(get: { settings.dictationFormatting }, set: { app.setDictationFormatting($0) }))
+            Text("Команды «новый абзац», «новая строка», «новый пункт» меняют разметку. В обычном режиме остаются текстом.")
+                .font(SettingsStyle.caption).foregroundStyle(SettingsStyle.muted)
+        }
+        ModuleOption {
             Toggle(isOn: Binding(get: { settings.dictationHistory }, set: { app.setDictationHistory($0) })) {
                 Text("Хранить историю")
                 Text("Только текст, 30 дней").font(SettingsStyle.caption).foregroundStyle(SettingsStyle.muted)
