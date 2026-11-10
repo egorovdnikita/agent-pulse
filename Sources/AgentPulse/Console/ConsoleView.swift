@@ -151,10 +151,7 @@ private struct LimitCard: View {
                     Text(service.title).font(ConsoleStyle.font(16, .semibold)).foregroundStyle(ConsoleStyle.text).lineLimit(1)
                     Spacer(minLength: 0)
                     if readings.allSatisfy({ $0.reading == nil }) {
-                        Button("Подключить") { model.onOpenSettings?("Лимиты") }
-                            .buttonStyle(ConsolePressStyle())
-                            .font(ConsoleStyle.font(12, .medium))
-                            .foregroundStyle(ConsoleStyle.green)
+                        ConsoleActionButton(title: "Подключить", color: ConsoleStyle.green) { model.onOpenSettings?("Лимиты") }
                             .promoTarget("connect-\(service.rawValue)")
                     } else {
                         HStack(spacing: 8) {
@@ -169,7 +166,7 @@ private struct LimitCard: View {
                         }
                     }
                 }
-                .frame(height: ConsoleStyle.cardHeader)
+                .frame(height: readings.allSatisfy({ $0.reading == nil }) ? 26 : ConsoleStyle.cardHeader)
                 Spacer(minLength: 0)
                 HStack(spacing: 12) {
                     ForEach(readings, id: \.kind) { item in

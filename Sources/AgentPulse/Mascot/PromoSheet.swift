@@ -82,6 +82,9 @@ enum PromoSheet {
         page("neighbor-shelf")
         model.addToShelf(["Доклад.pdf", "Заметки.md", "Бюджет.xlsx", "Презентация.key"].map { URL(filePath: "/tmp/pulse-layout16-fiction/\($0)") })
         page("neighbor-shelf-filled")
+        model.selectAllShelf()
+        page("neighbor-shelf-selected")
+        model.clearShelfSelection()
         model.addToShelf(["План.docx", "Архив.zip", "Идеи.txt", "Пример.png"].map { URL(filePath: "/tmp/pulse-layout16-fiction/\($0)") })
         snapshot(PanelPreview(model: model).padding(8), scale: 4,
                  to: folder.appending(path: "neighbor-shelf-hover.png"), hoverShelfFiles: true)

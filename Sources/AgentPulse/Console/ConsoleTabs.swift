@@ -249,10 +249,7 @@ struct ShelfTab: View {
     }
 
     private func footerButton(_ title: String, action: @escaping () -> Void) -> some View {
-        Button(title, action: action)
-            .buttonStyle(ConsolePressStyle())
-            .font(ConsoleStyle.font(12, .medium))
-            .foregroundStyle(title == "Добавить" ? ConsoleStyle.green : ConsoleStyle.red)
+        ConsoleActionButton(title: title, color: title == "Добавить" ? ConsoleStyle.green : ConsoleStyle.red, action: action)
             .promoTarget("shelf-\(title)")
     }
 
@@ -263,7 +260,7 @@ struct ShelfTab: View {
                     ForEach(model.shelf.items.reversed()) { ShelfTile(model: model, item: $0) }
                 }
                 // Пустое место тоже страница: клик снимает выделение, тянешь — рамка.
-                .frame(maxWidth: .infinity, minHeight: 156, alignment: .topLeading)
+                .frame(maxWidth: .infinity, minHeight: 146, alignment: .topLeading)
                 .contentShape(Rectangle())
                 .onTapGesture { model.clearShelfSelection() }
                 .gesture(
@@ -292,17 +289,18 @@ struct ShelfTab: View {
                 }
             }
             .consoleScrollFade()
-            footer.frame(height: 32).padding(.horizontal, 8)
+            footer.frame(height: 26).padding(8)
         }
     }
 
     private var footer: some View {
         let selected = model.shelfSelection.count
-        return HStack(spacing: 12) {
+        return HStack(alignment: .bottom, spacing: 4) {
             Text(selected > 0 ? "Выбрано \(selected). Потяни, чтобы забрать" : "Потяни файл, чтобы забрать")
                 .font(noteFont)
                 .foregroundStyle(ConsoleStyle.caption)
                 .lineLimit(1)
+                .frame(height: 16)
             Spacer(minLength: 4)
             if selected > 0 {
                 footerButton("Убрать") { model.removeSelectedFiles() }
@@ -438,18 +436,15 @@ struct PrompterTab: View {
             }
             .consoleScrollFade()
             if hasText {
-                HStack {
-                    Button("Очистить") { model.prompterDraft = "" }
-                        .buttonStyle(ConsolePressStyle())
-                        .font(ConsoleStyle.font(12, .medium))
-                        .foregroundStyle(ConsoleStyle.red)
+                HStack(alignment: .bottom) {
+                    ConsoleActionButton(title: "Очистить", color: ConsoleStyle.red) { model.prompterDraft = "" }
                         .promoTarget("prompter-clear")
                     Spacer(minLength: 8)
                     if let estimate = model.prompterEstimate {
-                        Text(estimate).font(noteFont).foregroundStyle(ConsoleStyle.caption)
+                        Text(estimate).font(noteFont).foregroundStyle(ConsoleStyle.caption).frame(height: 16)
                     }
                 }
-                .frame(height: 16)
+                .frame(height: 26)
                 .padding(.top, 4)
             }
         }
@@ -640,11 +635,10 @@ struct TranslateTab: View {
 
     private func action(_ title: String, color: Color, perform: @escaping () -> Void) -> some View {
         HStack {
-            Spacer(minLength: 0)
-            Button(title, action: perform).buttonStyle(ConsolePressStyle())
-                .foregroundStyle(color).font(ConsoleStyle.font(12, .medium))
+            ConsoleActionButton(title: title, color: color, action: perform)
                 .promoTarget("translate-" + title)
-        }.frame(height: 16)
+            Spacer(minLength: 0)
+        }.frame(height: 26)
     }
 
     private func languageRow(source: Bool) -> some View {

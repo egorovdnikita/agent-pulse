@@ -96,6 +96,28 @@ enum ConsoleStyle {
     }
 }
 
+/// Контурное цветное действие Пульта из макета: поле 8 pt плюс рамка 1 pt.
+struct ConsoleActionButton: View {
+    let title: String
+    let color: Color
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            Text(title)
+                .font(ConsoleStyle.font(12, .medium))
+                .foregroundStyle(color)
+                .fixedSize()
+                .frame(height: 16)
+                .padding(.horizontal, 9)
+                .frame(height: 26)
+                .overlay(RoundedRectangle(cornerRadius: 12, style: .continuous)
+                    .strokeBorder(Color(hex: 0x737373).opacity(41.0 / 255), lineWidth: 1))
+                .contentShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+        }.buttonStyle(ConsolePressStyle())
+    }
+}
+
 /// Значок сервиса: одного размера, чтобы строки не прыгали.
 struct ServiceMark: View {
     let service: LimitService

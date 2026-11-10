@@ -594,7 +594,7 @@ def shelf_transition(assets, tab, prev, dt):
     mix=ease_out(dt/.22)
     out=Image.blend(a,b,mix)
     # Подписи подвала меняются последовательно, без двойного текста.
-    band = (round(10*ASSET_SCALE), round(202*ASSET_SCALE), round(630*ASSET_SCALE), round(234*ASSET_SCALE))
+    band = (round(10*ASSET_SCALE), round(192*ASSET_SCALE), round(630*ASSET_SCALE), round(234*ASSET_SCALE))
     ImageDraw.Draw(out).rectangle(band, fill=(10,10,10,255))
     footer = (a if dt < .1 else b).crop(band)
     opacity = 1-ease_out(dt/.1) if dt < .1 else ease_out((dt-.1)/.12)
