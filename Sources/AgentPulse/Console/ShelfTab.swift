@@ -11,6 +11,7 @@ private final class ShelfDragView: NSView, NSDraggingSource {
     /// Что уносит перетаскивание: выбранное или один файл.
     var payload: (() -> [URL])?
     var onClick: ((NSEvent.ModifierFlags) -> Void)?
+    var onOpen: (() -> Void)?
     private var pressedAt: NSPoint?
 
     override func acceptsFirstMouse(for event: NSEvent?) -> Bool { true }
@@ -41,7 +42,10 @@ private final class ShelfDragView: NSView, NSDraggingSource {
     }
 
     override func mouseUp(with event: NSEvent) {
-        if pressedAt != nil { onClick?(event.modifierFlags) }
+        if pressedAt != nil {
+            onClick?(event.modifierFlags)
+            if event.clickCount == 2 { onOpen?() }
+        }
         pressedAt = nil
     }
 
@@ -54,6 +58,7 @@ private struct ShelfDragArea: NSViewRepresentable {
     let url: URL
     let payload: () -> [URL]
     let onClick: (NSEvent.ModifierFlags) -> Void
+    let onOpen: () -> Void
 
     func makeNSView(context: Context) -> ShelfDragView { ShelfDragView() }
 
@@ -61,6 +66,7 @@ private struct ShelfDragArea: NSViewRepresentable {
         view.url = url
         view.payload = payload
         view.onClick = onClick
+        view.onOpen = onOpen
     }
 }
 
@@ -132,7 +138,8 @@ private struct ShelfTile: View {
                     ShelfDragArea(
                         url: item.url,
                         payload: { model.shelfSelection.dragged(from: item.url, order: model.shelfOrder) },
-                        onClick: { model.clickShelf(item.url, flags: $0) }
+                        onClick: { model.clickShelf(item.url, flags: $0) },
+                        onOpen: { model.openShelfFiles(from: item.url) }
                     )
                 }
                 .overlay(alignment: .topTrailing) {
@@ -158,6 +165,12 @@ private struct ShelfTile: View {
         .promoTarget("file-\(item.name)")
         .background {
             GeometryReader { Color.clear.preference(key: ShelfFrames.self, value: [item.url: $0.frame(in: .named(ShelfTab.space))]) }
+        }
+        .contextMenu {
+            Button("Открыть") { model.openShelfFiles(from: item.url) }
+            Button("Показать в Finder") { model.revealShelfFiles(from: item.url) }
+            Divider()
+            Button("Убрать из Библиотеки") { model.removeFromShelf(model.shelfTargets(from: item.url)) }
         }
         .onHover { hovering.wrappedValue = $0 }
         .opacity(model.shelfFileStates[item.url]?.available == false ? 0.45 : 1)

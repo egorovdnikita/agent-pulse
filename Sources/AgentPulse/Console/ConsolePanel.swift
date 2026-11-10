@@ -189,6 +189,10 @@ final class ConsolePanel: NSPanel {
             model.moveShelfSelection(by: step, extending: navigationFlags == .shift)
             return true
         }
+        if navigationFlags.isEmpty, [36, 76].contains(Int(event.keyCode)), !model.shelfSelection.isEmpty {
+            model.openShelfFiles()
+            return true
+        }
         if flags == [.command, .shift], event.charactersIgnoringModifiers?.lowercased() == "z", model.shelfHistory.canRedo {
             model.redoShelf()
             return true
