@@ -113,10 +113,13 @@ public struct DictationRule: Codable, Sendable, Equatable, Identifiable {
     public var id: String { spoken }
     public var spoken: String
     public var written: String
+    public var exactSpelling: Bool?
+    public var variants: [String] { spoken.split(separator: "|").map { $0.trimmingCharacters(in: .whitespaces) }.filter { !$0.isEmpty } }
 
-    public init(spoken: String, written: String) {
+    public init(spoken: String, written: String, exactSpelling: Bool = false) {
         self.spoken = spoken
         self.written = written
+        self.exactSpelling = exactSpelling ? true : nil
     }
 }
 
@@ -137,7 +140,10 @@ public enum DictationRules {
     /// Свои правила важнее встроенных; длинные фразы — раньше коротких.
     public static func apply(_ text: String, custom: [DictationRule] = []) -> String {
         var seen = Set<String>()
-        let rules = (custom + builtIn)
+        let expanded = (custom + builtIn).flatMap { rule in
+            rule.variants.map { DictationRule(spoken: $0, written: rule.written, exactSpelling: rule.exactSpelling == true) }
+        }
+        let rules = expanded
             .filter { !$0.spoken.trimmingCharacters(in: .whitespaces).isEmpty && seen.insert($0.spoken.lowercased()).inserted }
             .sorted { $0.spoken.count > $1.spoken.count }
         return rules.reduce(text) { result, rule in
@@ -148,7 +154,7 @@ public enum DictationRules {
             for match in regex.matches(in: result, range: NSRange(result.startIndex..., in: result)).reversed() {
                 guard let range = Range(match.range, in: output) else { continue }
                 // Модель пишет начало предложения с большой буквы: замена его сохраняет.
-                let capitalized = output[range].first?.isUppercase == true
+                let capitalized = rule.exactSpelling != true && output[range].first?.isUppercase == true
                 output.replaceSubrange(range, with: capitalized ? rule.written.prefix(1).uppercased() + rule.written.dropFirst() : rule.written)
             }
             return output
