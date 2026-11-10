@@ -201,11 +201,14 @@ final class ConsoleModel {
     func addToShelf(_ urls: [URL]) {
         guard shelfEnabled else { return }
         now = Date()
+        let previousCount = shelf.items.count
         apply(shelf.add(urls))
+        let added = shelf.items.dropFirst(previousCount)
+        guard !added.isEmpty else { return }
         saveShelf()
         onSound?(.shelf)
-        if let last = shelf.items.last { loadThumbnail(last.url) }
-        urls.filter { ShelfFileKind(name: $0.lastPathComponent) == .image }.forEach(loadPreview)
+        if let last = added.last { loadThumbnail(last.url) }
+        added.filter { ShelfFileKind(name: $0.name) == .image }.forEach { loadPreview($0.url) }
         refresh(agentWaiting: false)
     }
 
