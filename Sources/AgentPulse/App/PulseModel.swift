@@ -23,6 +23,8 @@ enum PulseInput: Sendable {
 @Observable
 final class PulseModel {
     private(set) var sessions: [SessionInfo] = []
+    @ObservationIgnored private var completions = CompletionBatch()
+    @ObservationIgnored private var completionTarget: CompletionBatch.Entry?
     /// Ожидания, которые ты уже видел (`MascotStateMapper.waitKey`): маскот им больше не служит.
     private var seenWaits: [String: Date] = [:]
     /// Последний полный тик мозга: спрятанным тикает реже.
@@ -325,6 +327,7 @@ final class PulseModel {
 
     private func handle(_ event: AgentEvent, sessions: [SessionInfo]) {
         let now = event.ts
+        completions.observe(event)
         lastEventBySource[event.source] = now
         if sessions != self.sessions { self.sessions = sessions }
         lastTask = LastTask.updated(lastTask, event: event, session: sessions.first { $0.id == event.sessionId })
@@ -332,7 +335,7 @@ final class PulseModel {
         if event.kind == .rateLimited, let service = LimitService(source: event.source) { console.markResting(service) }
         if event.kind == .stopped, event.source == .codex || event.agent == "Codex" { onCodexActivity?() }
 
-        if let reaction = MascotStateMapper.reaction(for: event), MascotStateMapper.dominant(sessions)?.id == event.sessionId {
+        if (event.kind != .stopped || event.isError), let reaction = MascotStateMapper.reaction(for: event), MascotStateMapper.dominant(sessions)?.id == event.sessionId {
             let host = sessions.first { $0.id == event.sessionId }?.hostBundleId ?? event.hostBundleId
             playReaction(reaction, source: event.source, host: host, now: now)
         }
@@ -368,7 +371,7 @@ final class PulseModel {
             )
         case .stopped:
             notifier.remove(id: awaitId)
-            if config.events.done.notification && mascotHidden {
+            if config.events.done.notification && mascotHidden && event.isError {
                 notifier.post(
                     id: "done-\(event.sessionId)", title: title, body: "Готово, проверь",
                     sound: config.events.done.sound != "none", host: event.hostBundleId
@@ -378,6 +381,29 @@ final class PulseModel {
             notifier.remove(id: awaitId)
         default:
             break
+        }
+    }
+
+    private func flushCompletions(now: Date) {
+        let urgent = mascotSessions.contains { MascotStateMapper.rank($0.phase) >= 5 }
+        guard let batch = completions.takeReady(now: now, allowed: overlayOccluded || !urgent), let latest = batch.last else { return }
+        let sameOrigin = batch.allSatisfy { $0.source == latest.source && $0.host == latest.host }
+        let title = sameOrigin ? BubbleCategory.agentTitle(latest.source, host: latest.host) : "Нейросети"
+        let text = batch.count == 1 ? "Готово, проверь" : "Готово: \(batch.count) \(HumanTime.plural(batch.count, "задача", "задачи", "задач"))"
+        completionTarget = latest
+        if overlayOccluded {
+            if config.events.done.notification {
+                notifier?.post(id: "done-batch-" + latest.id, title: title, body: text,
+                               sound: config.events.done.sound != "none", host: latest.host)
+            }
+        } else if batch.count == 1 {
+            playReaction(.done, source: latest.source, host: latest.host, now: now)
+        } else {
+            animator.enqueue(.done)
+            lastReaction = "agent.done"
+            scheduler.say(text, duration: max(scheduler.tuning.result, BubbleTuning.readingTime(text)),
+                          category: sameOrigin ? .agent(latest.source, host: latest.host) : .together,
+                          title: title, agent: true, now: now)
         }
     }
 
@@ -409,6 +435,7 @@ final class PulseModel {
             for key in waitingKeys { seenWaits[key] = now }
             Self.brainLog.notice("wait seen → \(MascotStateMapper.state(for: self.mascotSessions, now: now, sleepAfter: self.tuning.sleepAfter).logName, privacy: .public)")
         }
+        flushCompletions(now: now)
         scheduler.tick(now: now)
         console.tick(now: now, agentWaiting: state.isWaiting, inputActive: PresenceSense.idleSeconds < 1.5)
         updateHover()
