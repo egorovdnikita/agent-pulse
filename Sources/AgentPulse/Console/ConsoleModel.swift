@@ -69,6 +69,7 @@ final class ConsoleModel {
     @ObservationIgnored private var shelfPreviewTasks: [URL: Task<Void, Never>] = [:]
     @ObservationIgnored private var shelfThumbnailTask: Task<Void, Never>?
     private(set) var shelfSelection = ShelfSelection()
+    private(set) var shelfHistory = ShelfHistory()
     /// Рамка выделения, пока ведут мышью.
     var shelfRubber: CGRect?
     /// Где стоят плитки: по ним рамка понимает, что задела.
@@ -201,10 +202,12 @@ final class ConsoleModel {
     func addToShelf(_ urls: [URL]) {
         guard shelfEnabled else { return }
         now = Date()
-        let previousCount = shelf.items.count
+        let previous = shelf.items
+        let previousCount = previous.count
         apply(shelf.add(urls))
         let added = shelf.items.dropFirst(previousCount)
         guard !added.isEmpty else { return }
+        shelfHistory.record(previous)
         saveShelf()
         onSound?(.shelf)
         if let last = added.last { loadThumbnail(last.url) }
@@ -227,6 +230,8 @@ final class ConsoleModel {
     }
 
     func removeFromShelf(_ urls: [URL]) {
+        guard shelf.items.contains(where: { urls.contains($0.url) }) else { return }
+        shelfHistory.record(shelf.items)
         shelf.remove(urls)
         saveShelf()
         for url in urls {
@@ -287,6 +292,8 @@ final class ConsoleModel {
     }
 
     func clearShelf() {
+        guard !shelf.items.isEmpty else { return }
+        shelfHistory.record(shelf.items)
         shelf.clear()
         saveShelf()
         shelfThumbnailTask?.cancel()
@@ -296,6 +303,25 @@ final class ConsoleModel {
         shelfThumbnail = nil
         shelfPreviews = [:]
         shelfSelection.clear()
+        refresh(agentWaiting: false)
+    }
+
+    func undoShelf() {
+        guard let items = shelfHistory.undo(current: shelf.items) else { return }
+        restoreShelf(items)
+    }
+
+    private func restoreShelf(_ items: [ShelfItem]) {
+        shelfThumbnailTask?.cancel()
+        shelfPreviewTasks.values.forEach { $0.cancel() }
+        shelfPreviewTasks = [:]
+        shelfPreviews = [:]
+        shelfThumbnail = nil
+        shelf.restore(items)
+        shelfSelection.keep(only: shelfOrder)
+        saveShelf()
+        if let last = shelf.items.last { loadThumbnail(last.url) }
+        shelf.items.filter { ShelfFileKind(name: $0.name) == .image }.forEach { loadPreview($0.url) }
         refresh(agentWaiting: false)
     }
 

@@ -69,6 +69,12 @@ public struct ShelfModule: ConsoleModule {
         items.removeAll()
     }
 
+    /// Восстановление истории: порядок и метаданные сохраняются, оригиналы не меняются.
+    public mutating func restore(_ saved: [ShelfItem]) {
+        var seen: Set<URL> = []
+        items = Array(saved.filter { $0.url.isFileURL && seen.insert($0.url).inserted }.prefix(Self.capacity))
+    }
+
     public mutating func tick(now: Date) -> [ToolSignal] { [] }
 }
 
