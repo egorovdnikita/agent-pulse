@@ -86,6 +86,7 @@ final class ConsoleModel {
     @ObservationIgnored private var translateTask: Task<Void, Never>?
     /// Перевод только что скопирован.
     var translateCopied = false
+    var comparingTranslation = false
     private var translationFragment: TextFragment?
     private var translationReview: (module: TranslateModule, input: String)?
     var canRestoreTranslationReview: Bool { translationReview != nil }
@@ -962,7 +963,7 @@ final class ConsoleModel {
 
     func setExpanded(_ on: Bool) {
         guard on != expanded else { return }
-        if !on { shelfSelection.clear(); shelfTypeSearch.reset() }
+        if !on { shelfSelection.clear(); shelfTypeSearch.reset(); comparingTranslation = false }
         if on {
             // Открываем то, что занимает капсулу.
             let ids = tabs.map(\.id)

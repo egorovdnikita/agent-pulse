@@ -151,7 +151,13 @@ final class ConsolePanel: NSPanel {
             outsideMonitor = NSEvent.addGlobalMonitorForEvents(matching: [.leftMouseDown, .rightMouseDown]) { [weak self] _ in
                 MainActor.assumeIsolated { if self?.menuTracking == false { self?.model.setExpanded(false) } }
             }
-            localMonitor = NSEvent.addLocalMonitorForEvents(matching: [.keyDown, .leftMouseDown]) { [weak self] event in
+            localMonitor = NSEvent.addLocalMonitorForEvents(matching: [.keyDown, .flagsChanged, .leftMouseDown]) { [weak self] event in
+                if event.type == .flagsChanged {
+                    MainActor.assumeIsolated {
+                        self?.model.comparingTranslation = event.modifierFlags.intersection([.option, .command, .control]) == .option
+                    }
+                    return event
+                }
                 if event.window is QLPreviewPanel { return event }
                 if MainActor.assumeIsolated({ self?.menuTracking == true }) { return event }
                 if event.type == .keyDown, MainActor.assumeIsolated({ self?.handleShelfKey(event) == true }) { return nil }

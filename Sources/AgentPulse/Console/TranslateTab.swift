@@ -146,10 +146,11 @@ struct TranslateTab: View {
             }
         case .done(_, let result):
             ScrollView {
-                Text(result).font(ConsoleStyle.font(14, .medium)).lineSpacing(1)
+                Text(model.comparingTranslation ? model.translateInput : result).font(ConsoleStyle.font(14, .medium)).lineSpacing(1)
                     .foregroundStyle(ConsoleStyle.text).textSelection(.enabled)
                     .frame(maxWidth: .infinity, alignment: .leading)
             }.consoleScrollFade()
+                .help("Удерживай Option, чтобы увидеть оригинал")
 
         }
     }
