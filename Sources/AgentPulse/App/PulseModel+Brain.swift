@@ -7,6 +7,7 @@ extension PulseModel {
     static let brainLog = Logger(subsystem: "io.github.egorovdnikita.agentpulse", category: "brain")
 
     func handleSignal(_ signal: Signal) async {
+        if signal.kind == .networkLost || signal.kind == .networkBack { onNetworkState?(signal.kind, signal.ts) }
         if signal.kind == .minute || signal.kind == .systemWake {
             let hour = Calendar.current.component(.hour, from: signal.ts)
             // После заката свечение теплеет — без реплики.

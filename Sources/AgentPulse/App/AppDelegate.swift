@@ -26,6 +26,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     private var prompterPanel: PrompterPanel?
     private var codexTimer: Timer?
     private var codexFetchedAt = Date.distantPast
+    private var networkRecovery = NetworkRecovery()
+    private var networkRefreshTask: Task<Void, Never>?
     private var codexFetching = false
     private let screenshots = ScreenshotWatcher()
     private var server: SocketServer?
@@ -194,6 +196,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         companion?.stop()
         chatWindow?.stop()
         screenshots.stop()
+        networkRefreshTask?.cancel()
         model.console.flushPrompterDraft()
         model.console.savePrompterCheckpoint()
         senses.forEach { $0.stop() }
@@ -303,6 +306,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         updateConsoleVisibility()
         applyConsoleHotKey()
         model.onCodexActivity = { [weak self] in self?.refreshCodex(force: false) }
+        model.onNetworkState = { [weak self] kind, date in self?.handleNetworkState(kind, now: date) }
         model.console.onRefreshLimits = { [weak self] service in
             guard let self else { return }
             if service == .codex { self.refreshCodex(force: true) }
@@ -682,6 +686,28 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         model.config.console.codexHome = home.isEmpty ? nil : home
         try? model.config.save()
         refreshCodex(force: true)
+    }
+
+    private func handleNetworkState(_ kind: SignalKind, now: Date) {
+        if kind == .networkLost {
+            networkRefreshTask?.cancel()
+            networkRefreshTask = nil
+        }
+        guard let delay = networkRecovery.receive(kind, now: now, lastAttempt: codexFetchedAt),
+              model.config.console.enabled, model.config.console.limits else { return }
+        networkRefreshTask?.cancel()
+        networkRefreshTask = Task { [weak self] in
+            try? await Task.sleep(for: .seconds(delay))
+            guard !Task.isCancelled, let self else { return }
+            defer { self.networkRefreshTask = nil }
+            guard self.model.config.console.enabled, self.model.config.console.limits else { return }
+            self.refreshCodex(force: false)
+            // Claude отдаёт новые снимки только во время работы; старый кеш не становится свежим.
+            if let cached = LimitsBook.load().snapshots[.claude],
+               cached.at > (self.model.console.limits.book.snapshots[.claude]?.at ?? .distantPast) {
+                self.model.console.ingest(cached)
+            }
+        }
     }
 
     /// Лимиты Codex: раз в 5 мин и после его событий, но не чаще раза в минуту.

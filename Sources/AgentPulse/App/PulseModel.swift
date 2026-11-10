@@ -23,6 +23,7 @@ enum PulseInput: Sendable {
 @Observable
 final class PulseModel {
     private(set) var sessions: [SessionInfo] = []
+    @ObservationIgnored var onNetworkState: ((SignalKind, Date) -> Void)?
     @ObservationIgnored private var completions = CompletionBatch()
     @ObservationIgnored private var completionTarget: CompletionBatch.Entry?
     /// Ожидания, которые ты уже видел (`MascotStateMapper.waitKey`): маскот им больше не служит.
