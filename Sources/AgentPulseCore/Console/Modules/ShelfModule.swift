@@ -77,8 +77,8 @@ public struct ShelfModule: ConsoleModule {
     }
 
     public mutating func add(_ urls: [URL]) -> [ToolSignal] {
-        var seen = Set(items.map(\.url))
-        let fresh = Array(urls.filter { seen.insert($0).inserted }.prefix(max(0, Self.capacity - items.count)))
+        var seen = Set(items.map { $0.url.resolvingSymlinksInPath() })
+        let fresh = Array(urls.filter { $0.isFileURL && seen.insert($0.resolvingSymlinksInPath()).inserted }.prefix(max(0, Self.capacity - items.count)))
         guard !fresh.isEmpty else { return [] }
         items.append(contentsOf: fresh.map(ShelfItem.init))
         return [.shelfChanged]
@@ -113,7 +113,7 @@ public struct ShelfModule: ConsoleModule {
     /// Восстановление истории: порядок и метаданные сохраняются, оригиналы не меняются.
     public mutating func restore(_ saved: [ShelfItem]) {
         var seen: Set<URL> = []
-        items = Array(saved.filter { $0.url.isFileURL && seen.insert($0.url).inserted }.prefix(Self.capacity))
+        items = Array(saved.filter { $0.url.isFileURL && seen.insert($0.url.resolvingSymlinksInPath()).inserted }.prefix(Self.capacity))
     }
 
     /// Закреплённые первыми, остальная часть сохраняет ручной порядок.
