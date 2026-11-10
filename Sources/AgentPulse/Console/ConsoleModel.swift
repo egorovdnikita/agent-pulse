@@ -902,11 +902,12 @@ final class ConsoleModel {
     }
 
     func waitForTranslationLanguages(version: Int) async {
-        let direction = translate.direction(of: translateInput)
+        let pendingSource = translationFragment?.text ?? translateInput
+        let direction = translate.direction(of: pendingSource)
         while !Task.isCancelled, translationLanguagesPending == version {
             let ready = await ConsoleTranslator.languagesReady(direction: direction)
             guard !Task.isCancelled, translationLanguagesPending == version else { return }
-            if ready, let source = translate.retryFailed(source: translateInput, version: version) {
+            if ready, let source = translate.retryFailed(source: pendingSource, version: version) {
                 // Отдельная задача переживёт отмену SwiftUI .task после выхода из ошибки.
                 scheduleTranslation(source)
                 return
