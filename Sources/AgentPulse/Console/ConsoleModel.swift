@@ -728,7 +728,12 @@ final class ConsoleModel {
         alert.window.initialFirstResponder = field
         guard alert.runModal() == .alertFirstButtonReturn else { return }
         if let seconds = PrompterTiming.parse(field.stringValue) { fitPrompterDuration(seconds) }
-        else { NSSound.beep() }
+        else {
+            let problem = NSAlert()
+            problem.messageText = "Не удалось распознать время"
+            problem.informativeText = "Введи минуты, например 5 или 2,5, либо м:с — 2:30. Допустимо от одной секунды до двух часов."
+            problem.runModal()
+        }
     }
 
     func setPrompterSpeed(_ value: Int) {
