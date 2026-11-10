@@ -6,7 +6,7 @@ public struct ShelfItem: Codable, Sendable, Equatable, Identifiable {
     public var name: String { url.lastPathComponent }
     private var bookmark: Data?
     private var pinned: Bool?
-    private var added: Date?
+    fileprivate var added: Date?
     public var addedAt: Date { added ?? .distantPast }
     public var isPinned: Bool { pinned == true }
     public mutating func setPinned(_ value: Bool) { pinned = value ? true : nil }

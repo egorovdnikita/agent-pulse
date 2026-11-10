@@ -21,7 +21,8 @@ import Testing
         #expect(try JSONDecoder().decode([ShelfItem].self, from: data).first?.isPinned == false)
         var shelf = ShelfModule()
         _ = shelf.add([old]); shelf.pin([old], value: true)
-        #expect(shelf.replace(old, with: new))
+        let replaced = shelf.replace(old, with: new)
+        #expect(replaced)
         #expect(shelf.items.first?.isPinned == true)
     }
 }
