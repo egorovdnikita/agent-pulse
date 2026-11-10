@@ -20,6 +20,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     private let prompterVoice = PrompterVoice()
     private let dictationHotKey = ConsoleHotKey(id: 5)
     private let translateHotKey = ConsoleHotKey(id: 6)
+    private let correctionHotKey = ConsoleHotKey(id: 9)
     private(set) var dictation: DictationController?
     let trackpadGesture = TrackpadGesture()
     private var prompterPanel: PrompterPanel?
@@ -419,9 +420,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         let translating = translateHotKey.set(code: config.enabled && config.translator && ConsoleTranslator.isAvailable ? kVK_ANSI_T : nil) {
             [weak self] in self?.dictation?.pressTranslate()
         }
-        var busy = model.console.busyKeys.subtracting(["dictation", "translate"])
+        let correcting = correctionHotKey.set(
+            code: config.enabled && config.dictation && config.accessibility ? kVK_ANSI_R : nil,
+            released: { [weak console] in console?.releaseDictation() },
+            action: { [weak self] in self?.dictation?.pressCorrection() }
+        )
+        var busy = model.console.busyKeys.subtracting(["dictation", "translate", "correction"])
         if !dictating { busy.insert("dictation") }
         if !translating { busy.insert("translate") }
+        if !correcting { busy.insert("correction") }
         model.console.busyKeys = busy
     }
 
@@ -460,6 +467,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     func setConsoleAccessibility(_ on: Bool) {
         model.config.console.accessibility = on
         try? model.config.save()
+        applyDictationHotKeys()
         if on {
             _ = AXIsProcessTrustedWithOptions(["AXTrustedCheckOptionPrompt": true] as CFDictionary)
         }

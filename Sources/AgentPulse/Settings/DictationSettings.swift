@@ -12,7 +12,14 @@ struct DictationOptions: View {
     private var settings: PulseConfig.Console { model.config.console }
 
     var body: some View {
-        ModuleOption { ShortcutRow(title: "Держи и говори", keys: "⌃⌥D", busy: model.console.busyKeys.contains("d")) }
+        ModuleOption { ShortcutRow(title: "Держи и говори", keys: "⌃⌥D", busy: model.console.busyKeys.contains("dictation")) }
+        ModuleOption {
+            VStack(alignment: .leading, spacing: 4) {
+                ShortcutRow(title: "Исправить последнюю вставку", keys: "⌃⌥R", busy: model.console.busyKeys.contains("correction"))
+                Text("Зажми и скажи: «замени последнее слово на…». Нужен Универсальный доступ. Только последняя вставка, две минуты.")
+                    .font(SettingsStyle.caption).foregroundStyle(SettingsStyle.muted)
+            }
+        }
         if ConsoleTranslator.isAvailable {
             ModuleOption {
                 SettingsPicker("Язык", selection: Binding(get: { settings.dictationLanguage }, set: { app.setDictationLanguage($0) })) {
