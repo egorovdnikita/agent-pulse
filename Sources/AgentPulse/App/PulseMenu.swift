@@ -16,7 +16,8 @@ struct PulseMenuItems: View {
                 if case .awaitingUser = session.phase {
                     Menu(BubbleCategory.sessionTitle(session)) {
                         Button("Напомнить через 10 минут") { model.postponeWait(session) }
-                        if model.waitReminderDate(session) != nil {
+                        if let date = model.waitReminderDate(session) {
+                            Text("Напоминание в " + date.formatted(date: .omitted, time: .shortened)).disabled(true)
                             Button("Отменить напоминание") { model.cancelWaitReminder(session) }
                         }
                     }
