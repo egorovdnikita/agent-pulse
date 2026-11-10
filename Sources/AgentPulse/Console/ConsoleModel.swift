@@ -699,10 +699,35 @@ final class ConsoleModel {
         translateInput = text
         translateTask?.cancel()
         guard let source = translate.type(text, preservingSelection: preservingSelection) else { return }
+        scheduleTranslation(source)
+    }
+
+    private func scheduleTranslation(_ source: String) {
+        translateTask?.cancel()
         translateTask = Task { [weak self] in
             try? await Task.sleep(for: .milliseconds(350))
             guard !Task.isCancelled else { return }
             await self?.runTranslation(source)
+        }
+    }
+
+    var translationLanguagesPending: Int? {
+        guard case .failed(let problem) = translate.state, problem == ConsoleTranslator.needsLanguages,
+              !translateInput.isEmpty else { return nil }
+        return translate.requestVersion
+    }
+
+    func waitForTranslationLanguages(version: Int) async {
+        let direction = translate.direction(of: translateInput)
+        while !Task.isCancelled, translationLanguagesPending == version {
+            let ready = await ConsoleTranslator.languagesReady(direction: direction)
+            guard !Task.isCancelled, translationLanguagesPending == version else { return }
+            if ready, let source = translate.retryFailed(source: translateInput, version: version) {
+                // Отдельная задача переживёт отмену SwiftUI .task после выхода из ошибки.
+                scheduleTranslation(source)
+                return
+            }
+            try? await Task.sleep(for: .seconds(3))
         }
     }
 

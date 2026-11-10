@@ -35,6 +35,9 @@ struct TranslateTab: View {
                 }
             }
         }
+        .task(id: model.translationLanguagesPending) {
+            if let version = model.translationLanguagesPending { await model.waitForTranslationLanguages(version: version) }
+        }
         .overlay {
             Button { model.flipTranslation() } label: {
                 ConsoleAsset(name: "swap-languages", width: 20, height: 20, tint: ConsoleStyle.text)
