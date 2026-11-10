@@ -50,6 +50,7 @@ final class TranslationResultMenuView: NSView {
         }
         if case .done(_, let result) = model.translate.state {
             add("Скопировать перевод") { model.copyTranslation(result) }
+            add("Скопировать как простой текст · ⇧⌘C") { model.copyTranslation(result) }
             if model.translate.replaceable { add("Заменить выделенное") { model.onTranslateReplace?(result) } }
             if !model.canRestoreTranslationReview { add("Проверить обратным переводом") { model.reviewReverseTranslation() } }
         }

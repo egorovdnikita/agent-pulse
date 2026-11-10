@@ -160,6 +160,7 @@ final class ConsolePanel: NSPanel {
                 }
                 if event.window is QLPreviewPanel { return event }
                 if MainActor.assumeIsolated({ self?.menuTracking == true }) { return event }
+                if event.type == .keyDown, MainActor.assumeIsolated({ self?.handleTranslationKey(event) == true }) { return nil }
                 if event.type == .keyDown, MainActor.assumeIsolated({ self?.handleShelfKey(event) == true }) { return nil }
                 if event.type == .keyDown, MainActor.assumeIsolated({ self?.handlePageKey(event) == true }) { return nil }
                 // У приложения без меню ⌘V и остальные некому обработать: поле суфлёра осталось бы без вставки.
@@ -261,6 +262,17 @@ final class ConsolePanel: NSPanel {
         }
         if event.keyCode == 51, !model.shelfSelection.isEmpty {
             model.removeSelectedFiles()
+            return true
+        }
+        return false
+    }
+
+    private func handleTranslationKey(_ event: NSEvent) -> Bool {
+        guard model.tab == .translate else { return false }
+        let flags = event.modifierFlags.intersection(.deviceIndependentFlagsMask).subtracting(.capsLock)
+        if flags == [.command, .shift], Int(event.keyCode) == kVK_ANSI_C,
+           case .done(_, let text) = model.translate.state {
+            model.copyTranslation(text)
             return true
         }
         return false
