@@ -8,7 +8,7 @@ public struct DictationModule: ConsoleModule {
 
     /// Короткое сообщение в капсуле.
     public enum Notice: Sendable, Equatable {
-        case needsModel, inClipboard, inserted, failed, noMicrophone
+        case needsModel, inClipboard, inserted, failed, noMicrophone, corrected, correctionUnavailable, correctionFailed
 
         public var text: String {
             switch self {
@@ -17,6 +17,9 @@ public struct DictationModule: ConsoleModule {
             case .inserted: "Вставлено"
             case .failed: "Не вышло распознать"
             case .noMicrophone: "Нет доступа к микрофону"
+            case .corrected: "Исправлено"
+            case .correctionUnavailable: "Нет недавней вставки для исправления"
+            case .correctionFailed: "Исправление не вышло"
             }
         }
     }
@@ -77,7 +80,7 @@ public struct DictationModule: ConsoleModule {
     private mutating func show(_ notice: Notice, now: Date) {
         self.notice = notice
         // Удача — короткий знак, а не сообщение: читать тут нечего.
-        noticeUntil = now.addingTimeInterval(notice == .inserted ? Self.insertedLength : Self.noticeLength)
+        noticeUntil = now.addingTimeInterval((notice == .inserted || notice == .corrected) ? Self.insertedLength : Self.noticeLength)
     }
 
     private func visibleNotice(now: Date) -> Notice? {

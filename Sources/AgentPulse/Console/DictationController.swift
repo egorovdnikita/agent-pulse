@@ -19,6 +19,8 @@ final class DictationController {
     @ObservationIgnored private var recorder: DictationRecorder?
     @ObservationIgnored private var unloadTask: Task<Void, Never>?
     @ObservationIgnored private var selection: TextInsertion.Selection?
+    @ObservationIgnored private var correctionMode = false
+    @ObservationIgnored private var lastInsertion: (context: RecentDictation, selection: TextInsertion.Selection)?
     /// Отладка: звук из файла вместо микрофона и свой буфер вместо системного.
     @ObservationIgnored private var demoSamples: [Float]?
     @ObservationIgnored private var demoLevels: Timer?
@@ -70,6 +72,8 @@ final class DictationController {
     }
 
     private func stopRecording(keep: Bool) {
+        let correcting = correctionMode
+        correctionMode = false
         demoLevels?.invalidate()
         demoLevels = nil
         let samples = demoSamples ?? recorder?.stop() ?? []
@@ -82,10 +86,10 @@ final class DictationController {
             scheduleUnload()
             return
         }
-        Task { await recognize(samples) }
+        Task { await recognize(samples, correcting: correcting) }
     }
 
-    private func recognize(_ samples: [Float]) async {
+    private func recognize(_ samples: [Float], correcting: Bool) async {
         defer { scheduleUnload() }
         guard !samples.isEmpty else {
             console.finishDictation(notice: nil)
@@ -98,13 +102,45 @@ final class DictationController {
                 console.finishDictation(notice: nil)
                 return
             }
+            if correcting { await applyCorrection(text); return }
             let pasteboard = demoSamples != nil ? NSPasteboard(name: Self.demoPasteboard) : .general
             let outcome = await TextInsertion.insert(text, accessibility: settings().accessibility, pasteboard: pasteboard)
+            captureInsertion(text: text, outcome: outcome)
             remember(text)
             console.finishDictation(notice: outcome == .inClipboard ? .inClipboard : .inserted)
         } catch {
             console.finishDictation(notice: .failed)
         }
+    }
+
+    func pressCorrection() {
+        guard console.dictationEnabled, console.dictation.phase == .idle else { return }
+        guard settings().accessibility, AXIsProcessTrusted(), lastInsertion?.context.isCurrent(now: Date()) == true else {
+            console.finishDictation(notice: .correctionUnavailable)
+            return
+        }
+        correctionMode = true
+        console.pressDictation()
+        if console.dictation.phase != .recording { correctionMode = false }
+    }
+
+    private func captureInsertion(text: String, outcome: TextInsertion.Outcome) {
+        guard outcome == .inserted, let target = TextInsertion.insertedSelection(text: text, accessibility: settings().accessibility) else {
+            lastInsertion = nil
+            return
+        }
+        lastInsertion = (RecentDictation(text: text, now: Date()), target)
+    }
+
+    private func applyCorrection(_ utterance: String) async {
+        guard let recent = lastInsertion, let text = recent.context.correcting(utterance, now: Date()) else {
+            console.finishDictation(notice: .correctionFailed)
+            return
+        }
+        let outcome = await TextInsertion.replace(recent.selection, with: text)
+        captureInsertion(text: text, outcome: outcome)
+        if outcome == .inserted { remember(text) }
+        console.finishDictation(notice: outcome == .inserted ? .corrected : .inClipboard)
     }
 
     private func remember(_ text: String) {
@@ -114,6 +150,7 @@ final class DictationController {
     }
 
     func clearHistory() {
+        lastInsertion = nil
         history = DictationHistory()
         DictationHistory.erase()
     }
@@ -124,6 +161,7 @@ final class DictationController {
             try? await Task.sleep(for: Self.unloadAfter)
             guard !Task.isCancelled else { return }
             self?.helper.unload()
+            self?.lastInsertion = nil
         }
     }
 

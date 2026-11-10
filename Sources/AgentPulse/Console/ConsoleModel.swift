@@ -699,11 +699,11 @@ final class ConsoleModel {
     func finishDictation(notice: DictationModule.Notice?) {
         now = Date()
         dictation.finish(now: now, notice: notice)
-        if notice == .inserted { onSound?(.inserted) }
+        if notice == .inserted || notice == .corrected { onSound?(.inserted) }
         settleDictation()
         guard notice != nil else { return }
         // Сообщение ушло: лидер и показ поверх полного экрана возвращаются сразу, а не ждут случая.
-        let length = notice == .inserted ? DictationModule.insertedLength : DictationModule.noticeLength
+        let length = (notice == .inserted || notice == .corrected) ? DictationModule.insertedLength : DictationModule.noticeLength
         DispatchQueue.main.asyncAfter(deadline: .now() + length + 0.1) { [weak self] in
             MainActor.assumeIsolated {
                 guard let self else { return }
