@@ -11,9 +11,10 @@ public struct WaitReminder: Sendable {
     public mutating func cancel(_ session: SessionInfo) {
         if let key = MascotStateMapper.waitKey(session) { deadlines[key] = nil }
     }
-    public mutating func due(sessions: [SessionInfo], now: Date) -> [SessionInfo] {
+    public mutating func due(sessions: [SessionInfo], now: Date, deliver: Bool = true) -> [SessionInfo] {
         let current = Set(sessions.compactMap(MascotStateMapper.waitKey))
         deadlines = deadlines.filter { current.contains($0.key) }
+        guard deliver else { return [] }
         return sessions.filter { session in
             guard let key = MascotStateMapper.waitKey(session), let date = deadlines[key], date <= now else { return false }
             deadlines[key] = nil

@@ -28,6 +28,7 @@ final class PulseModel {
     @ObservationIgnored private var completionTarget: CompletionBatch.Entry?
     /// Ожидания, которые ты уже видел (`MascotStateMapper.waitKey`): маскот им больше не служит.
     private var waitReminders = WaitReminder()
+    private var reminderNavigation: (session: SessionInfo, bubbleID: Int)?
     private var seenWaits: [String: Date] = [:]
     /// Последний полный тик мозга: спрятанным тикает реже.
     private var lastTickAt: Date = .distantPast
@@ -432,7 +433,8 @@ final class PulseModel {
     }
 
     private func update(now: Date) {
-        for session in waitReminders.due(sessions: sessions, now: now) {
+        let reminders = waitReminders.due(sessions: sessions, now: now, deliver: !quiet)
+        for session in reminders {
             if let key = MascotStateMapper.waitKey(session) { seenWaits[key] = nil }
             if overlayOccluded, config.events.awaitingUser.notification {
                 notifier?.post(id: "await-" + session.id, title: BubbleCategory.sessionTitle(session), body: "Агент всё ещё ждёт тебя",
@@ -452,6 +454,12 @@ final class PulseModel {
             if target.isWaiting || now.timeIntervalSince(stateSince) >= tuning.minStateHold {
                 transition(to: target, now: now)
             }
+        }
+
+        if let session = reminders.first, case .awaitingUser(let reason, _) = session.phase {
+            scheduler.react(MascotStateMapper.waitTrigger(reason), category: .agent(session.source, host: session.hostBundleId),
+                            title: BubbleCategory.agentTitle(session.source, host: session.hostBundleId), now: now)
+            if let id = scheduler.current?.id { reminderNavigation = (session, id) }
         }
 
         let activityTarget: WorkTarget? = if case .working(let activity) = dominant?.phase { activity.target } else { nil }
@@ -715,6 +723,11 @@ final class PulseModel {
 
     /// Клик ведёт к видимому завершению; ожидание пользователя сохраняет приоритет.
     func activateSource() {
+        if let reminder = reminderNavigation, reminder.bubbleID == bubble?.id,
+           let key = MascotStateMapper.waitKey(reminder.session), sessions.contains(where: { MascotStateMapper.waitKey($0) == key }) {
+            AgentNavigation.open(source: reminder.session.source, sessionID: reminder.session.id, host: reminder.session.hostBundleId)
+            return
+        }
         if let session = dominant, case .awaitingUser = session.phase {
             AgentNavigation.open(source: session.source, sessionID: session.id, host: session.hostBundleId)
         } else if let target = completionTarget, let bubble,
