@@ -937,13 +937,13 @@ final class ConsoleModel {
     func protectTranslationTerm(_ term: String) {
         translationTerms.add(term)
         if !promoMode { try? translationTerms.save() }
-        typeTranslation(translateInput)
+        typeTranslation(translateInput, preservingSelection: true)
     }
 
     func removeTranslationTerm(_ term: String) {
         translationTerms.remove(term)
         if !promoMode { try? translationTerms.save() }
-        typeTranslation(translateInput)
+        typeTranslation(translateInput, preservingSelection: true)
     }
 
     func runTranslation(_ text: String) async {

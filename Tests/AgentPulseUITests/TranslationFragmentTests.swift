@@ -14,6 +14,15 @@ import Testing
         #expect(!model.translate.replaceable)
         model.clearTranslation()
     }
+    @Test func addingTermKeepsLinkToEditableSource() {
+        let model = ConsoleModel(promo: true)
+        model.translatorEnabled = true
+        _ = model.pressTranslate(selection: "Hello Box UI", clipboard: nil)
+        model.protectTranslationTerm("Box UI")
+        #expect(model.translate.replaceable)
+        #expect(model.translationTerms.terms == ["Box UI"])
+        model.clearTranslation()
+    }
     @Test func staleSelectionCannotOverwriteEdits() throws {
         let model = ConsoleModel(promo: true)
         model.typeTranslation("Hello world")
