@@ -76,6 +76,7 @@ public struct ShelfModule: ConsoleModule {
 public struct ShelfSelection: Equatable, Sendable {
     public private(set) var urls: Set<URL> = []
     private var anchor: URL?
+    public private(set) var focused: URL?
 
     public init() {}
 
@@ -85,6 +86,7 @@ public struct ShelfSelection: Equatable, Sendable {
     public func contains(_ url: URL) -> Bool { urls.contains(url) }
 
     public mutating func click(_ url: URL, order: [URL], command: Bool = false, shift: Bool = false) {
+        focused = url
         if shift, let anchor, let from = order.firstIndex(of: anchor), let to = order.firstIndex(of: url) {
             urls = Set(order[min(from, to)...max(from, to)])
             return
@@ -100,6 +102,7 @@ public struct ShelfSelection: Equatable, Sendable {
     public mutating func selectAll(_ order: [URL]) {
         urls = Set(order)
         anchor = order.first
+        focused = order.first
     }
 
     /// Рамка мышью: выбрано то, что она задела сейчас.
@@ -110,12 +113,22 @@ public struct ShelfSelection: Equatable, Sendable {
     public mutating func clear() {
         urls = []
         anchor = nil
+        focused = nil
     }
 
     /// Файлов не стало — выделение их не помнит.
     public mutating func keep(only order: [URL]) {
         urls.formIntersection(order)
         if let anchor, !order.contains(anchor) { self.anchor = nil }
+        if let focused, !order.contains(focused) { self.focused = order.first(where: urls.contains) }
+    }
+
+    /// Стрелки идут по существующей сетке; Shift сохраняет начало диапазона.
+    public mutating func move(by step: Int, order: [URL], extending: Bool = false) {
+        guard !order.isEmpty else { return }
+        let current = focused.flatMap { order.firstIndex(of: $0) }
+        let index = current.map { min(order.count - 1, max(0, $0 + step)) } ?? (step < 0 ? order.count - 1 : 0)
+        click(order[index], order: order, shift: extending)
     }
 
     /// Что уносит перетаскивание: всё выбранное, если потянули за выбранный файл, иначе только его.
