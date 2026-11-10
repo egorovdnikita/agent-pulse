@@ -9,7 +9,8 @@ public struct PrompterScore: Sendable {
         var pauses: [Int: TimeInterval] = [:]
         var count = 0
         let regex = try! NSRegularExpression(pattern: #"^\[(?:пауза|pause)(?:\s+([0-9]+(?:[.,][0-9]+)?))?\]$"#, options: .caseInsensitive)
-        for line in source.components(separatedBy: .newlines) {
+        let normalized = source.replacingOccurrences(of: "\r\n", with: "\n").replacingOccurrences(of: "\r", with: "\n")
+        for line in normalized.components(separatedBy: "\n") {
             let trimmed = line.trimmingCharacters(in: .whitespaces)
             if let match = regex.firstMatch(in: trimmed, range: NSRange(trimmed.startIndex..., in: trimmed)) {
                 let value = Range(match.range(at: 1), in: trimmed).flatMap { Double(trimmed[$0].replacingOccurrences(of: ",", with: ".")) } ?? 2
