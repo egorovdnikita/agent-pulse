@@ -101,6 +101,10 @@ final class DictationController {
         }
         do {
             let raw = russian ? try await helper.transcribe(samples) : try await DictationEnglish.transcribe(samples)
+            guard demoSamples != nil || (settings().enabled && settings().dictation) else {
+                console.finishDictation(notice: nil)
+                return
+            }
             let formatted = DictationFormatting.apply(raw, enabled: !correcting && settings().dictationFormatting)
             let text = DictationRules.apply(formatted, custom: settings().dictationRules)
             guard !text.isEmpty else {

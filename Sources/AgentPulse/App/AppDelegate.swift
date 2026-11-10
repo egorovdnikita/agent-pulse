@@ -450,7 +450,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     func setDictationEnabled(_ on: Bool) {
         model.config.console.dictation = on
         try? model.config.save()
-        if !on { model.console.releaseDictation() }
+        if !on { model.console.releaseDictation(); dictation?.forgetRecentDictation() }
         model.console.dictationEnabled = on
         applyDictationHotKeys()
     }
@@ -634,7 +634,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         if !on { model.console.stopPrompter() }
         model.console.prompterEnabled = on && model.config.console.prompter
         applyPrompterHotKey()
-        if !on { model.console.releaseDictation() }
+        if !on { model.console.releaseDictation(); dictation?.forgetRecentDictation() }
         applyDictationHotKeys()
     }
 
