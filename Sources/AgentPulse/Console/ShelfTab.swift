@@ -295,20 +295,24 @@ struct ShelfTab: View {
                 LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: Self.fileGap), count: 7), alignment: .leading, spacing: 8) {
                     ForEach(model.shelf.displayItems) { ShelfTile(model: model, item: $0) }
                 }
-                // Пустое место тоже страница: клик снимает выделение, тянешь — рамка.
                 .frame(maxWidth: .infinity, minHeight: 146, alignment: .topLeading)
-                .contentShape(Rectangle())
-                .onTapGesture { model.clearShelfSelection() }
-                .gesture(
-                    DragGesture(minimumDistance: 4, coordinateSpace: .named(Self.space))
-                        .onChanged { drag in
-                            model.dragRubber(CGRect(
-                                x: min(drag.startLocation.x, drag.location.x), y: min(drag.startLocation.y, drag.location.y),
-                                width: abs(drag.location.x - drag.startLocation.x), height: abs(drag.location.y - drag.startLocation.y)
-                            ))
-                        }
-                        .onEnded { _ in model.dragRubber(nil) }
-                )
+                // Пустое место тоже страница: клик снимает выделение, тянешь — рамка.
+                // Жесты на фоне под плитками: на самой сетке клик по плитке сначала сбрасывал бы выделение, и ⇧ / ⌘ не работали.
+                .background {
+                    Color.clear
+                        .contentShape(Rectangle())
+                        .onTapGesture { model.clearShelfSelection() }
+                        .gesture(
+                            DragGesture(minimumDistance: 4, coordinateSpace: .named(Self.space))
+                                .onChanged { drag in
+                                    model.dragRubber(CGRect(
+                                        x: min(drag.startLocation.x, drag.location.x), y: min(drag.startLocation.y, drag.location.y),
+                                        width: abs(drag.location.x - drag.startLocation.x), height: abs(drag.location.y - drag.startLocation.y)
+                                    ))
+                                }
+                                .onEnded { _ in model.dragRubber(nil) }
+                        )
+                }
                 .overlay(alignment: .topLeading) {
                     if let rubber = model.shelfRubber {
                         RoundedRectangle(cornerRadius: 4, style: .continuous)
