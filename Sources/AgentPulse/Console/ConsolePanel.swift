@@ -218,6 +218,9 @@ final class ConsolePanel: NSPanel {
         makeKey()
         // Показ запускает поиск контроллера по цепочке responder; у скрытой панели его ещё нет.
         NSApp.activate()
+        // Просмотр живёт там же, где Пульт, — на всех рабочих столах, иначе остаётся на столе, где открыт.
+        preview.collectionBehavior.insert(.canJoinAllSpaces)
+        preview.collectionBehavior.remove(.moveToActiveSpace)
         preview.makeKeyAndOrderFront(nil)
         preview.updateController()
         if (preview.currentController as AnyObject?) === self {

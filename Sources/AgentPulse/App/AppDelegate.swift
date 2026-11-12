@@ -295,15 +295,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
 
     private func startConsole() {
         let console = model.console
-        let panel = ConsolePanel(model: console)
-        consolePanel = panel
+        consolePanel = ConsolePanel(model: console)
         var wasExpanded = false
         console.onLayoutChange = { [weak self] in
             guard let self else { return }
             self.placeConsole()
             if console.expanded != wasExpanded {
                 wasExpanded = console.expanded
-                panel.expandedChanged(overFullScreen: self.fullScreenHidden)
+                self.consolePanel?.expandedChanged(overFullScreen: self.fullScreenHidden)
                 if console.expanded { self.refreshClaude(frequent: true) }
                 self.updateConsoleVisibility()
             }
@@ -1045,12 +1044,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     /// 1) убрать окно и выложить заново; 2) не помогло — пересоздать панель (новое окно на всех столах).
     private func ensureOnActiveSpace() {
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.8) { [weak self] in
-            guard let self, self.panelStuck else { return }
+            guard let self else { return }
+            // Пульт проверяется сам по себе: он прилипает и тогда, когда маскот на месте.
+            self.ensureConsoleOnActiveSpace()
+            guard self.panelStuck else { return }
             Self.log.notice("panel rejoin: была только на одном рабочем столе — выкладываю заново")
             self.panel?.orderOut(nil)
             self.panel?.rejoinAllSpaces()
             self.panel?.orderFrontRegardless()
-            self.rejoinConsole()
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) { [weak self] in
                 guard let self, self.panelStuck else { return }
                 Self.log.notice("panel rebuild: выкладка не помогла — пересоздаю панель")
@@ -1059,11 +1060,34 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         }
     }
 
-    private func rejoinConsole() {
-        guard let consolePanel, consolePanel.isVisible, !consolePanel.isOnActiveSpace else { return }
+    /// Те же ступени, что у маскота: выложить заново, не помогло — пересоздать окно Пульта.
+    private func ensureConsoleOnActiveSpace() {
+        guard consoleStuck, let consolePanel else { return }
+        Self.log.notice("console rejoin: был только на одном рабочем столе — выкладываю заново")
         consolePanel.orderOut(nil)
         consolePanel.rejoinAllSpaces()
         consolePanel.orderFrontRegardless()
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) { [weak self] in
+            guard let self, self.consoleStuck else { return }
+            Self.log.notice("console rebuild: выкладка не помогла — пересоздаю Пульт")
+            self.rebuildConsole()
+        }
+    }
+
+    private var consoleStuck: Bool {
+        guard let consolePanel, consolePanel.isVisible else { return false }
+        return !consolePanel.isOnActiveSpace && !fullScreenHidden && NSMenu.menuBarVisible()
+    }
+
+    /// Новое окно Пульта: состояние в модели общее, поэтому капсула и страница те же.
+    private func rebuildConsole() {
+        let old = consolePanel
+        if model.console.expanded { model.console.setExpanded(false) }
+        consolePanel = ConsolePanel(model: model.console)
+        placedConsoleScreen = nil
+        old?.orderOut(nil)
+        placeConsole()
+        updateConsoleVisibility()
     }
 
     /// Панель видима, но на текущем обычном рабочем столе её нет.
